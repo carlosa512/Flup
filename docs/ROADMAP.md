@@ -83,6 +83,13 @@ Score lineup that set the mode), `me` and `opp` = `{total, sd, starters}`
 empty), `changes [{slot, in, out}]` (`in` or `out` may be null). Each
 starter: `slot, id (null = empty), pts, sd, state (pre/live/final/none/
 empty/unknown), actual, left`; mine also `why, new, replaces?`.
+`close_calls [{slot, start, bench, gap, measure, values [start, bench],
+for_start [text], for_bench [text]}]`: each healthy, not-yet-played bench
+player vs the weakest starter he could replace, kept when `gap` (on the
+mode's number: My Score / upside score / safe score) is under
+`close_call`; at most 2 per starter and 4 in all. `late_swap` (null when
+FLEX already has the latest games or no rearrangement can):
+`{moves [{id, to}], latest, kickoff}`, same starters, slots only.
 
 Nullable: `range` (players with no projection or no game; their `note`
 says which), `cons` (no consensus rank), `tier` (below the top-N cut).
@@ -97,7 +104,8 @@ Built in pieces on `claude/phase-3-planning-z9glru`:
 1. Done: Lineup tab with win %, mode, totals, the math, changes from the
    Sleeper lineup, one-line reasons, their lineup behind a tap
    (pipeline/lineup.py; live/finished/locked games are already handled).
-2. Next: close calls (case for each side) + late-swap tip.
+2. Close calls (case for each side, behind a tap) + late-swap tip; more
+   depth in the player rows (owner: "feels flat").
 3. Bench FLEX options + 3-5 free agents with Boom/Steady labels, kickoff,
    trending count; "On waivers" for players dropped in the last day if the
    transactions endpoint shows it.

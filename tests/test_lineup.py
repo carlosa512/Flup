@@ -251,3 +251,68 @@ def test_benching_out_starter_pairs_the_change():
     assert ids(r) == ["qb1", "rb1", "rb2", "wr3", "wr2", "te1", "te2", "rb3", "k1", "def1"]
     assert r["changes"] == [{"slot": "FLEX", "in": "te2", "out": "wr1"}]
     assert r["me"]["starters"][6]["replaces"] == "wr1"
+
+
+# ---------- close calls ----------
+
+def test_close_call_pairs_bench_player_with_the_starter_he_would_replace():
+    players = roster()
+    players[11]["score"] = 8.5                       # te2 just behind rb3 (9.0) in FLEX
+    r = run(players, BEST)
+    assert len(r["close_calls"]) == 1
+    c = r["close_calls"][0]
+    assert (c["start"], c["bench"], c["slot"], c["gap"], c["measure"]) == ("rb3", "te2", "FLEX", 0.5, "My Score")
+    assert c["for_start"][0] == "More expected points: 9.0 vs 8.5"
+
+
+def test_close_calls_skip_big_gaps_and_locked_players():
+    players = roster()
+    players[11]["score"] = 8.5
+    games = {p["team"]: game() for p in players}
+    games[players[11]["team"]] = game("in", period=1, clock=800)   # te2 already playing
+    r = run(players, BEST, games=games)
+    assert r["close_calls"] == []                    # te2 is locked on the bench; the rest are 2+ apart
+
+
+def test_case_for_each_side():
+    a = player("a", "WR", 9.2, floor=5.5, ceiling=15.4, injury="Questionable", injury_detail="Groin",
+               adj=[{"key": "matchup", "label": "Tough matchup", "pts": -0.6, "why": "x"}])
+    b = player("b", "WR", 8.4, floor=4.8, ceiling=14.2,
+               adj=[{"key": "returns", "label": "Return man", "pts": 1.2, "why": "84 kick return yds"}],
+               cons={"rank": 40, "pts": 7.9})
+    a["cons"] = {"rank": 50, "pts": 7.0}
+    assert lineup.case_for(a, b, "underdog") == [
+        "Higher ceiling: 15.4 vs 14.2", "More expected points: 9.2 vs 8.4", "Safer floor: 5.5 vs 4.8"]
+    assert lineup.case_for(b, a, "underdog") == [
+        "Pa is Questionable (Groin)", "Return man (+1.2): 84 kick return yds",
+        "Pa has a tough matchup (−0.6)", "Experts like him more: 7.9 vs 7.0 pts"]
+
+
+def test_last_name_skips_suffixes():
+    assert lineup._last("Marvin Harrison Jr.") == "Harrison"
+    assert lineup._last("Houston Texans") == "Texans"
+
+
+# ---------- late swap ----------
+
+LATE = "2026-10-11T20:25Z"
+
+
+def test_late_swap_moves_latest_game_into_flex():
+    players = roster()
+    games = {p["team"]: game() for p in players}
+    games[players[6]["team"]] = game(kickoff=LATE)   # wr1 plays late, from a WR slot
+    r = run(players, BEST, games=games)
+    assert r["late_swap"] == {"moves": [{"id": "wr1", "to": "FLEX"}, {"id": "wr3", "to": "WR"}],
+                              "latest": "wr1", "kickoff": LATE}
+    assert r["changes"] == []                        # a tip, not a lineup change
+
+
+def test_no_late_swap_when_flex_already_late_or_impossible():
+    players = roster()
+    games = {p["team"]: game() for p in players}
+    games[players[8]["team"]] = game(kickoff=LATE)   # wr3 plays late and is already in FLEX
+    assert run(players, BEST, games=games)["late_swap"] is None
+    games = {p["team"]: game() for p in players}
+    games[players[10]["team"]] = game(kickoff=LATE)  # te1 is late, but no other TE could take his slot
+    assert run(players, BEST, games=games)["late_swap"] is None

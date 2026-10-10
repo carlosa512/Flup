@@ -16,7 +16,8 @@
 
 import math
 from collections import deque
-from datetime import datetime
+from datetime import datetime, timezone
+from itertools import combinations
 
 from .model import OUT_STATUSES
 
@@ -31,6 +32,11 @@ QUARTER = 900  # seconds
 POS_WORD = {"K": "kicker", "DEF": "defense"}
 # What the ranking number is called when it leans toward floor or ceiling
 VALUE_NAME = {"underdog": " upside score", "favored": " safe score"}
+MEASURE = {"underdog": "upside score", "favored": "safe score", "even": "My Score"}
+SUFFIXES = {"Jr", "Sr", "II", "III", "IV", "V"}
+CALLS_PER_STARTER = 2
+MAX_CALLS = 4
+EARLIEST = datetime.min.replace(tzinfo=timezone.utc)
 
 
 def _time(iso):
@@ -199,7 +205,7 @@ def _signed(x):
     return f"{x:+.1f}".replace("-", "\u2212")  # a real minus sign, as on the player card
 
 
-def _why(p, e, alt, margin, swapped_for, mode, gap):
+def _why(p, e, close, swapped_for, mode):
     if e["state"] == "final":
         return f"Played: {e['actual']:.1f} pts"
     if e["state"] == "live":
@@ -210,8 +216,8 @@ def _why(p, e, alt, margin, swapped_for, mode, gap):
             main = f"Higher ceiling than {swapped_for['name']} ({mine[1]:.1f} vs {theirs[1]:.1f})"
         else:
             main = f"Safer floor than {swapped_for['name']} ({mine[0]:.1f} vs {theirs[0]:.1f})"
-    elif alt is not None and margin < gap:
-        main = f"Close call over {alt['name']} ({_signed(margin)}{VALUE_NAME.get(mode, '')})"
+    elif close is not None:
+        main = f"Close call over {close[0]['name']} ({_signed(close[1])}{VALUE_NAME.get(mode, '')})"
     else:
         main = f"#{p['rank']} {POS_WORD.get(p['pos'], p['pos'])} this week"
     if p.get("injury") in ("Questionable", "Doubtful"):
@@ -221,6 +227,142 @@ def _why(p, e, alt, margin, swapped_for, mode, gap):
         top = max(moves, key=lambda a: abs(a["pts"]), default=None)
         extra = f"{top['label'].lower()} ({_signed(top['pts'])})" if top else ""
     return main + (" · " + extra if extra else "")
+
+
+# ---------- close calls ----------
+
+def _last(name):
+    parts = name.split()
+    while len(parts) > 1 and parts[-1].rstrip(".") in SUFFIXES:
+        parts.pop()
+    return parts[-1] if parts else name
+
+
+def case_for(p, other, mode):
+    """Short reasons to play p over other, all real numbers from the data.
+    What the mode cares about comes first (ceiling when underdog, floor
+    when favored, expected points otherwise)."""
+    reasons = []  # (priority, text)
+    mine, theirs = outcome(p), outcome(other)
+    if p["score"] - other["score"] >= 0.1:
+        reasons.append((1 if mode == "even" else 3,
+                        f"More expected points: {p['score']:.1f} vs {other['score']:.1f}"))
+    if mine and theirs:
+        if mine[1] - theirs[1] >= 0.5:
+            reasons.append((1 if mode == "underdog" else 4,
+                            f"Higher ceiling: {mine[1]:.1f} vs {theirs[1]:.1f}"))
+        if mine[0] - theirs[0] >= 0.5:
+            reasons.append((1 if mode == "favored" else 4,
+                            f"Safer floor: {mine[0]:.1f} vs {theirs[0]:.1f}"))
+    tagged = ("Questionable", "Doubtful")
+    if other.get("injury") in tagged and p.get("injury") not in tagged:
+        detail = f" ({other['injury_detail']})" if other.get("injury_detail") else ""
+        reasons.append((2, f"{_last(other['name'])} is {other['injury']}{detail}"))
+    for a in p.get("adj") or []:
+        if a["key"] != "injury" and a["pts"] >= 0.5:
+            reasons.append((5 - min(a["pts"], 3) / 10, f"{a['label']} ({_signed(a['pts'])}): {a['why']}"))
+    for a in other.get("adj") or []:
+        if a["key"] != "injury" and a["pts"] <= -0.5:
+            reasons.append((5 - min(-a["pts"], 3) / 10,
+                            f"{_last(other['name'])} has a {a['label'].lower()} ({_signed(a['pts'])})"))
+    c1, c2 = (p.get("cons") or {}).get("pts"), (other.get("cons") or {}).get("pts")
+    if c1 is not None and c2 is not None and c1 - c2 >= 0.5:
+        reasons.append((6, f"Experts like him more: {c1:.1f} vs {c2:.1f} pts"))
+    reasons.sort(key=lambda r: r[0])
+    return [text for _, text in reasons[:4]]
+
+
+def close_calls(slots, entries, bench, value, mode, gap, by_id):
+    """Each bench player against the starter he'd replace (the weakest one
+    in a slot he can play), kept when they're within `gap` on the mode's
+    number. At most CALLS_PER_STARTER per starter and MAX_CALLS in all."""
+    starters = [(i, by_id[e["id"]]) for i, e in enumerate(entries)
+                if e["state"] == "pre" and e["id"] in by_id]
+    calls = []
+    for b in bench:
+        options = [(i, s) for i, s in starters if b["pos"] in _accepts(slots[i])]
+        if not options:
+            continue
+        i, s = min(options, key=lambda o: (value(o[1]), o[1]["score"], o[0]))
+        margin = max(0.0, value(s) - value(b))
+        if margin < gap:
+            calls.append({"slot": slots[i], "start": s["id"], "bench": b["id"],
+                          "gap": round(margin, 1), "measure": MEASURE[mode],
+                          "values": [round(value(s), 1), round(value(b), 1)],
+                          "for_start": case_for(s, b, mode), "for_bench": case_for(b, s, mode)})
+    calls.sort(key=lambda c: (c["gap"], c["start"], c["bench"]))
+    kept, per = [], {}
+    for c in calls:
+        if per.get(c["start"], 0) < CALLS_PER_STARTER and len(kept) < MAX_CALLS:
+            per[c["start"]] = per.get(c["start"], 0) + 1
+            kept.append(c)
+    return kept
+
+
+# ---------- late swap ----------
+
+def _match(slots, idxs, players):
+    """Any way to seat all players in these slots (or None)."""
+    match = {}
+
+    def place(p, seen):
+        for i in idxs:
+            if i in seen or p["pos"] not in _accepts(slots[i]):
+                continue
+            seen.add(i)
+            if i not in match or place(match[i], seen):
+                match[i] = p
+                return True
+        return False
+
+    for p in players:
+        if not place(p, set()):
+            return None
+    return match
+
+
+def late_swap(slots, open_slots, final, kickoff):
+    """Same starters, rearranged so the FLEX slots hold the latest games.
+    Sleeper locks a slot when its player's game starts, so a late player
+    in FLEX keeps the most options: if news breaks before his game, any
+    RB/WR/TE whose game hasn't started (a free agent too) can go in.
+    Returns the moves, or None when FLEX already has the latest games."""
+    if any(i not in final for i in open_slots):
+        return None  # an empty slot is the bigger problem
+    multi = [i for i in open_slots if len(_accepts(slots[i])) > 1]
+    singles = [i for i in open_slots if i not in multi]
+    if not multi:
+        return None
+    players = [final[i] for i in open_slots]
+    in_multi = {final[i]["id"] for i in multi}
+
+    def kicks(group):
+        return tuple(sorted((kickoff(p) or EARLIEST for p in group), reverse=True))
+
+    best, best_key = None, (kicks(final[i] for i in multi), 0)
+    for combo in combinations(players, len(multi)):
+        if _match(slots, multi, combo) is None:
+            continue
+        rest = [p for p in players if p not in combo]
+        if _match(slots, singles, rest) is None:
+            continue
+        moved = sum(p["id"] not in in_multi for p in combo)
+        key = (kicks(combo), -moved)
+        if key[0] > best_key[0] or (best is not None and key[0] == best_key[0] and key[1] > best_key[1]):
+            best, best_key = combo, key
+    if best is None:
+        return None
+    ins = [p for p in best if p["id"] not in in_multi]
+    outs = [final[i] for i in multi if final[i]["id"] not in {p["id"] for p in best}]
+    freed = [i for i in singles if final[i]["id"] in {p["id"] for p in ins}]
+    seats = _match(slots, freed, outs) or {}
+    moves = [{"id": p["id"], "to": "FLEX" if all(slots[i] == "FLEX" for i in multi) else slots[multi[0]]}
+             for p in ins]
+    moves += [{"id": p["id"], "to": slots[i]} for i, p in sorted(seats.items())]
+    latest = max(ins, key=lambda p: kickoff(p) or EARLIEST)
+    when = kickoff(latest)
+    return {"moves": moves, "latest": latest["id"],
+            "kickoff": when.strftime("%Y-%m-%dT%H:%MZ") if when else None}
 
 
 def _entry(slot, pid, p, game, actual, now):
@@ -299,23 +441,29 @@ def build(positions, ctx, roster_positions, games, cfg, now):
     me = _totals(entries)
     win = win_prob(me, theirs) if theirs else None
 
-    # One line per starter, and what changes from the Sleeper lineup
+    # Close calls, one line per starter, and what changes from the Sleeper lineup
     final_ids = {p["id"] for p in final.values()} | fixed_ids
     first_ids = {p["id"] for p in first.values()}
     dropped = [p for p in first.values() if p["id"] not in final_ids]
+    bench = [b for b in pool if b["id"] not in final_ids]
+    calls = close_calls(slots, entries, bench, value, mode, cfg["close_call"], by_id)
+    closest = {}
+    for c in calls:  # sorted closest first
+        closest.setdefault(c["start"], (by_id[c["bench"]], c["gap"]))
     for i, e in enumerate(entries):
         p = by_id.get(e["id"])
         if not p:
             continue
-        bench = [b for b in pool if b["id"] not in final_ids and b["pos"] in _accepts(slots[i])]
-        alt = max(bench, key=value, default=None)
-        margin = value(p) - value(alt) if alt else 0.0
         swapped = None
         if mode != "even" and p["id"] not in first_ids:
             options = [d for d in dropped if d["pos"] in _accepts(slots[i])] or dropped
             swapped = max(options, key=lambda d: d["score"], default=None)
-        e["why"] = _why(p, e, alt, margin, swapped, mode, cfg["close_call"])
+        e["why"] = _why(p, e, closest.get(p["id"]), swapped, mode)
         e["new"] = p["id"] not in current
+
+    def kickoff(p):
+        return _time((game_of(p) or {}).get("kickoff"))
+    swap = late_swap(slots, open_slots, final, kickoff)
 
     current_ids = [pid for pid in current if pid and pid != "0"]
     outs = [pid for pid in current_ids if pid not in final_ids]
@@ -343,4 +491,6 @@ def build(positions, ctx, roster_positions, games, cfg, now):
             "starters": [_round(e) for e in theirs["starters"]]},
         "current": current,
         "changes": changes,
+        "close_calls": calls,
+        "late_swap": swap,
     }

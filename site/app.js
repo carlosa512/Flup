@@ -257,15 +257,18 @@
       }
     }
     let html = '';
+    let shown = null;
     for (const [tier, players] of groups) {
       const b = breaks[tier];
-      const gap = b ? `<p class="tier-gap">▼ ${pts(b.gap)} pt drop from tier ${tier - 1} (${b.ratio}× the nearby gaps)</p>` : '';
-      html += `<div class="tier">${gap}<div class="tier-num" aria-label="Tier ${tier}">${tier}</div>
+      // A filter can hide whole tiers; the drop only reads right right under the tier it's from
+      const gap = b && shown === tier - 1 ? `<p class="tier-gap">▼ ${pts(b.gap)} pt drop from tier ${tier - 1} (${b.ratio}× the nearby gaps)</p>` : '';
+      html += `${gap}<div class="tier"><div class="tier-num" aria-label="Tier ${tier}">${tier}</div>
         <ul class="players">${players.map(playerRow).join('')}</ul></div>`;
+      shown = tier;
     }
     if (below.length) {
       const cut = data.settings.positions[ui.pos];
-      html += `<p class="below">Below the top ${cut} (not tiered)</p><ul class="players">${below.map(playerRow).join('')}</ul>`;
+      html += `<p class="below">Below the top ${cut} (not tiered)</p><div class="tier flat"><ul class="players">${below.map(playerRow).join('')}</ul></div>`;
     }
     $('#tiers').innerHTML = html || `<p class="empty">${EMPTY[ui.filter]}</p>`;
   }
@@ -403,11 +406,16 @@
     even: { word: 'Close matchup', line: 'going with My Score', cls: 'even' },
   };
   const SLOT_SHORT = { SUPER_FLEX: 'SF', WRRB_FLEX: 'W/R', REC_FLEX: 'W/T' };
+  const SINGLE = new Set(['QB', 'RB', 'WR', 'TE', 'K', 'DEF']);
   const pct = (x) => Math.round(x * 100) + '%';
   const nameOf = (id) => (index.get(id) || {}).name || 'Unknown player';
 
   function lineupRow(e, side) {
-    const slot = `<span class="slot">${esc(SLOT_SHORT[e.slot] || e.slot)}</span>`;
+    const multi = !SINGLE.has(e.slot);
+    const p0 = e.id ? index.get(e.id) : null;
+    const slot = multi && p0
+      ? `<span class="slot flex"><small>${esc(SLOT_SHORT[e.slot] || e.slot)}</small>${esc(p0.pos)}</span>`
+      : `<span class="slot">${esc(SLOT_SHORT[e.slot] || e.slot)}</span>`;
     if (!e.id) {
       const why = side === 'me' ? 'No healthy player with a game for this slot.' : 'Nobody in this slot.';
       return `<li class="player empty-slot"><div class="row lu">${slot}<span class="nm">Empty</span>
@@ -480,7 +488,7 @@
         <div><span class="lbl">You</span><b>${pts(L.me.total)}</b></div>
         <div class="them"><span class="lbl">${esc(opp ? opp.name : 'Them')}</span><b>${pts(L.opp.total)}</b></div>
       </div>
-      <details class="every"><summary>How this is worked out</summary><div class="math-text">${lineupMath(L)}</div></details>
+      <details class="every" data-k="math"><summary>How this is worked out</summary><div class="math-text">${lineupMath(L)}</div></details>
     </div>`;
   }
 
@@ -496,23 +504,66 @@
       <ul>${items.map((t) => `<li>${t}</li>`).join('')}</ul></div>`;
   }
 
+  function lateSwapTip(L) {
+    const t = L.late_swap;
+    if (!t || !t.moves.length) return '';
+    const moves = t.moves.map((m) => `<b>${esc(nameOf(m.id))}</b> to ${esc(m.to)}`);
+    return `<div class="note tip"><b>Late-swap tip</b>
+      <p>Move ${andList(moves)}. Your points stay the same. ${esc(nameOf(t.latest))} plays ${esc(when(t.kickoff))},
+      so with him in FLEX a late scratch can be swapped for any RB, WR or TE who hasn't played yet, free agents included.</p></div>`;
+  }
+
+  function callSide(p, verb, value, reasons, measure) {
+    const extra = measure !== 'My Score' ? ` · ${pts(value)} ${esc(measure)}` : '';
+    const list = reasons.length
+      ? reasons.map((r) => `<li>${esc(r)}</li>`).join('')
+      : '<li class="muted">Nothing stands out</li>';
+    return `<div class="call-side"><p class="call-head">${verb} <b>${esc(p.name)}</b>
+      <span>${pts(p.score)} pts${extra}</span></p><ul>${list}</ul></div>`;
+  }
+
+  function closeCalls(L) {
+    const calls = (L.close_calls || []).filter((c) => index.get(c.start) && index.get(c.bench));
+    if (!calls.length) return '';
+    const how = {
+      'upside score': 'My Score moved halfway up to the ceiling, because you\'re the underdog',
+      'safe score': 'My Score moved halfway down to the floor, because you\'re favored',
+    };
+    const items = calls.map((c) => {
+      const s = index.get(c.start), b = index.get(c.bench);
+      const lean = how[c.measure] ? ` (${how[c.measure].replace('halfway', Math.round(L.lean * 100) + '% of the way')})` : '';
+      return `<details class="call" data-k="call-${esc(c.start)}-${esc(c.bench)}"><summary>
+          <span class="call-names"><b>${esc(s.name)}</b> <span class="vs">over</span> ${esc(b.name)}</span>
+          <span class="call-gap">${pts(c.gap)} apart</span></summary>
+        <div class="call-body">
+          ${callSide(s, 'Start', c.values[0], c.for_start, c.measure)}
+          ${callSide(b, 'Or', c.values[1], c.for_bench, c.measure)}
+          <p class="muted">${pts(c.gap)} apart on ${esc(c.measure)}${lean}. A close call is anything under ${pts(L.close_call)}.</p>
+        </div></details>`;
+    });
+    return `<h2 class="section">Close calls</h2><div class="calls">${items.join('')}</div>`;
+  }
+
   function renderLineup() {
     const L = data.lineup;
     if (!L) {
       $('#lineup').innerHTML = '<p class="warn">Couldn\'t find your team in this league, so there\'s no lineup.</p>';
       return;
     }
-    let html = verdict(L) + changesBox(L);
+    let html = verdict(L) + changesBox(L) + lateSwapTip(L);
     html += `<h2 class="section">Your lineup</h2><ul class="players lineup">${L.me.starters.map((e) => lineupRow(e, 'me')).join('')}</ul>`;
+    html += closeCalls(L);
     if (L.opp) {
-      html += `<details class="their"><summary>Their lineup, as set in Sleeper <b>${pts(L.opp.total)}</b></summary>
+      html += `<details class="their" data-k="their"><summary>Their lineup, as set in Sleeper <b>${pts(L.opp.total)}</b></summary>
         <ul class="players lineup">${L.opp.starters.map((e) => lineupRow(e, 'opp')).join('')}</ul></details>`;
     }
-    const isOpen = document.querySelector('#lineup details.their[open]');
-    const mathOpen = document.querySelector('#lineup .verdict details[open]');
+    // Re-rendering (a player tapped open) keeps the open sections open
+    const kept = [...document.querySelectorAll('#lineup details[data-k]')].filter((d) => d.open).map((d) => d.dataset.k);
     $('#lineup').innerHTML = html;
-    if (isOpen) document.querySelector('#lineup details.their').open = true;
-    if (mathOpen) document.querySelector('#lineup .verdict details').open = true;
+    for (const k of kept) {
+      const d = document.querySelector(`#lineup details[data-k="${k}"]`);
+      if (d) d.open = true;
+    }
   }
 
   // ---------- render ----------
