@@ -234,7 +234,7 @@
       <button type="button" class="row" aria-expanded="${isOpen}">
         <span class="rk">${p.rank}</span>
         <span class="nm">${esc(p.name)}${inj}</span>
-        <span class="pts">${pts(p.proj)}</span>
+        <span class="pts">${pts(p.score)}</span>
         <span class="sub">${sub}</span>
       </button>${isOpen ? detail(p) : ''}</li>`;
   }
@@ -319,10 +319,35 @@
       covered += s.points;
     }
     const penalty = all.filter((s) => s.points <= -1).sort((a, b) => a.points - b.points)[0];
-    let text = `<b>${pts(p.proj)} pts</b> in your scoring`;
+    let text = `Sleeper projects <b>${pts(p.proj)}</b> in your scoring`;
     if (picks.length) text += ', mostly from ' + andList(picks.map(phrase));
     if (penalty) text += ', minus ' + phrase(penalty);
     return text + '.';
+  }
+
+  function signedPts(n) {
+    return (n > 0 ? '+' : n < 0 ? '−' : '') + Math.abs(n).toFixed(1);
+  }
+
+  function myScore(p) {
+    const r = p.range;
+    let html = `<div class="score-head"><b class="big">${pts(p.score)}</b>`;
+    if (r) html += `<span>Floor ${pts(r.floor)} · Ceiling ${pts(r.ceiling)}</span>`;
+    html += '</div>';
+    if (p.flag) {
+      html += `<p class="warn">${esc(p.flag)}: ${p.flag === 'Doubtful' ? 'likely sits' : 'not playing'}. Have a backup ready.</p>`;
+    }
+    // Where it starts: projection and consensus, blended
+    const c = p.cons;
+    let start = `Projection ${pts(p.proj)}`;
+    if (c && c.pts != null) start += ` · Experts ${esc(p.pos)}${c.rank} (${pts(c.pts)})`;
+    html += `<p class="muted">${start} → ${pts(p.base)}</p>`;
+    if (p.adj.length) {
+      html += '<ul class="adj">' + p.adj.map((a) => `<li>
+          <span class="adj-pts ${a.pts > 0 ? 'up' : 'down'}">${signedPts(a.pts)}</span>
+          <span><b>${esc(a.label)}</b><small>${esc(a.why)}</small></span></li>`).join('') + '</ul>';
+    }
+    return html;
   }
 
   function detail(p) {
@@ -331,13 +356,13 @@
       const calc = weight == null ? `${num(value)} → bracket blend` : `${num(value)} × ${num(weight)}`;
       return `<tr><td>${esc(statName(stat))}</td><td class="n x">${esc(calc)}</td><td class="n">${signed(points)}</td></tr>`;
     }).join('');
-    let html = '<div class="detail"><h3>Projection</h3>';
-    html += p.parts.length
-      ? `<p>${projectionSentence(p)}</p>
-        <details class="every"><summary>See every stat</summary>
+    let html = `<div class="detail"><h3>My Score</h3>${myScore(p)}`;
+    if (p.parts.length) {
+      html += `<details class="every"><summary>How the projection adds up</summary>
+          <p>${projectionSentence(p)}</p>
           <table class="math"><tbody>${rows}</tbody></table>
-        </details>`
-      : '<p>No projection this week.</p>';
+        </details>`;
+    }
 
     html += '<h3>Game</h3>';
     html += `<p>${esc(gameText(p))}${p.kickoff ? ' · ' + esc(when(p.kickoff)) : ''}${gameState(p) ? ' · ' + gameState(p) : ''}</p>`;
@@ -345,10 +370,6 @@
       html += `<p>${esc(p.team)} ${p.spread > 0 ? '+' : ''}${num(p.spread)}, total ${num(p.implied * 2 + p.spread)} → implied for <b>${num(p.implied)}</b> pts</p>`;
     } else if (!gameState(p)) {
       html += '<p>No Vegas line posted yet.</p>';
-    }
-
-    if (p.injury) {
-      html += `<h3>Injury</h3><p><b>${esc(p.injury)}</b>${p.injury_detail ? ' (' + esc(p.injury_detail) + ')' : ''}</p>`;
     }
 
     if (p.tier != null) {
@@ -425,7 +446,7 @@
   });
 
   data = read(DATA_KEY);
-  if (data && data.version !== 1) data = null;
+  if (data && data.version !== 2) data = null;
   render();
   refresh(false);
 

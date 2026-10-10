@@ -7,7 +7,7 @@ import tomllib
 from datetime import datetime, timezone
 from pathlib import Path
 
-from . import espn, sleeper
+from . import consensus, espn, history, model, sleeper
 from .fetch import FetchError
 from .league import context, sanity
 from .scoring import score_line
@@ -16,6 +16,10 @@ from .validate import rescore_check
 
 ROOT = Path(__file__).resolve().parent.parent
 COMPANY_NAMES = {"rotowire": "RotoWire"}
+UPLOADS = ROOT / "inputs" / "consensus"
+# Average weekly points a player needs before his spread of outcomes helps
+# set the position's typical floor/ceiling (keeps deep backups out of it)
+RELEVANT_MEAN = {"QB": 12, "RB": 7, "WR": 7, "TE": 5, "K": 6, "DEF": 5}
 
 
 def iso(ts=None):
@@ -27,18 +31,19 @@ def load_settings(path=ROOT / "settings.toml"):
     return tomllib.loads(Path(path).read_text(encoding="utf-8"))
 
 
-def player_rows(rows, pos, scoring, ctx, games, smooth):
-    """Projection rows -> scored players, best first."""
-    out = []
+def player_rows(rows, pos, scoring, ctx, games, smooth, cons):
+    """Projection rows -> scored players, plus each one's raw projected stats."""
+    out, raw = [], {}
     for row in rows:
         info = row.get("player") or {}
         if info.get("position") and info["position"] != pos:
             continue
         pid = str(row.get("player_id"))
-        proj, parts = score_line(row.get("stats") or {}, pos, scoring, smooth_def_brackets=smooth)
+        stats = row.get("stats") or {}
+        proj, parts = score_line(stats, pos, scoring, smooth_def_brackets=smooth)
         rid = ctx["owners"].get(pid)
         in_matchup = rid is not None and rid in (ctx["my_rid"], ctx["opp_rid"])
-        if proj <= 0 and not in_matchup:
+        if proj <= 0 and not in_matchup and pid not in cons:
             continue  # byes, inactive, deep backups
         team = row.get("team") or info.get("team") or "FA"
         game = games.get(team) or {}
@@ -53,8 +58,52 @@ def player_rows(rows, pos, scoring, ctx, games, smooth):
             "injury_detail": info.get("injury_body_part") or info.get("injury_notes") or "",
             "proj": proj, "parts": parts, "roster": rid,
         })
-    out.sort(key=lambda p: (-p["proj"], p["name"]))
-    return out
+        raw[pid] = stats
+    return out, raw
+
+
+def fetch_history(season, week, scoring):
+    """This season's finished weeks and all of last season, scored."""
+    weeks, problems = [], []
+    this_season = {}
+    for past in range(1, week):
+        try:
+            rows = sleeper.stats(season, past)
+            this_season[past] = rows
+            weeks.append((season, past, rows))
+        except FetchError as err:
+            problems.append(f"{season} week {past}: {err}")
+    prev = str(int(season) - 1)
+    for past in range(1, 19):
+        try:
+            weeks.append((prev, past, sleeper.stats(prev, past)))
+        except FetchError as err:
+            problems.append(f"{prev} week {past}: {err}")
+    return history.build(weeks, scoring, season), this_season, problems
+
+
+def load_consensus(rows_by_pos, game_list, week):
+    """FantasyPros consensus by Sleeper id. Your uploaded CSV replaces the
+    automatic file for the positions it covers."""
+    index = consensus.player_index(rows_by_pos)
+    notes, problems = [], []
+    try:
+        cons, note = consensus.from_dynastyprocess(index, game_list)
+        notes.append(note)
+    except FetchError as err:
+        cons = {}
+        problems.append(str(err))
+    try:
+        mine, note = consensus.from_uploads(UPLOADS, week, index)
+    except (OSError, ValueError) as err:
+        mine, note = {}, ""
+        problems.append(f"your CSV: {err}")
+    if mine:
+        covered = {c["pos"] for c in mine.values()}
+        cons = {pid: c for pid, c in cons.items() if c["pos"] not in covered}
+        cons.update(mine)
+        notes.insert(0, note)
+    return cons, notes, problems
 
 
 def build(settings, week=None, league_id=None, now=None):
@@ -91,34 +140,85 @@ def build(settings, week=None, league_id=None, now=None):
         sources.append({"id": "lines", "label": "Vegas lines (ESPN)", "ok": False,
                         "fetched": now, "detail": str(err)})
 
-    tier_cfg = settings["tiers"]
-    smooth = settings.get("scoring", {}).get("smooth_def_brackets", True)
-    positions, newest, failed = {}, 0, []
-    for pos, top_n in settings["positions"].items():
+    # Projections for every position first: consensus matching needs them all
+    rows_by_pos, newest, failed = {}, 0, []
+    for pos in settings["positions"]:
         try:
-            rows = sleeper.projections(season, week, pos)
+            rows_by_pos[pos] = sleeper.projections(season, week, pos)
         except FetchError as err:
             failed.append(f"{pos}: {err}")
             continue
-        newest = max([newest] + [r.get("last_modified") or 0 for r in rows])
-        companies = sorted({r.get("company") for r in rows if r.get("company")})
-        players = player_rows(rows, pos, scoring, ctx, games, smooth)
+        newest = max([newest] + [r.get("last_modified") or 0 for r in rows_by_pos[pos]])
+    if not rows_by_pos:
+        raise FetchError("no projections came back: " + "; ".join(failed))
+    companies = sorted({COMPANY_NAMES.get(r.get("company"), (r.get("company") or "").title())
+                        for rows in rows_by_pos.values() for r in rows if r.get("company")})
+
+    hist, this_season, hist_problems = fetch_history(season, week, scoring)
+    n_games = sum(len(g) for g in hist["games"].values())
+    sources.append({"id": "history", "label": "Game logs (Sleeper)", "ok": not hist_problems,
+                    "fetched": now,
+                    "detail": "; ".join(hist_problems[:3]) if hist_problems else
+                    f"{n_games:,} player-games from {int(season) - 1} and {season} weeks 1-{week - 1}, scored your way"})
+
+    cons, cons_notes, cons_problems = load_consensus(rows_by_pos, game_list, week)
+    sources.append({"id": "consensus", "label": "Expert consensus", "ok": bool(cons),
+                    "fetched": now,
+                    "detail": "; ".join(cons_notes + cons_problems) or "no consensus this week"})
+
+    # Shared inputs for the model
+    fc = settings["floor_ceiling"]
+    def season_games(pid):
+        return [g for g in hist["games"].get(pid, []) if g["season"] == season]
+    def recent_games(pid):
+        games_ = hist["games"].get(pid, [])
+        last = [g for g in games_ if g["season"] != season][-fc["last_season_games"]:]
+        return last + [g for g in games_ if g["season"] == season]
+    qb_games = [g for gs in hist["games"].values() for g in gs if g["pos"] == "QB"]
+    att = sum(g.get("pass_att", 0) for g in qb_games)
+    implied = {t: g["implied"] for t, g in games.items() if g.get("implied") is not None}
+    by_pos_hist = {}
+    for pid, gs in hist["games"].items():
+        if gs:
+            by_pos_hist.setdefault(gs[-1]["pos"], []).append(recent_games(pid))
+    model_ctx = {
+        "settings": settings, "scoring": scoring, "history": hist,
+        "season_games": season_games, "recent_games": recent_games,
+        "implied": implied,
+        "avg_implied": sum(implied.values()) / len(implied) if implied else None,
+        "league_int_rate": sum(g.get("pass_int", 0) for g in qb_games) / att if att else 0.022,
+        "pos_ratios": {pos: model.position_ratios({pos: hs}, fc["shrink_games"], RELEVANT_MEAN.get(pos, 5),
+                                                  fc["floor_pct"], fc["ceiling_pct"]).get(pos)
+                       for pos, hs in by_pos_hist.items()},
+    }
+
+    tier_cfg = settings["tiers"]
+    smooth = settings.get("scoring", {}).get("smooth_def_brackets", True)
+    positions = {}
+    for pos, top_n in settings["positions"].items():
+        if pos not in rows_by_pos:
+            continue
+        pos_cons = {pid: c for pid, c in cons.items() if c["pos"] == pos}
+        players, raw = player_rows(rows_by_pos[pos], pos, scoring, ctx, games, smooth, pos_cons)
+        points_curve = consensus.curve(p["proj"] for p in players)
+        for p in players:
+            c = pos_cons.get(p["id"])
+            if c:
+                c = dict(c, pts=consensus.rank_points(points_curve, c["ecr"]))
+            p.update(model.my_score(p, raw.get(p["id"], {}), c, model_ctx))
+        players.sort(key=lambda p: (-p["score"], -p["proj"], p["name"]))
         for rank, p in enumerate(players, start=1):
             p["rank"] = rank
         top = players[:top_n]
         tiers, breaks = local_gap_tiers(
-            [p["proj"] for p in top], tier_cfg["gap_multiplier"], tier_cfg["window"],
+            [p["score"] for p in top], tier_cfg["gap_multiplier"], tier_cfg["window"],
             tier_cfg["min_tier_size"], tier_cfg["min_median_gap"],
             tier_cfg.get("always_break_gap", float("inf")))
         for p, t in zip(top, tiers):
             p["tier"] = t
         extra = [dict(p, tier=None) for p in players[top_n:]
                  if p["roster"] is not None and p["roster"] in (ctx["my_rid"], ctx["opp_rid"])]
-        positions[pos] = {"players": top + extra, "breaks": breaks, "companies": companies}
-    if not positions:
-        raise FetchError("no projections came back: " + "; ".join(failed))
-    companies = sorted({COMPANY_NAMES.get(c, c.title()) for p in positions.values()
-                        for c in p.pop("companies")})
+        positions[pos] = {"players": top + extra, "breaks": breaks}
     sources.append({
         "id": "projections", "label": "Sleeper projections" + (f" ({', '.join(companies)})" if companies else ""),
         "ok": not failed, "fetched": now, "updated": iso(newest / 1000) if newest else None,
@@ -126,15 +226,18 @@ def build(settings, week=None, league_id=None, now=None):
 
     # Prove the scoring engine on every finished week
     weeks = []
-    try:
-        for past in range(1, week):
-            r = rescore_check(sleeper.stats(season, past), sleeper.matchups(lid, past), scoring)
+    for past in range(1, week):
+        if past not in this_season:
+            weeks.append({"week": None, "error": f"week {past} stats didn't load"})
+            continue
+        try:
+            r = rescore_check(this_season[past], sleeper.matchups(lid, past), scoring)
             weeks.append({"week": past, **r})
-    except FetchError as err:
-        weeks.append({"week": None, "error": str(err)})
+        except FetchError as err:
+            weeks.append({"week": None, "error": str(err)})
 
     return {
-        "version": 1,
+        "version": 2,
         "generated": now,
         "season": season,
         "week": week,
@@ -147,6 +250,7 @@ def build(settings, week=None, league_id=None, now=None):
         "sources": sources,
         "checks": {"settings": sanity(lg, settings["league"]["expect"]), "scoring": weeks},
         "settings": {"tiers": tier_cfg, "positions": settings["positions"],
+                     "blend": settings["blend"], "floor_ceiling": fc,
                      "stale_hours": settings.get("stale", {}).get("data_hours", 36)},
         "positions": positions,
         "games": game_list,
@@ -171,7 +275,7 @@ def summary(data):
     for pos, block in data["positions"].items():
         top = [p for p in block["players"] if p["tier"] == 1]
         lines.append(f"  {pos}: {len(block['breaks']) + 1} tiers; tier 1 = "
-                     + ", ".join(f"{p['name']} {p['proj']:.1f}" for p in top))
+                     + ", ".join(f"{p['name']} {p['score']:.1f}" for p in top))
     return "\n".join(lines)
 
 

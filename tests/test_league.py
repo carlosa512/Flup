@@ -44,5 +44,8 @@ def test_zero_projection_free_agents_dropped_even_without_opponent():
             {"player_id": "2", "team": "DET", "stats": {"rec": 0},
              "player": {"first_name": "My", "last_name": "Guy", "position": "WR"}}]
     ctx = {"owners": {"2": 1}, "my_rid": 1, "opp_rid": None}
-    names = [p["name"] for p in player_rows(rows, "WR", {"rec": 0.5}, ctx, {}, True)]
-    assert names == ["My Guy"]
+    players, _ = player_rows(rows, "WR", {"rec": 0.5}, ctx, {}, True, {})
+    assert [p["name"] for p in players] == ["My Guy"]
+    # ...but kept when the consensus still ranks him (consensus-only fallback)
+    players, _ = player_rows(rows, "WR", {"rec": 0.5}, ctx, {}, True, {"1": {"ecr": 40}})
+    assert sorted(p["name"] for p in players) == ["Bye Guy", "My Guy"]
