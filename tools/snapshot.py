@@ -70,11 +70,13 @@ def main():
     for pos in POSITIONS:
         save(f"sleeper/proj_{week}_{pos}.json",
              f"{SLEEPER}/projections/nfl/{season}/{week}?season_type=regular&position[]={pos}")
-    prev = max(1, int(week) - 1)
-    save(f"sleeper/stats_{prev}_all.json",
-         f"{SLEEPER}/stats/nfl/{season}/{prev}?season_type=regular&"
-         + "&".join(f"position[]={p}" for p in POSITIONS))
-    save(f"sleeper/stats_v1_{prev}.json", f"{SLEEPER}/v1/stats/nfl/regular/{season}/{prev}", gz=True)
+    # Past weeks: official league points (matchups) and raw stat lines, so
+    # rescoring can be checked against what Sleeper actually awarded.
+    for past in range(1, int(week)):
+        save(f"sleeper/matchups_{past}.json", f"{SLEEPER}/v1/league/{lid}/matchups/{past}")
+        save(f"sleeper/stats_{past}_all.json",
+             f"{SLEEPER}/stats/nfl/{season}/{past}?season_type=regular&"
+             + "&".join(f"position[]={p}" for p in POSITIONS), gz=True)
     save("sleeper/trending_add.json",
          f"{SLEEPER}/v1/players/nfl/trending/add?lookback_hours=48&limit=50")
     save("sleeper/players_nfl.json", f"{SLEEPER}/v1/players/nfl", gz=True)
