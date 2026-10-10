@@ -86,14 +86,26 @@ def test_no_game_data_trusts_projection_opponent():
 
 # ---------- one player's spread ----------
 
-def test_doubtful_range_is_scaled_by_chance_to_play():
-    # Healthy 10, Doubtful takes 6 off: plays 40% of the time
+def test_doubtful_range_is_a_mix_of_playing_and_zero():
+    # Healthy 10, Doubtful takes 6 off: plays 40% of the time, else 0
     p = player("d", "WR", 4.0, floor=6, ceiling=16, sd=5,
                adj=[{"key": "injury", "pts": -6.0}], flag="Doubtful")
     p["range"]["if_plays"] = True
     floor, ceiling, sd = lineup.outcome(p)
-    assert floor == pytest.approx(2.4) and ceiling == pytest.approx(6.4)
+    assert floor == 0.0                              # a 60% chance of 0 is below the 25th percentile
+    # 90th percentile of the mix = 75th of his if-he-plays range
+    assert ceiling == pytest.approx(10 + 6 * 0.6745 / 1.2816, abs=0.01)
     assert sd == pytest.approx(math.sqrt(0.4 * 25 + 0.4 * 0.6 * 100))
+
+
+def test_favored_mode_does_not_call_a_doubtful_player_safe():
+    players = roster()
+    players[11].update(score=9.5, flag="Doubtful", injury="Doubtful",
+                       adj=[{"key": "injury", "pts": -14.25, "label": "Doubtful", "why": ""}])
+    players[11]["range"] = {"floor": 18, "ceiling": 30, "sd": 6, "games": 8, "if_plays": True}
+    weak = [player("o1", "K", 5, roster=2)]
+    r = run(players + weak, BEST, opp_starters=["0"] * 8 + ["o1", "0"])
+    assert r["mode"] == "favored" and "te2" not in ids(r)
 
 
 def test_out_player_has_no_spread():
@@ -303,8 +315,9 @@ def test_late_swap_moves_latest_game_into_flex():
     games = {p["team"]: game() for p in players}
     games[players[6]["team"]] = game(kickoff=LATE)   # wr1 plays late, from a WR slot
     r = run(players, BEST, games=games)
+    # Do it before wr3's 1 PM game locks him in FLEX
     assert r["late_swap"] == {"moves": [{"id": "wr1", "to": "FLEX"}, {"id": "wr3", "to": "WR"}],
-                              "latest": "wr1", "kickoff": LATE}
+                              "latest": "wr1", "kickoff": LATE, "deadline": SUNDAY}
     assert r["changes"] == []                        # a tip, not a lineup change
 
 
@@ -316,3 +329,84 @@ def test_no_late_swap_when_flex_already_late_or_impossible():
     games = {p["team"]: game() for p in players}
     games[players[10]["team"]] = game(kickoff=LATE)  # te1 is late, but no other TE could take his slot
     assert run(players, BEST, games=games)["late_swap"] is None
+
+
+def test_no_late_swap_without_kickoff_times():
+    players = roster()
+    games = {p["team"]: game() for p in players}
+    games[players[6]["team"]] = game(kickoff=LATE)
+    del games[players[8]["team"]]                    # wr3's game has no ESPN entry
+    assert run(players, BEST, games=games)["late_swap"] is None
+
+
+# ---------- review fixes ----------
+
+def test_without_espn_sleeper_points_mean_played():
+    players = roster()
+    players[11]["game_date"] = "2026-10-08"          # te2 played Thursday (no points)
+    current = BEST[:5] + ["te2"] + BEST[6:]
+    r = run(players, current, games={}, points={"wr1": 12.5}, now="2026-10-11T19:00:00Z")
+    assert r["times_known"] is False
+    by_slot = {e["id"]: e for e in r["me"]["starters"]}
+    assert by_slot["wr1"]["state"] == "final" and by_slot["wr1"]["pts"] == 12.5
+    assert by_slot["te2"]["state"] == "final"        # locked in his slot, not benched
+    assert ids(r)[5] == "te2"
+
+
+def test_live_doubtful_player_who_is_scoring_counts_in_full():
+    p = player("d", "WR", 4.0, sd=5, adj=[{"key": "injury", "pts": -6.0}], flag="Doubtful")
+    p["range"].update(if_plays=True, sd=5)
+    e = lineup.expected(p, game("in", period=2, clock=0), 9.0, lineup._time(NOW))
+    assert e["pts"] == pytest.approx(9 + 10 * 0.5) and e["sd"] == pytest.approx(5 * math.sqrt(0.5))
+
+
+SCORING = {"pts_allow_0": 10, "pts_allow_1_6": 7, "pts_allow_7_13": 4, "pts_allow_14_20": 1,
+           "pts_allow_21_27": 0, "pts_allow_28_34": -1, "pts_allow_35p": -4}
+
+
+def test_live_defense_does_not_count_the_bracket_twice():
+    d = player("hou", "DEF", 12.0, parts=[["sack", 3, 1.0, 3.0], ["pts_allow", 16.0, None, 1.0]])
+    g = dict(game("in", period=2, clock=0), opp_score=0.0)   # halftime, shutout so far
+    # Sleeper shows 13: 3 sacks + 10 for a shutout so far
+    e = lineup.expected(d, g, 13.0, lineup._time(NOW), scoring=SCORING)
+    # (13 - 10) + (12 - 1) x 0.5 + the bracket blend for 8 allowed by the end
+    # (bracket midpoints: 7 pts at 3.5 allowed, 4 pts at 10)
+    assert e["pts"] == pytest.approx(3 + 11 * 0.5 + (7 - 3 * 4.5 / 6.5))
+    assert lineup.bracket_points(SCORING, "pts_allow", 17) == 1
+    assert lineup.bracket_points(SCORING, "pts_allow", 35) == -4
+
+
+def test_empty_slot_is_filled_without_pairing_an_unrelated_player():
+    players = roster()
+    players[6]["flag"] = "Out"                       # wr1 is Out, starting at WR
+    current = ["qb1", "rb1", "0", "wr1", "wr2", "te1", "wr3", "rb3", "k1", "def1"]
+    r = run(players, current)
+    assert {"slot": "RB", "in": "rb2", "out": None} in r["changes"]
+    assert any(c["out"] == "wr1" and c["in"] != "rb2" for c in r["changes"])
+
+
+def test_slides_needed_for_a_newcomer_are_listed():
+    players = roster()
+    players[6]["flag"] = "Out"                       # wr1 Out; the best one left is te2
+    r = run(players, BEST)
+    assert r["moves"] == [{"id": "wr3", "to": "WR"}]
+    assert r["changes"] == [{"slot": "FLEX", "in": "te2", "out": "wr1"}]
+
+
+def test_case_for_skips_a_matchup_both_players_share():
+    a = player("a", "WR", 9.2, adj=[{"key": "matchup", "label": "Tough matchup", "pts": -0.5, "why": "x"}])
+    b = player("b", "WR", 8.4, adj=[{"key": "matchup", "label": "Tough matchup", "pts": -0.2, "why": "x"}])
+    assert not any("matchup" in r for r in lineup.case_for(b, a, "even"))
+
+
+def test_close_call_gap_matches_the_numbers_shown():
+    players = roster()
+    players[11]["score"] = 7.66                      # rb3 9.0 vs te2 7.66, shown as 7.7
+    r = run(players, BEST)
+    c = r["close_calls"][0]
+    assert c["gap"] == round(c["values"][0] - c["values"][1], 1) and c["gap"] < 1.5
+
+
+def test_mode_uses_the_percent_shown():
+    assert lineup.mode_for(0.347, CFG) == "even"     # shows as 35%, so not "under 35%"
+    assert lineup.mode_for(0.646, CFG) == "favored"  # shows as 65%

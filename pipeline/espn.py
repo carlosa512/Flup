@@ -42,8 +42,14 @@ def parse(data):
     games = []
     for ev in data.get("events") or []:
         comp = (ev.get("competitions") or [{}])[0]
-        sides = {c.get("homeAway"): team(c["team"]["abbreviation"])
-                 for c in comp.get("competitors") or [] if c.get("team")}
+        sides, scores = {}, {}
+        for c in comp.get("competitors") or []:
+            if c.get("team"):
+                sides[c.get("homeAway")] = team(c["team"]["abbreviation"])
+                try:
+                    scores[c.get("homeAway")] = float(c.get("score"))
+                except (TypeError, ValueError):
+                    pass
         home, away = sides.get("home"), sides.get("away")
         if not home or not away:
             continue
@@ -58,6 +64,7 @@ def parse(data):
                 "state": kind.get("state"), "completed": bool(kind.get("completed")),
                 "period": status.get("period") or 0,
                 "clock": float(clock) if isinstance(clock, (int, float)) else 0.0,
+                "score_home": scores.get("home"), "score_away": scores.get("away"),
                 "spread_home": None, "total": None, "book": None}
         odds = (comp.get("odds") or [None])[0]
         if odds:
@@ -75,6 +82,8 @@ def by_team(games):
     out = {}
     for g in games:
         for me, opp, home in ((g["home"], g["away"], True), (g["away"], g["home"], False)):
+            mine, theirs = (g.get("score_home"), g.get("score_away")) if home else \
+                (g.get("score_away"), g.get("score_home"))
             spread = None
             if g["spread_home"] is not None:
                 spread = g["spread_home"] if home else -g["spread_home"]
@@ -85,6 +94,7 @@ def by_team(games):
                        "status": g["status"], "state": g.get("state"),
                        "completed": g.get("completed", False),
                        "period": g.get("period", 0), "clock": g.get("clock", 0.0),
+                       "score": mine, "opp_score": theirs,
                        "spread": spread, "total": g["total"], "implied": implied}
     return out
 

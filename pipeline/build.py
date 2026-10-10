@@ -55,6 +55,7 @@ def player_rows(rows, pos, scoring, ctx, games, smooth, cons):
             "id": pid, "name": name, "pos": pos, "team": team,
             "opp": game.get("opp") or row.get("opponent") or "",
             "home": game.get("home"), "kickoff": game.get("kickoff"),
+            "game_date": row.get("date"),  # Sleeper's (Eastern) game date: a fallback without ESPN
             "game_status": game.get("status"),
             "implied": game.get("implied"), "spread": game.get("spread"),
             "injury": info.get("injury_status") or "",
@@ -232,7 +233,9 @@ def build(settings, week=None, league_id=None, now=None):
 
     # My best lineup, both teams' totals and my win %
     my_lineup = lineup.build(positions, ctx, lg.get("roster_positions") or [], games,
-                             settings["lineup"], now)
+                             dict(settings["lineup"], floor_pct=fc["floor_pct"],
+                                  ceiling_pct=fc["ceiling_pct"]),
+                             now, scoring)
 
     # Prove the scoring engine on every finished week
     weeks = []

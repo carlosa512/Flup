@@ -468,9 +468,13 @@
         So players are ranked by <b>${dog ? 'upside score' : 'safe score'}</b>: My Score moved ${lean} of the way
         ${dog ? 'up to his ceiling, which favors boom-or-bust players' : 'down to his floor, which favors steady players'}.
         Final lineup: ${pct(L.win)}.</p>`;
+      if (L.win < f.win) {
+        html += `<p>The bell curve above rates that a bit lower (${pct(L.win)} vs ${pct(f.win)}): it only sees averages and
+          spread, not the ${dog ? 'long upside tail a ceiling measures' : 'protection a high floor gives'}.</p>`;
+      }
     }
     html += `<p class="muted">This treats every player as scoring on his own. Teammates (a QB and his receivers)
-      tend to boom or bust together, so the real spread is a bit wider and this % is a little too sure of itself.</p>`;
+      really boom or bust together, so the true chance can be a few points higher or lower.</p>`;
     return html;
   }
 
@@ -493,24 +497,28 @@
   }
 
   function changesBox(L) {
-    if (!L.changes.length) return '<p class="note done">✓ Your Sleeper lineup already matches.</p>';
-    const items = L.changes.map((c) => {
+    const moves = L.moves || [];
+    if (!L.changes.length && !moves.length) return '<p class="note done">✓ Your Sleeper lineup already matches.</p>';
+    // Slides first: they open up the slot a newcomer goes into
+    const items = moves.map((m) => `Move <b>${esc(nameOf(m.id))}</b> to ${esc(m.to)}`).concat(L.changes.map((c) => {
       if (c.in && c.out) return `Start <b>${esc(nameOf(c.in))}</b> for ${esc(nameOf(c.out))}`;
       if (c.in) return `Start <b>${esc(nameOf(c.in))}</b> in the empty ${esc(c.slot)} slot`;
       return `Bench ${esc(nameOf(c.out))}: no healthy player to put in`;
-    });
-    const n = L.changes.length;
+    }));
+    const n = items.length;
     return `<div class="note todo"><b>Make ${n} change${n > 1 ? 's' : ''} in Sleeper</b>
       <ul>${items.map((t) => `<li>${t}</li>`).join('')}</ul></div>`;
   }
 
   function lateSwapTip(L) {
     const t = L.late_swap;
-    if (!t || !t.moves.length) return '';
+    // Gone once the first player it moves has kicked off (Sleeper has locked him)
+    if (!t || !t.moves.length || (t.deadline && Date.now() >= new Date(t.deadline).getTime())) return '';
     const moves = t.moves.map((m) => `<b>${esc(nameOf(m.id))}</b> to ${esc(m.to)}`);
     return `<div class="note tip"><b>Late-swap tip</b>
-      <p>Move ${andList(moves)}. Your points stay the same. ${esc(nameOf(t.latest))} plays ${esc(when(t.kickoff))},
-      so with him in FLEX a late scratch can be swapped for any RB, WR or TE who hasn't played yet, free agents included.</p></div>`;
+      <p>Move ${andList(moves)}${t.deadline ? ` before ${esc(when(t.deadline))}` : ''}. Your points stay the same.
+      ${esc(nameOf(t.latest))} plays ${esc(when(t.kickoff))}, so with him in FLEX a late scratch can be swapped for any
+      RB, WR or TE who hasn't played yet, free agents included.</p></div>`;
   }
 
   function callSide(p, verb, value, reasons, measure) {
@@ -550,7 +558,11 @@
       $('#lineup').innerHTML = '<p class="warn">Couldn\'t find your team in this league, so there\'s no lineup.</p>';
       return;
     }
-    let html = verdict(L) + changesBox(L) + lateSwapTip(L);
+    let html = '';
+    if (L.times_known === false) {
+      html += '<p class="warn">ESPN didn\'t load, so game times are guessed from Sleeper: anyone with points this week counts as played. Check locked players in Sleeper.</p>';
+    }
+    html += verdict(L) + changesBox(L) + lateSwapTip(L);
     html += `<h2 class="section">Your lineup</h2><ul class="players lineup">${L.me.starters.map((e) => lineupRow(e, 'me')).join('')}</ul>`;
     html += closeCalls(L);
     if (L.opp) {

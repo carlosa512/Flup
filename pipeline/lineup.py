@@ -7,8 +7,9 @@
    A player whose game has started is locked: a starter stays in his slot,
    a bench player can't come in.
 3. Win % = Phi((my total - their total) / sqrt(my variance + theirs)),
-   treating players as independent (QB-WR stacks make it a bit
-   overconfident). The opponent's lineup is used exactly as set in Sleeper.
+   treating players as independent (teammates really move together, so
+   the true chance can be a few points either way). The opponent's lineup
+   is used exactly as set in Sleeper.
 4. That win % sets the mode: favored -> rank players partway toward their
    floor, underdog -> partway toward their ceiling, then pick again and
    report the final win %.
@@ -16,10 +17,12 @@
 
 import math
 from collections import deque
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from itertools import combinations
+from statistics import NormalDist
 
 from .model import OUT_STATUSES
+from .scoring import bracket_points, smooth_bracket_points
 
 SLOT_POSITIONS = {
     "QB": {"QB"}, "RB": {"RB"}, "WR": {"WR"}, "TE": {"TE"}, "K": {"K"}, "DEF": {"DEF"},
@@ -36,7 +39,15 @@ MEASURE = {"underdog": "upside score", "favored": "safe score", "even": "My Scor
 SUFFIXES = {"Jr", "Sr", "II", "III", "IV", "V"}
 CALLS_PER_STARTER = 2
 MAX_CALLS = 4
+PCTS = (25, 90)  # floor and ceiling percentiles (settings.toml [floor_ceiling])
 EARLIEST = datetime.min.replace(tzinfo=timezone.utc)
+BELL = NormalDist()
+
+try:
+    from zoneinfo import ZoneInfo
+    EASTERN = ZoneInfo("America/New_York")
+except Exception:  # no time zone data: daylight time is close enough
+    EASTERN = timezone(timedelta(hours=-4))
 
 
 def _time(iso):
@@ -52,13 +63,25 @@ def _accepts(slot):
     return SLOT_POSITIONS.get(slot, {slot})
 
 
+def _healthy(p):
+    """My Score before the injury discount."""
+    return p["score"] - sum(a["pts"] for a in p.get("adj") or [] if a["key"] == "injury")
+
+
 # ---------- one player's week ----------
 
-def phase(p, game, now):
+def phase(p, game, now, actual=None):
     """('none' | 'pre' | 'live' | 'final', share of the game left)."""
     if game is None:
-        # No ESPN data for his team: trust the projection's opponent
-        return ("pre", 1.0) if p and p.get("opp") else ("none", 0.0)
+        # No ESPN data for his team: fall back to Sleeper. Points this week
+        # or a game date before today (Eastern) mean his game has been played.
+        if not p or not p.get("opp"):
+            return "none", 0.0
+        if actual:
+            return "final", 0.0
+        if p.get("game_date") and now is not None and p["game_date"] < now.astimezone(EASTERN).date().isoformat():
+            return "final", 0.0
+        return "pre", 1.0
     if game.get("status") in NOT_PLAYED:
         return "none", 0.0
     if game.get("completed") or game.get("state") == "post" or game.get("status") == "STATUS_FINAL":
@@ -75,48 +98,99 @@ def phase(p, game, now):
     return "live", round(max(0.0, min(1.0, left)), 3)
 
 
-def outcome(p):
+def _plays_quantile(u, healthy, floor, ceiling, pcts):
+    """His score at percentile u if he plays: a bell curve through his floor,
+    healthy score (middle) and ceiling."""
+    u = min(max(u, 0.001), 0.999)
+    if u >= 0.5:
+        return healthy + (ceiling - healthy) * BELL.inv_cdf(u) / BELL.inv_cdf(pcts[1] / 100)
+    return healthy - (healthy - floor) * BELL.inv_cdf(1 - u) / BELL.inv_cdf(1 - pcts[0] / 100)
+
+
+def outcome(p, pcts=PCTS):
     """(floor, ceiling, sd) this week, or None. A Doubtful player's range is
-    'if he plays', so it's scaled by his chance of playing, taken as My
-    Score / his healthy score (Doubtful takes 60% off, so 40%)."""
+    'if he plays'. He plays with chance q = My Score / healthy score
+    (Doubtful takes 60% off, so 40%), else scores 0, so his floor and
+    ceiling are percentiles of that mix: with a 60% chance of 0 his floor
+    (25th percentile) is 0, and his ceiling (90th) is the 75th percentile of
+    his if-he-plays range."""
     r = p.get("range") if p else None
     if not r:
         return None
     floor, ceiling, sd = r["floor"], r["ceiling"], abs(r["sd"])
     if r.get("if_plays"):
-        healthy = p["score"] - sum(a["pts"] for a in p.get("adj") or [] if a["key"] == "injury")
+        healthy = _healthy(p)
         q = max(0.0, min(1.0, p["score"] / healthy)) if healthy > 0 else 0.0
-        # Plays (his usual spread) with chance q, else scores 0
         sd = math.sqrt(q * sd ** 2 + q * (1 - q) * healthy ** 2)
-        floor, ceiling = q * floor, q * ceiling
+
+        def mix(a):
+            if q <= 0 or a <= 1 - q:
+                return 0.0
+            return max(0.0, _plays_quantile((a - (1 - q)) / q, healthy, floor, ceiling, pcts))
+        floor, ceiling = mix(pcts[0] / 100), mix(pcts[1] / 100)
     return floor, ceiling, sd
 
 
-def expected(p, game, actual, now):
+def _def_bracket_part(p):
+    """(projected points allowed, points the projection gives for it)."""
+    allowed, pts = None, 0.0
+    for stat, value, _, points in p.get("parts") or []:
+        if stat == "pts_allow" or stat.startswith("pts_allow_"):
+            pts += points
+            if stat == "pts_allow":
+                allowed = value
+    return allowed, pts
+
+
+def expected(p, game, actual, now, pcts=PCTS, scoring=None):
     """Expected points and sd for the rest of the week, by game phase."""
     if p is None:
         # Not in this week's data (no projection row): only his actual points
         return {"state": "unknown", "pts": actual or 0.0, "sd": 0.0, "actual": actual, "left": 0.0}
-    state, left = phase(p, game, now)
-    score = p["score"] if p else 0.0
-    found = outcome(p)
+    state, left = phase(p, game, now, actual)
+    score = p["score"]
+    found = outcome(p, pcts)
     sd = found[2] if found else 0.0
     got = actual or 0.0
     if state == "final":
         return {"state": state, "pts": got, "sd": 0.0, "actual": got, "left": 0.0}
     if state == "live":
-        return {"state": state, "pts": got + score * left, "sd": sd * math.sqrt(left),
-                "actual": got, "left": left}
+        rest = score
+        if got and _healthy(p) > score:
+            # He's scoring, so he's playing: no "might not play" discount
+            rest = _healthy(p)
+            sd = abs((p.get("range") or {}).get("sd") or sd)
+        pts = got + rest * left
+        if p["pos"] == "DEF" and scoring:
+            pts = _live_def(p, game, got, rest, left, scoring)
+        return {"state": state, "pts": pts, "sd": sd * math.sqrt(left), "actual": got, "left": left}
     if state == "none":
         return {"state": state, "pts": 0.0, "sd": 0.0, "actual": None, "left": 0.0}
     return {"state": state, "pts": score, "sd": sd, "actual": None, "left": 1.0}
 
 
-def lean_value(mode, lean):
+def _live_def(p, game, got, rest, left, scoring):
+    """A live defense's points so far already include the points-allowed
+    bracket for the score right now (Sleeper scores the current stats).
+    So: points so far without that bracket, plus the rest of his projection
+    without its bracket part, plus the bracket for the points he's expected
+    to allow by the end (so far + his projected rate x the game left)."""
+    allowed_proj, bracket_proj = _def_bracket_part(p)
+    rest_no_bracket = rest - bracket_proj
+    allowed_now = (game or {}).get("opp_score")
+    if allowed_now is None or allowed_proj is None:
+        # No live score: at least don't count the bracket twice
+        return got + rest_no_bracket * left
+    allowed_end = allowed_now + allowed_proj * left
+    return (got - bracket_points(scoring, "pts_allow", allowed_now) + rest_no_bracket * left
+            + smooth_bracket_points(scoring, "pts_allow", allowed_end))
+
+
+def lean_value(mode, lean, pcts=PCTS):
     """The number players are ranked by: My Score, moved `lean` of the way
     to the floor (favored) or the ceiling (underdog)."""
     def value(p):
-        found = outcome(p)
+        found = outcome(p, pcts)
         if mode not in ("favored", "underdog") or not found:
             return p["score"]
         target = found[1] if mode == "underdog" else found[0]
@@ -185,8 +259,11 @@ def win_prob(mine, theirs):
 
 
 def mode_for(win, cfg):
+    """Decided on the whole percent shown on the page, so "35%" is never
+    called "under 35%"."""
     if win is None:
         return "even"
+    win = math.floor(win * 100 + 0.5) / 100  # the same rounding as the page
     if win >= cfg["favored"]:
         return "favored"
     if win < cfg["underdog"]:
@@ -202,23 +279,24 @@ def _totals(entries):
 # ---------- one line per starter ----------
 
 def _signed(x):
-    return f"{x:+.1f}".replace("-", "\u2212")  # a real minus sign, as on the player card
+    return f"{x:+.1f}".replace("-", "−")  # a real minus sign, as on the player card
 
 
-def _why(p, e, close, swapped_for, mode):
+def _why(p, e, close, swapped_for, mode, pcts=PCTS):
     if e["state"] == "final":
         return f"Played: {e['actual']:.1f} pts"
     if e["state"] == "live":
         return f"Playing now: {e['actual']:.1f} so far, {round(e['left'] * 100)}% of the game left"
-    mine, theirs = outcome(p), outcome(swapped_for)
+    main = None
+    mine, theirs = outcome(p, pcts), outcome(swapped_for, pcts)
     if mine and theirs:
-        if mode == "underdog":
+        if mode == "underdog" and mine[1] > theirs[1]:
             main = f"Higher ceiling than {swapped_for['name']} ({mine[1]:.1f} vs {theirs[1]:.1f})"
-        else:
+        elif mode == "favored" and mine[0] > theirs[0]:
             main = f"Safer floor than {swapped_for['name']} ({mine[0]:.1f} vs {theirs[0]:.1f})"
-    elif close is not None:
+    if main is None and close is not None:
         main = f"Close call over {close[0]['name']} ({_signed(close[1])}{VALUE_NAME.get(mode, '')})"
-    else:
+    if main is None:
         main = f"#{p['rank']} {POS_WORD.get(p['pos'], p['pos'])} this week"
     if p.get("injury") in ("Questionable", "Doubtful"):
         extra = p["injury"] + (f" ({p['injury_detail']})" if p.get("injury_detail") else "")
@@ -238,12 +316,13 @@ def _last(name):
     return parts[-1] if parts else name
 
 
-def case_for(p, other, mode):
+def case_for(p, other, mode, pcts=PCTS):
     """Short reasons to play p over other, all real numbers from the data.
     What the mode cares about comes first (ceiling when underdog, floor
-    when favored, expected points otherwise)."""
+    when favored, expected points otherwise). Adjustments are compared by
+    kind, so a matchup both players share isn't listed as a difference."""
     reasons = []  # (priority, text)
-    mine, theirs = outcome(p), outcome(other)
+    mine, theirs = outcome(p, pcts), outcome(other, pcts)
     if p["score"] - other["score"] >= 0.1:
         reasons.append((1 if mode == "even" else 3,
                         f"More expected points: {p['score']:.1f} vs {other['score']:.1f}"))
@@ -258,13 +337,21 @@ def case_for(p, other, mode):
     if other.get("injury") in tagged and p.get("injury") not in tagged:
         detail = f" ({other['injury_detail']})" if other.get("injury_detail") else ""
         reasons.append((2, f"{_last(other['name'])} is {other['injury']}{detail}"))
-    for a in p.get("adj") or []:
-        if a["key"] != "injury" and a["pts"] >= 0.5:
-            reasons.append((5 - min(a["pts"], 3) / 10, f"{a['label']} ({_signed(a['pts'])}): {a['why']}"))
-    for a in other.get("adj") or []:
-        if a["key"] != "injury" and a["pts"] <= -0.5:
-            reasons.append((5 - min(-a["pts"], 3) / 10,
-                            f"{_last(other['name'])} has a {a['label'].lower()} ({_signed(a['pts'])})"))
+    own = {a["key"]: a for a in p.get("adj") or [] if a["key"] != "injury"}
+    theirs_adj = {a["key"]: a for a in other.get("adj") or [] if a["key"] != "injury"}
+    for key in sorted(set(own) | set(theirs_adj)):
+        a, b = own.get(key), theirs_adj.get(key)
+        diff = (a["pts"] if a else 0.0) - (b["pts"] if b else 0.0)
+        if diff < 0.5:
+            continue
+        rank = 5 - min(diff, 3) / 10
+        if a and a["pts"] >= 0.5:
+            vs = f" vs {_signed(b['pts'])} for {_last(other['name'])}" if b else ""
+            text = f"{a['label']} ({_signed(a['pts'])}{vs}): {a['why']}"
+        else:
+            vs = f" vs {_signed(a['pts'])} for {_last(p['name'])}" if a else ""
+            text = f"{_last(other['name'])} has a {b['label'].lower()} ({_signed(b['pts'])}{vs})"
+        reasons.append((rank, text))
     c1, c2 = (p.get("cons") or {}).get("pts"), (other.get("cons") or {}).get("pts")
     if c1 is not None and c2 is not None and c1 - c2 >= 0.5:
         reasons.append((6, f"Experts like him more: {c1:.1f} vs {c2:.1f} pts"))
@@ -272,10 +359,12 @@ def case_for(p, other, mode):
     return [text for _, text in reasons[:4]]
 
 
-def close_calls(slots, entries, bench, value, mode, gap, by_id):
+def close_calls(slots, entries, bench, value, mode, gap, by_id, pcts=PCTS):
     """Each bench player against the starter he'd replace (the weakest one
     in a slot he can play), kept when they're within `gap` on the mode's
-    number. At most CALLS_PER_STARTER per starter and MAX_CALLS in all."""
+    number. The gap is taken from the two numbers as shown (rounded), so
+    the page always adds up. At most CALLS_PER_STARTER per starter and
+    MAX_CALLS in all."""
     starters = [(i, by_id[e["id"]]) for i, e in enumerate(entries)
                 if e["state"] == "pre" and e["id"] in by_id]
     calls = []
@@ -284,12 +373,13 @@ def close_calls(slots, entries, bench, value, mode, gap, by_id):
         if not options:
             continue
         i, s = min(options, key=lambda o: (value(o[1]), o[1]["score"], o[0]))
-        margin = max(0.0, value(s) - value(b))
+        values = [round(value(s), 1), round(value(b), 1)]
+        margin = max(0.0, round(values[0] - values[1], 1))
         if margin < gap:
             calls.append({"slot": slots[i], "start": s["id"], "bench": b["id"],
-                          "gap": round(margin, 1), "measure": MEASURE[mode],
-                          "values": [round(value(s), 1), round(value(b), 1)],
-                          "for_start": case_for(s, b, mode), "for_bench": case_for(b, s, mode)})
+                          "gap": margin, "measure": MEASURE[mode], "values": values,
+                          "for_start": case_for(s, b, mode, pcts),
+                          "for_bench": case_for(b, s, mode, pcts)})
     calls.sort(key=lambda c: (c["gap"], c["start"], c["bench"]))
     kept, per = [], {}
     for c in calls:
@@ -321,23 +411,28 @@ def _match(slots, idxs, players):
     return match
 
 
+def _iso(dt):
+    return dt.strftime("%Y-%m-%dT%H:%MZ") if dt else None
+
+
 def late_swap(slots, open_slots, final, kickoff):
     """Same starters, rearranged so the FLEX slots hold the latest games.
     Sleeper locks a slot when its player's game starts, so a late player
     in FLEX keeps the most options: if news breaks before his game, any
     RB/WR/TE whose game hasn't started (a free agent too) can go in.
-    Returns the moves, or None when FLEX already has the latest games."""
+    Returns the moves and the deadline (the earliest kickoff among the
+    players who move), or None when FLEX already has the latest games."""
     if any(i not in final for i in open_slots):
         return None  # an empty slot is the bigger problem
     multi = [i for i in open_slots if len(_accepts(slots[i])) > 1]
     singles = [i for i in open_slots if i not in multi]
-    if not multi:
-        return None
     players = [final[i] for i in open_slots]
+    if not multi or any(kickoff(p) is None for p in players):
+        return None  # no kickoff times to compare
     in_multi = {final[i]["id"] for i in multi}
 
     def kicks(group):
-        return tuple(sorted((kickoff(p) or EARLIEST for p in group), reverse=True))
+        return tuple(sorted((kickoff(p) for p in group), reverse=True))
 
     best, best_key = None, (kicks(final[i] for i in multi), 0)
     for combo in combinations(players, len(multi)):
@@ -356,20 +451,19 @@ def late_swap(slots, open_slots, final, kickoff):
     outs = [final[i] for i in multi if final[i]["id"] not in {p["id"] for p in best}]
     freed = [i for i in singles if final[i]["id"] in {p["id"] for p in ins}]
     seats = _match(slots, freed, outs) or {}
-    moves = [{"id": p["id"], "to": "FLEX" if all(slots[i] == "FLEX" for i in multi) else slots[multi[0]]}
-             for p in ins]
+    to = "FLEX" if all(slots[i] == "FLEX" for i in multi) else slots[multi[0]]
+    moves = [{"id": p["id"], "to": to} for p in ins]
     moves += [{"id": p["id"], "to": slots[i]} for i, p in sorted(seats.items())]
-    latest = max(ins, key=lambda p: kickoff(p) or EARLIEST)
-    when = kickoff(latest)
-    return {"moves": moves, "latest": latest["id"],
-            "kickoff": when.strftime("%Y-%m-%dT%H:%MZ") if when else None}
+    latest = max(ins, key=kickoff)
+    return {"moves": moves, "latest": latest["id"], "kickoff": _iso(kickoff(latest)),
+            "deadline": _iso(min(kickoff(p) for p in ins + outs))}
 
 
-def _entry(slot, pid, p, game, actual, now):
+def _entry(slot, pid, p, game, actual, now, pcts, scoring):
     if not pid or pid == "0":
         return {"slot": slot, "id": None, "pts": 0.0, "sd": 0.0, "state": "empty",
                 "actual": None, "left": 0.0}
-    return {"slot": slot, "id": pid, **expected(p, game, actual, now)}
+    return {"slot": slot, "id": pid, **expected(p, game, actual, now, pcts, scoring)}
 
 
 def _round(e):
@@ -381,13 +475,15 @@ def _round(e):
 
 # ---------- putting it together ----------
 
-def build(positions, ctx, roster_positions, games, cfg, now):
+def build(positions, ctx, roster_positions, games, cfg, now, scoring=None):
     """positions: latest.json's positions; ctx: league.context(); games:
-    espn.by_team(); cfg: settings.toml [lineup]; now: ISO time of the run."""
+    espn.by_team(); cfg: settings.toml [lineup] plus floor_pct/ceiling_pct;
+    now: ISO time of the run; scoring: the league's scoring_settings."""
     my_rid, opp_rid = ctx.get("my_rid"), ctx.get("opp_rid")
     if my_rid is None:
         return None
     now_dt = _time(now)
+    pcts = (cfg.get("floor_pct", PCTS[0]), cfg.get("ceiling_pct", PCTS[1]))
     slots = [s for s in roster_positions if s not in NOT_SLOTS]
     by_id = {p["id"]: p for block in positions.values() for p in block["players"]}
 
@@ -398,7 +494,7 @@ def build(positions, ctx, roster_positions, games, cfg, now):
     current = (mine["starters"] + ["0"] * len(slots))[:len(slots)]
     reserve = set(ctx.get("reserve", {}).get(my_rid) or [])
     roster = [p for p in by_id.values() if p["roster"] == my_rid]
-    phases = {p["id"]: phase(p, game_of(p), now_dt)[0] for p in roster}
+    phases = {p["id"]: phase(p, game_of(p), now_dt, mine["points"].get(p["id"]))[0] for p in roster}
 
     # Locked starters stay put; the rest of the healthy, not-yet-played
     # roster competes for the open slots
@@ -415,7 +511,7 @@ def build(positions, ctx, roster_positions, games, cfg, now):
         for i, slot in enumerate(slots):
             p = fixed.get(i) or chosen.get(i)
             pid = p["id"] if p else None
-            out.append(_entry(slot, pid, p, game_of(p), mine["points"].get(pid), now_dt))
+            out.append(_entry(slot, pid, p, game_of(p), mine["points"].get(pid), now_dt, pcts, scoring))
         return out
 
     theirs = None
@@ -423,7 +519,7 @@ def build(positions, ctx, roster_positions, games, cfg, now):
         opp = ctx["lineups"][opp_rid]
         starters = (opp["starters"] + ["0"] * len(slots))[:len(slots)]
         opp_entries = [_entry(slot, pid, by_id.get(pid), game_of(by_id.get(pid)),
-                              opp["points"].get(pid), now_dt)
+                              opp["points"].get(pid), now_dt, pcts, scoring)
                        for slot, pid in zip(slots, starters)]
         theirs = {**_totals(opp_entries), "starters": opp_entries}
 
@@ -434,7 +530,7 @@ def build(positions, ctx, roster_positions, games, cfg, now):
     mode = mode_for(win0, cfg)
 
     # Pass 2: rank by the mode's number and pick again
-    value = lean_value(mode, cfg["lean"])
+    value = lean_value(mode, cfg["lean"], pcts)
     final = first if mode == "even" else pick(slots, open_slots, pool, value)
     final = arrange(slots, open_slots, final, current)
     entries = lineup_entries(final)
@@ -446,7 +542,7 @@ def build(positions, ctx, roster_positions, games, cfg, now):
     first_ids = {p["id"] for p in first.values()}
     dropped = [p for p in first.values() if p["id"] not in final_ids]
     bench = [b for b in pool if b["id"] not in final_ids]
-    calls = close_calls(slots, entries, bench, value, mode, cfg["close_call"], by_id)
+    calls = close_calls(slots, entries, bench, value, mode, cfg["close_call"], by_id, pcts)
     closest = {}
     for c in calls:  # sorted closest first
         closest.setdefault(c["start"], (by_id[c["bench"]], c["gap"]))
@@ -456,32 +552,45 @@ def build(positions, ctx, roster_positions, games, cfg, now):
             continue
         swapped = None
         if mode != "even" and p["id"] not in first_ids:
-            options = [d for d in dropped if d["pos"] in _accepts(slots[i])] or dropped
+            # The leaned pick he displaced: someone who could play an open slot he can
+            options = [d for d in dropped
+                       if any(p["pos"] in _accepts(slots[j]) and d["pos"] in _accepts(slots[j])
+                              for j in open_slots)]
             swapped = max(options, key=lambda d: d["score"], default=None)
-        e["why"] = _why(p, e, closest.get(p["id"]), swapped, mode)
+        e["why"] = _why(p, e, closest.get(p["id"]), swapped, mode, pcts)
         e["new"] = p["id"] not in current
+
+    # Changes, in the order to make them in Sleeper: slide kept starters
+    # first (so a newcomer's slot opens up), then starts, then benchings.
+    outs = [pid for pid in current if pid and pid != "0" and pid not in final_ids]
+    moves = [{"id": e["id"], "to": slots[i]} for i, e in enumerate(entries)
+             if e["id"] and not e.get("new") and e["id"] != current[i] and i not in fixed]
+    changes, waiting = [], []
+    for i, e in enumerate(entries):
+        if e.get("new") and e["id"]:
+            if current[i] in outs:
+                outs.remove(current[i])
+                e["replaces"] = current[i]
+                changes.append({"slot": slots[i], "in": e["id"], "out": current[i]})
+            else:
+                waiting.append(i)
+    for i in waiting:
+        e = entries[i]
+        here = None if current[i] in ("0", "", None) or not outs else outs.pop(0)
+        e["replaces"] = here
+        changes.append({"slot": slots[i], "in": e["id"], "out": here})
+    changes += [{"slot": None, "in": None, "out": pid} for pid in outs]
 
     def kickoff(p):
         return _time((game_of(p) or {}).get("kickoff"))
     swap = late_swap(slots, open_slots, final, kickoff)
 
-    current_ids = [pid for pid in current if pid and pid != "0"]
-    outs = [pid for pid in current_ids if pid not in final_ids]
-    changes = []
-    for i, e in enumerate(entries):
-        if not e.get("new") or not e["id"]:
-            continue
-        here = current[i] if current[i] in outs else (outs[0] if outs else None)
-        if here:
-            outs.remove(here)
-        e["replaces"] = here
-        changes.append({"slot": slots[i], "in": e["id"], "out": here})
-    changes += [{"slot": None, "in": None, "out": pid} for pid in outs]
-
     return {
         "slots": slots, "mode": mode, "win": None if win is None else round(win, 3),
         "lean": cfg["lean"], "favored": cfg["favored"], "underdog": cfg["underdog"],
         "close_call": cfg["close_call"],
+        # Without ESPN, game times are guessed from Sleeper (points = played)
+        "times_known": bool(games),
         "first": {"total": round(first_tot["total"], 1), "sd": round(first_tot["sd"], 2),
                   "win": None if win0 is None else round(win0, 3)},
         "me": {"total": round(me["total"], 1), "sd": round(me["sd"], 2),
@@ -490,6 +599,7 @@ def build(positions, ctx, roster_positions, games, cfg, now):
             "total": round(theirs["total"], 1), "sd": round(theirs["sd"], 2),
             "starters": [_round(e) for e in theirs["starters"]]},
         "current": current,
+        "moves": moves,
         "changes": changes,
         "close_calls": calls,
         "late_swap": swap,

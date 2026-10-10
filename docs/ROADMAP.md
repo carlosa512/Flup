@@ -39,6 +39,10 @@ handed over.
 - Doubtful: spec says "flag"; currently flagged AND 60% off
   (`[adjust.injury] doubtful`). Owner hasn't confirmed.
 - `always_break_gap` = 1.5 for tiers (1.0 splits TE/DEF tops more).
+- Lean re-pick: the halfway lean toward ceiling/floor can lower the bell
+  curve win % a little (it can't see skew). Currently kept and disclosed in
+  the math; alternative: keep the My Score lineup whenever the lean lowers
+  win %. Owner to decide.
 
 Phase 3 decisions (owner, 2026-10-10):
 1. Favored/underdog leans **halfway**: players are ranked by My Score moved
@@ -73,14 +77,19 @@ player `roster`; in Python use `teams[str(rid)]`), `roster_positions`,
 `scoring`. Top level: `version, generated, season, week, league, sources,
 checks, settings, positions, lineup, games`. `positions[POS]` =
 `{players, breaks}`. `games[]` also has `state` (pre/in/post),
-`completed`, `period`, `clock` (seconds left in the quarter).
+`completed`, `period`, `clock` (seconds left in the quarter),
+`score_home`, `score_away`. Players also carry `game_date` (Sleeper's
+Eastern date, the fallback when ESPN doesn't load).
 
 `lineup` (null if my team isn't found): `slots` (starting slots only),
 `mode` (favored/underdog/even), `win` (final, null without an opponent),
 `lean, favored, underdog, close_call`, `first {total, sd, win}` (the My
 Score lineup that set the mode), `me` and `opp` = `{total, sd, starters}`
 (`opp` null without an opponent), `current` (my Sleeper starter ids, "0" =
-empty), `changes [{slot, in, out}]` (`in` or `out` may be null). Each
+empty), `moves [{id, to}]` (kept starters who must slide first so a
+newcomer's slot opens), `changes [{slot, in, out}]` (`in` or `out` may be
+null), `times_known` (false = ESPN didn't load; anyone with Sleeper points
+counts as played). Each
 starter: `slot, id (null = empty), pts, sd, state (pre/live/final/none/
 empty/unknown), actual, left`; mine also `why, new, replaces?`.
 `close_calls [{slot, start, bench, gap, measure, values [start, bench],
@@ -89,7 +98,23 @@ player vs the weakest starter he could replace, kept when `gap` (on the
 mode's number: My Score / upside score / safe score) is under
 `close_call`; at most 2 per starter and 4 in all. `late_swap` (null when
 FLEX already has the latest games or no rearrangement can):
-`{moves [{id, to}], latest, kickoff}`, same starters, slots only.
+`{moves [{id, to}], latest, kickoff, deadline}`, same starters, slots only;
+`deadline` is the earliest kickoff among the moved players (the app hides
+the tip after it).
+
+Modeling notes (from the Phase 3 review):
+- A Doubtful player's floor/ceiling are percentiles of "plays with chance
+  q, else 0": floor 0 at 60% off; ceiling = the 75th percentile of his
+  if-he-plays range (a bell curve through floor/healthy/ceiling). Once he
+  scores in a live game, the discount is dropped.
+- A live DEF: points so far minus the bracket for the current score, plus
+  the rest of his projection without its bracket part, plus the bracket
+  blend for the points he's expected to allow by the end. Assumes Sleeper's
+  live DEF points include the current points-allowed bracket: verify on a
+  real Sunday capture (piece 4).
+- The mode is decided on the whole percent shown, so "35%" is never called
+  "under 35%"; a close call's gap is the difference of the two numbers as
+  shown.
 
 Nullable: `range` (players with no projection or no game; their `note`
 says which), `cons` (no consensus rank), `tier` (below the top-N cut).

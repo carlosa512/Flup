@@ -214,7 +214,7 @@ h2.section {
   font: 700 2.4rem/1 "Barlow Condensed", "Arial Narrow", sans-serif; color: var(--turf); padding-top: 10px;
 }
 .tier-gap { color: var(--muted); font-size: .8rem; margin: 12px 0 -4px; }
-ul.players { list-style: none; margin: 0; padding: 8px 0; min-width: 0; display: grid; gap: 8px; }
+ul.players { list-style: none; margin: 0; padding: 8px 0; min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
 .player { background: var(--tile); border: 1px solid var(--tile-edge); border-radius: 14px; box-shadow: var(--raise); }
 .player.mine { background: var(--mine-row); border-color: transparent; box-shadow: inset 4px 0 0 var(--mine-chip), var(--raise); }
 .player.opp { background: var(--opp-row); border-color: transparent; box-shadow: inset 4px 0 0 var(--opp-chip), var(--raise); }
@@ -250,7 +250,7 @@ ul.players { list-style: none; margin: 0; padding: 8px 0; min-width: 0; display:
 .math { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
 .math td { padding: 4px 0; border-bottom: 1px solid var(--line); }
 .math td.n { text-align: right; padding-left: 8px; white-space: nowrap; }
-.math td.x { color: var(--muted); }
+.math td.x { color: var(--muted); white-space: normal; }
 .detail p { margin: 4px 0; }
 .detail .muted { color: var(--muted); font-size: .9rem; }
 .detail .warn { margin: 8px 0; }
@@ -300,7 +300,7 @@ ul.adj small { display: block; color: var(--muted); font-size: .85rem; }
 .ok { color: var(--ok); font-weight: 700; }
 .bad { color: var(--out); font-weight: 700; }
 .every { margin: 2px 0 4px; }
-.every > summary { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: .88rem; padding: 8px 0; min-height: 40px; }
+.every > summary { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: .88rem; padding: 8px 0; min-height: 44px; }
 .every > summary::after { width: 6px; height: 6px; }
 .every .math { margin-top: 4px; }
 

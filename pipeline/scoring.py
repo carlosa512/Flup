@@ -27,6 +27,34 @@ def _bracket_table(scoring, prefix):
     return sorted(table)
 
 
+def bracket_points(scoring, prefix, x):
+    """Points for the bracket that x (e.g. 17 points allowed) falls in, the
+    way Sleeper scores a real game. Brackets the league leaves out score 0."""
+    for key, pts in scoring.items():
+        if not key.startswith(prefix + "_") or not isinstance(pts, (int, float)):
+            continue
+        rng = key[len(prefix) + 1:]
+        try:
+            if rng.endswith("p"):
+                if x >= float(rng[:-1]):
+                    return pts
+            elif "_" in rng:
+                lo, hi = (float(v) for v in rng.split("_"))
+                if lo <= x <= hi:
+                    return pts
+            elif x == float(rng):
+                return pts
+        except ValueError:
+            continue
+    return 0.0
+
+
+def smooth_bracket_points(scoring, prefix, x):
+    """Expected bracket points for an expected x: a blend between bracket
+    midpoints (the same blend the projections use)."""
+    return _interpolate(_bracket_table(scoring, prefix), x)
+
+
 def _interpolate(table, x):
     if not table:
         return 0.0
