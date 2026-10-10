@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Flup</title>
+<meta name="description" content="Weekly lineup help for The League on Sleeper">
+<meta name="theme-color" content="#121815">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Flup">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;600;700&family=Barlow+Condensed:wght@600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="app.css">
+<script>
+  // Apply the saved theme before first paint (default: dark)
+  try { var t = localStorage.getItem('flup:theme'); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
+</script>
+</head>
+<body>
+<header class="top">
+  <div class="top-row">
+    <div>
+      <h1 id="title">Flup</h1>
+      <p class="meta" id="league-line">Loading your league…</p>
+    </div>
+    <div class="top-actions">
+      <button class="icon-btn" id="theme-btn" type="button" aria-label="Switch light or dark">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9 7 7 0 0 1-9-9z"/></svg>
+      </button>
+      <button class="icon-btn" id="refresh-btn" type="button" aria-label="Refresh data">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.34-5.66M20 4v5h-5"/></svg>
+      </button>
+    </div>
+  </div>
+  <p class="matchup" id="matchup"></p>
+  <nav class="views" aria-label="Sections">
+    <button type="button" data-view="tiers" aria-pressed="true">Tiers</button>
+    <button type="button" data-view="checks" aria-pressed="false">Checks <span class="dot" id="checks-dot" hidden></span></button>
+  </nav>
+</header>
+
+<main>
+  <div id="status"></div>
+
+  <section id="view-tiers" class="view">
+    <div class="bar">
+      <div class="tabs" id="pos-tabs" role="tablist" aria-label="Positions"></div>
+      <div class="filters" id="filters" aria-label="Show"></div>
+    </div>
+    <div id="tiers"></div>
+  </section>
+
+  <section id="view-checks" class="view" hidden>
+    <div id="checks"></div>
+  </section>
+
+  <p class="toast" id="toast" role="status" aria-live="polite" hidden></p>
+</main>
+
+<footer class="foot">
+  <p>Projections from Sleeper's public API, scored with your league's settings. Lines from ESPN's public scoreboard. Tap any player for the math.</p>
+</footer>
+
+<script src="app.js" defer></script>
+</body>
+</html>
