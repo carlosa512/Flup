@@ -334,3 +334,20 @@ def test_last_season_not_counted_in_points_allowed():
     rows = [stat_row("1", "WR", "DET", "GB", rec=5)]
     h = history.build([("2025", 3, rows)], SCORING, "2026")
     assert "GB" not in h["allowed"] and h["games"]["1"][0]["season"] == "2025"
+
+
+def test_kickers_keep_their_games_for_floor_and_ceiling():
+    # Kicker stat lines have a team snap count but no player snap count
+    rows = [stat_row("K1", "K", "DAL", "TB", fgm_30_39=1, xpm=w % 4, tm_off_snp=64) for w in range(6)]
+    weeks = [("2026", w + 1, [dict(rows[w])]) for w in range(6)]
+    h = history.build(weeks, {"fgm_30_39": 3, "xpm": 1}, "2026")
+    games = h["games"]["K1"]
+    assert all("snap_share" not in g for g in games)
+    r = model.outcome_range(8.0, games, None, SETTINGS["floor_ceiling"])
+    assert r is not None and r["games"] == 6
+
+
+def test_real_zero_snaps_still_count_as_backup_games():
+    rows = [stat_row("9", "WR", "DET", "GB", off_snp=0, tm_off_snp=60, kr=2, kr_yd=40)]
+    h = history.build([("2026", 1, rows)], {"kr_yd": 0.05}, "2026")
+    assert h["games"]["9"][0]["snap_share"] == 0
