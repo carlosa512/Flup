@@ -1,0 +1,55 @@
+# Flup settings
+#
+# Every number the model uses lives in this file. Edit it on GitHub (pencil
+# icon), commit, and the next data run picks up the change.
+
+[league]
+id = "1374496898462785536"
+username = "clos512"
+
+# What you know about your league. The site compares these with what Sleeper
+# reports and flags any mismatch. They are checks only: scoring always uses
+# the real settings pulled from Sleeper.
+[league.expect]
+teams = 12
+rec = 0.5                 # half PPR
+bonus_rec_te = 0.5        # TEs get +0.5 per catch on top (full PPR for TEs)
+pass_td = 6
+pass_int = -3
+kr_yd = 0.05              # kick return yards
+pr_yd = 0.05              # punt return yards
+rb_slots = 2
+flex_slots = 2
+playoff_week_start = 15
+playoff_week_end = 17
+playoff_teams = 8
+
+# How many players per position get tiered. Your own players and your
+# opponent's are always listed, even below these cutoffs.
+[positions]
+QB = 24
+RB = 48
+WR = 60
+TE = 24
+K = 16
+DEF = 20
+
+# Local-gap tiers (same method as the draft boards, measured in points).
+# Going down the list, a new tier starts when the gap to the next player is
+# bigger than gap_multiplier x the median of the nearby gaps.
+[tiers]
+gap_multiplier = 2.2
+window = 24               # nearby gaps used for the median (12 above, 12 below)
+min_tier_size = 3         # tiers stay at least this big...
+always_break_gap = 1.5    # ...unless the gap is this many points or more
+min_median_gap = 0.2      # points; stops near-ties from splitting every player
+
+# Defense points-allowed brackets: projections give an average (say 15.5),
+# but your league scores brackets. true = blend between bracket midpoints so
+# 20.9 and 21.1 points allowed don't score wildly differently.
+[scoring]
+smooth_def_brackets = true
+
+[stale]
+# The page warns when the data is older than this
+data_hours = 36
