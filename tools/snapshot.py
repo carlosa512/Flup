@@ -77,6 +77,11 @@ def main():
         save(f"sleeper/stats_{past}_all.json",
              f"{SLEEPER}/stats/nfl/{season}/{past}?season_type=regular&"
              + "&".join(f"position[]={p}" for p in POSITIONS), gz=True)
+    prev_season = str(int(season) - 1)
+    for past in range(1, 19):
+        save(f"sleeper/stats_{prev_season}_{past}_all.json",
+             f"{SLEEPER}/stats/nfl/{prev_season}/{past}?season_type=regular&"
+             + "&".join(f"position[]={p}" for p in POSITIONS), gz=True)
     save("sleeper/trending_add.json",
          f"{SLEEPER}/v1/players/nfl/trending/add?lookback_hours=48&limit=50")
     save("sleeper/players_nfl.json", f"{SLEEPER}/v1/players/nfl", gz=True)

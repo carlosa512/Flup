@@ -4,8 +4,9 @@
   'use strict';
 
   const DATA_URL = 'data/latest.json';
-  const DATA_KEY = 'flup:data';
-  const UI_KEY = 'flup:ui';
+  // Keyed by path so the main site and /preview/ don't share saved data
+  const DATA_KEY = 'flup:data:' + location.pathname;
+  const UI_KEY = 'flup:ui:' + location.pathname;
   const FILTERS = [['all', 'All'], ['mine', 'My team'], ['fa', 'Free agents'], ['matchup', 'My matchup']];
   const EMPTY = {
     all: 'No projections at this position yet.',
