@@ -159,20 +159,26 @@
     const sourcesOk = data.sources.every((s) => s.ok);
     const range = weeks.length ? `Week${weeks.length > 1 ? 's' : ''} ${weeks[0].week}${weeks.length > 1 ? '–' + weeks[weeks.length - 1].week : ''}` : 'no finished weeks yet';
     const t = data.settings.tiers;
+    const setLine = setOk === set.length
+      ? `League settings match what you told me (${setOk} of ${set.length})`
+      : (set.length - setOk === 1 ? "1 league setting doesn't" : `${set.length - setOk} league settings don't`) + ' match what you told me';
+    const scoringLine = scoringOk
+      ? `Points here match Sleeper's official scoring (${matched} of ${checked})`
+      : (checked - matched === 1 ? "1 player's points don't" : `${checked - matched || 'Some'} players' points don't`) + " match Sleeper's official scoring";
 
-    let html = `<details class="check"><summary>${mark(setOk === set.length)} League settings match what you told me (${setOk} of ${set.length})</summary>
+    let html = `<details class="check"><summary>${mark(setOk === set.length)} ${esc(setLine)}</summary>
       <table class="checks"><thead><tr><th>Setting</th><th class="n">You said</th><th class="n">Sleeper</th><th class="n"></th></tr></thead><tbody>
       ${set.map((c) => `<tr><td>${esc(c.label)}</td><td class="n">${esc(c.expected)}</td><td class="n">${esc(c.actual == null ? '?' : c.actual)}</td><td class="n">${mark(c.ok)}</td></tr>`).join('')}
       </tbody></table></details>`;
 
-    html += `<details class="check"><summary>${mark(scoringOk)} Points here match Sleeper's official scoring (${matched} of ${checked})</summary>
+    html += `<details class="check"><summary>${mark(scoringOk)} ${esc(scoringLine)}</summary>
       <p>For ${esc(range)}, every rostered player's real stats were rescored with your league's settings and compared to the points Sleeper actually gave him.</p>
       ${weeks.map((w) => `<p>${mark(!w.misses.length)} Week ${w.week}: ${w.matched} of ${w.checked}</p>`).join('')}
       ${weeks.flatMap((w) => w.misses.map((m) => `<p class="warn">Week ${w.week}: ${esc(m.name)} (${esc(m.pos)}) here ${num(m.ours)}, Sleeper ${num(m.official)}</p>`)).join('')}
       ${data.checks.scoring.filter((x) => x.error).map((x) => `<p class="warn">${esc(x.error)}</p>`).join('')}
       </details>`;
 
-    html += `<details class="check"><summary>${mark(sourcesOk)} Data sources loaded</summary>
+    html += `<details class="check"><summary>${mark(sourcesOk)} ${sourcesOk ? 'Data sources loaded' : "A data source didn't load"}</summary>
       ${data.sources.map((s) => `<p>${mark(s.ok)} <b>${esc(s.label)}</b>: ${esc(s.detail)}${s.updated ? `. Updated ${esc(when(s.updated))}` : ''}</p>`).join('')}
       </details>`;
 
@@ -180,16 +186,18 @@
       <p>Going down each position, a new tier starts at a big drop: a gap more than ${t.gap_multiplier}× the usual gap between nearby players.
       Tiers keep at least ${t.min_tier_size} players unless the drop is ${t.always_break_gap}+ points. Players in the same tier are close enough to treat as even.</p>
       </details>`;
-    return html;
+    return { html, ok: setOk === set.length && scoringOk && sourcesOk };
   }
 
   function renderStatus() {
     const issues = problems();
+    const checks = checksBody();
+    // Old data has its own red box above; the badge only reflects the checks
     let html = issues.map((t) => `<p class="warn">${esc(t)}</p>`).join('');
     html += `<details class="health"><summary>
         <span>Data from ${esc(when(data.generated))} (${esc(ago(data.generated))})</span>
-        <span class="${issues.length ? 'bad' : 'ok'}">${issues.length ? '✗ Checks' : '✓ All checks pass'}</span>
-      </summary><div class="health-body">${checksBody()}</div></details>`;
+        <span class="badge ${checks.ok ? 'ok' : 'bad'}">${checks.ok ? '✓ All checks pass' : "✗ Something's off, tap to see"}</span>
+      </summary><div class="health-body">${checks.html}</div></details>`;
     $('#status').innerHTML = html;
   }
 
@@ -270,13 +278,14 @@
     fum: 'fumbles', fum_lost: 'lost fumbles',
   };
 
-  // Field goals by distance read better as one line
+  // Field goals by distance read better as one line; a TE's catch bonus
+  // is shown as part of his catches
   function merged(parts) {
     const out = new Map();
     for (const [stat, value, , points] of parts) {
-      const key = /^fgm_/.test(stat) ? 'fgm' : stat;
+      const key = /^fgm_/.test(stat) ? 'fgm' : stat === 'bonus_rec_te' ? 'rec' : stat;
       const m = out.get(key) || { stat: key, value: 0, points: 0 };
-      m.value += value;
+      if (stat !== 'bonus_rec_te') m.value += value;  // same catches, counted once
       m.points += points;
       out.set(key, m);
     }
@@ -286,9 +295,9 @@
   function phrase(s) {
     const name = SHORT[s.stat] || statName(s.stat).toLowerCase();
     const delta = (s.points >= 0 ? '+' : '−') + Math.abs(s.points).toFixed(1);
-    if (s.stat === 'bonus_rec_te') return `the ${name} (${delta})`;
     if (s.stat === 'pts_allow') return `about ${Math.round(s.value)} ${name} (${delta})`;
-    const amount = /_yd$/.test(s.stat) ? Math.round(s.value) : Math.round(s.value * 10) / 10;
+    if (/_td$|int$/.test(s.stat)) return `${name} (${delta})`;  // "0.4 TDs" reads oddly
+    const amount = /_yd$/.test(s.stat) ? String(Math.round(s.value)) : s.value.toFixed(1);
     return `${amount} ${name} (${delta})`;
   }
 
@@ -321,12 +330,13 @@
       const calc = weight == null ? `${num(value)} → bracket blend` : `${num(value)} × ${num(weight)}`;
       return `<tr><td>${esc(statName(stat))}</td><td class="n x">${esc(calc)}</td><td class="n">${signed(points)}</td></tr>`;
     }).join('');
-    let html = `<div class="detail">
-      <h3>Projection</h3>
-      <p>${projectionSentence(p)}</p>
-      <details class="every"><summary>See every stat</summary>
-        <table class="math"><tbody>${rows}</tbody></table>
-      </details>`;
+    let html = '<div class="detail"><h3>Projection</h3>';
+    html += p.parts.length
+      ? `<p>${projectionSentence(p)}</p>
+        <details class="every"><summary>See every stat</summary>
+          <table class="math"><tbody>${rows}</tbody></table>
+        </details>`
+      : '<p>No projection this week.</p>';
 
     html += '<h3>Game</h3>';
     html += `<p>${esc(gameText(p))}${p.kickoff ? ' · ' + esc(when(p.kickoff)) : ''}${gameState(p) ? ' · ' + gameState(p) : ''}</p>`;

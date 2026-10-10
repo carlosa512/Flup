@@ -144,13 +144,13 @@ ul.players { list-style: none; margin: 0; padding: 6px 0; min-width: 0; }
   display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 4px 12px;
   min-height: 44px; color: var(--muted); font-size: .9rem;
 }
-.health > summary .ok, .health > summary .bad { font-weight: 700; }
-.health > summary::after, .check > summary::after, .every > summary::after {
+.health > summary .badge { display: inline-flex; align-items: center; gap: 8px; margin-left: auto; font-weight: 700; }
+.health > summary .badge::after, .check > summary::after, .every > summary::after {
   content: ""; width: 7px; height: 7px; flex: none; margin-left: 2px;
   border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted);
   transform: translateY(-2px) rotate(45deg);
 }
-.health[open] > summary::after, .check[open] > summary::after, .every[open] > summary::after {
+.health[open] > summary .badge::after, .check[open] > summary::after, .every[open] > summary::after {
   transform: translateY(2px) rotate(-135deg);
 }
 .health-body { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 4px 14px; margin: 0 0 12px; }
@@ -159,7 +159,7 @@ ul.players { list-style: none; margin: 0; padding: 6px 0; min-width: 0; }
 .check > summary { display: flex; align-items: center; gap: 8px; padding: 12px 0; min-height: 48px; font-weight: 600; font-size: .95rem; }
 .check > summary::after { margin-left: auto; }
 .check > p, .check > table { margin: 0 0 10px; font-size: .92rem; }
-.check > p { color: var(--muted); }
+.check > p:not(.warn) { color: var(--muted); }
 .check > p b { color: var(--ink); }
 .checks { width: 100%; border-collapse: collapse; font-size: .92rem; }
 .checks th { text-align: left; color: var(--muted); font-weight: 600; font-size: .8rem; padding: 4px 0; }
