@@ -30,7 +30,7 @@
   };
 
   let data = null;
-  let ui = Object.assign({ view: 'tiers', pos: 'QB', filter: 'all' }, read(UI_KEY) || {});
+  let ui = Object.assign({ pos: 'QB', filter: 'all' }, read(UI_KEY) || {});
   const open = new Set();
 
   // ---------- small helpers ----------
@@ -141,16 +141,56 @@
         bad.map((c) => `${c.label} is ${c.actual} (expected ${c.expected})`).join('; ') + '.');
     }
     const misses = data.checks.scoring.reduce((n, w) => n + ((w.misses || []).length) + (w.error ? 1 : 0), 0);
-    if (misses) out.push(`Scoring check found ${misses} mismatch${misses > 1 ? 'es' : ''} with Sleeper's official points. See Checks.`);
+    if (misses) out.push(`Scoring check found ${misses} mismatch${misses > 1 ? 'es' : ''} with Sleeper's official points. Tap the checks line for details.`);
     return out;
+  }
+
+  // ---------- status line + checks (collapsed) ----------
+
+  const mark = (ok) => `<span class="${ok ? 'ok' : 'bad'}">${ok ? '✓' : '✗'}</span>`;
+
+  function checksBody() {
+    const set = data.checks.settings;
+    const setOk = set.filter((c) => c.ok).length;
+    const weeks = data.checks.scoring.filter((w) => w.week);
+    const matched = weeks.reduce((n, w) => n + w.matched, 0);
+    const checked = weeks.reduce((n, w) => n + w.checked, 0);
+    const scoringOk = matched === checked && !data.checks.scoring.some((w) => w.error);
+    const sourcesOk = data.sources.every((s) => s.ok);
+    const range = weeks.length ? `Week${weeks.length > 1 ? 's' : ''} ${weeks[0].week}${weeks.length > 1 ? '–' + weeks[weeks.length - 1].week : ''}` : 'no finished weeks yet';
+    const t = data.settings.tiers;
+
+    let html = `<details class="check"><summary>${mark(setOk === set.length)} League settings match what you told me (${setOk} of ${set.length})</summary>
+      <table class="checks"><thead><tr><th>Setting</th><th class="n">You said</th><th class="n">Sleeper</th><th class="n"></th></tr></thead><tbody>
+      ${set.map((c) => `<tr><td>${esc(c.label)}</td><td class="n">${esc(c.expected)}</td><td class="n">${esc(c.actual == null ? '?' : c.actual)}</td><td class="n">${mark(c.ok)}</td></tr>`).join('')}
+      </tbody></table></details>`;
+
+    html += `<details class="check"><summary>${mark(scoringOk)} Points here match Sleeper's official scoring (${matched} of ${checked})</summary>
+      <p>For ${esc(range)}, every rostered player's real stats were rescored with your league's settings and compared to the points Sleeper actually gave him.</p>
+      ${weeks.map((w) => `<p>${mark(!w.misses.length)} Week ${w.week}: ${w.matched} of ${w.checked}</p>`).join('')}
+      ${weeks.flatMap((w) => w.misses.map((m) => `<p class="warn">Week ${w.week}: ${esc(m.name)} (${esc(m.pos)}) here ${num(m.ours)}, Sleeper ${num(m.official)}</p>`)).join('')}
+      ${data.checks.scoring.filter((x) => x.error).map((x) => `<p class="warn">${esc(x.error)}</p>`).join('')}
+      </details>`;
+
+    html += `<details class="check"><summary>${mark(sourcesOk)} Data sources loaded</summary>
+      ${data.sources.map((s) => `<p>${mark(s.ok)} <b>${esc(s.label)}</b>: ${esc(s.detail)}${s.updated ? `. Updated ${esc(when(s.updated))}` : ''}</p>`).join('')}
+      </details>`;
+
+    html += `<details class="check"><summary>How tiers work</summary>
+      <p>Going down each position, a new tier starts at a big drop: a gap more than ${t.gap_multiplier}× the usual gap between nearby players.
+      Tiers keep at least ${t.min_tier_size} players unless the drop is ${t.always_break_gap}+ points. Players in the same tier are close enough to treat as even.</p>
+      </details>`;
+    return html;
   }
 
   function renderStatus() {
     const issues = problems();
-    let html = `<p class="fresh">Data from ${esc(when(data.generated))} (${esc(ago(data.generated))})</p>`;
-    html += issues.map((t) => `<p class="warn">${esc(t)}</p>`).join('');
+    let html = issues.map((t) => `<p class="warn">${esc(t)}</p>`).join('');
+    html += `<details class="health"><summary>
+        <span>Data from ${esc(when(data.generated))} (${esc(ago(data.generated))})</span>
+        <span class="${issues.length ? 'bad' : 'ok'}">${issues.length ? '✗ Checks' : '✓ All checks pass'}</span>
+      </summary><div class="health-body">${checksBody()}</div></details>`;
     $('#status').innerHTML = html;
-    $('#checks-dot').hidden = !issues.length;
   }
 
   // ---------- tiers ----------
@@ -218,7 +258,62 @@
     $('#tiers').innerHTML = html || `<p class="empty">${EMPTY[ui.filter]}</p>`;
   }
 
-  // ---------- player detail: show the math ----------
+  // ---------- player detail ----------
+
+  const SHORT = {
+    pass_yd: 'passing yards', pass_td: 'passing TDs', pass_int: 'interceptions',
+    rush_yd: 'rushing yards', rush_td: 'rushing TDs', rec: 'catches', rec_yd: 'receiving yards',
+    rec_td: 'receiving TDs', bonus_rec_te: 'TE catch bonus', kr_yd: 'kick return yards',
+    pr_yd: 'punt return yards', fgm: 'field goals', xpm: 'extra points', fgmiss: 'missed field goals',
+    sack: 'sacks', int: 'interceptions', fum_rec: 'fumble recoveries', ff: 'forced fumbles',
+    def_td: 'defensive TDs', pts_allow: 'points allowed', safe: 'safeties', blk_kick: 'blocked kicks',
+    fum: 'fumbles', fum_lost: 'lost fumbles',
+  };
+
+  // Field goals by distance read better as one line
+  function merged(parts) {
+    const out = new Map();
+    for (const [stat, value, , points] of parts) {
+      const key = /^fgm_/.test(stat) ? 'fgm' : stat;
+      const m = out.get(key) || { stat: key, value: 0, points: 0 };
+      m.value += value;
+      m.points += points;
+      out.set(key, m);
+    }
+    return [...out.values()];
+  }
+
+  function phrase(s) {
+    const name = SHORT[s.stat] || statName(s.stat).toLowerCase();
+    const delta = (s.points >= 0 ? '+' : '−') + Math.abs(s.points).toFixed(1);
+    if (s.stat === 'bonus_rec_te') return `the ${name} (${delta})`;
+    if (s.stat === 'pts_allow') return `about ${Math.round(s.value)} ${name} (${delta})`;
+    const amount = /_yd$/.test(s.stat) ? Math.round(s.value) : Math.round(s.value * 10) / 10;
+    return `${amount} ${name} (${delta})`;
+  }
+
+  function andList(items) {
+    return items.length < 2 ? items.join('') : items.slice(0, -1).join(', ') + ' and ' + items[items.length - 1];
+  }
+
+  // One plain sentence: the 2-3 stats that make up most of the projection,
+  // plus the biggest penalty if it costs a point or more.
+  function projectionSentence(p) {
+    const all = merged(p.parts);
+    const gains = all.filter((s) => s.points > 0).sort((a, b) => b.points - a.points);
+    const picks = [];
+    let covered = 0;
+    for (const s of gains) {
+      if (picks.length === 3 || (picks.length >= 2 && covered >= 0.7 * p.proj)) break;
+      picks.push(s);
+      covered += s.points;
+    }
+    const penalty = all.filter((s) => s.points <= -1).sort((a, b) => a.points - b.points)[0];
+    let text = `<b>${pts(p.proj)} pts</b> in your scoring`;
+    if (picks.length) text += ', mostly from ' + andList(picks.map(phrase));
+    if (penalty) text += ', minus ' + phrase(penalty);
+    return text + '.';
+  }
 
   function detail(p) {
     const block = data.positions[p.pos];
@@ -227,23 +322,23 @@
       return `<tr><td>${esc(statName(stat))}</td><td class="n x">${esc(calc)}</td><td class="n">${signed(points)}</td></tr>`;
     }).join('');
     let html = `<div class="detail">
-      <h3>How ${pts(p.proj)} is built</h3>
-      <table class="math"><tbody>${rows}
-        <tr class="total"><td>Projected, your scoring</td><td></td><td class="n">${pts(p.proj)}</td></tr>
-      </tbody></table>`;
+      <h3>Projection</h3>
+      <p>${projectionSentence(p)}</p>
+      <details class="every"><summary>See every stat</summary>
+        <table class="math"><tbody>${rows}</tbody></table>
+      </details>`;
 
     html += '<h3>Game</h3>';
     html += `<p>${esc(gameText(p))}${p.kickoff ? ' · ' + esc(when(p.kickoff)) : ''}${gameState(p) ? ' · ' + gameState(p) : ''}</p>`;
     if (p.implied != null) {
-      html += `<p>${esc(p.team)} ${p.spread > 0 ? '+' : ''}${num(p.spread)}, total ${num(p.implied * 2 + p.spread)} → ${esc(p.team)} implied for <b>${num(p.implied)}</b> pts</p>`;
+      html += `<p>${esc(p.team)} ${p.spread > 0 ? '+' : ''}${num(p.spread)}, total ${num(p.implied * 2 + p.spread)} → implied for <b>${num(p.implied)}</b> pts</p>`;
     } else if (!gameState(p)) {
       html += '<p>No Vegas line posted yet.</p>';
     }
 
-    const o = owner(p);
-    html += '<h3>Status</h3>';
-    html += `<p>${p.injury ? `<b>${esc(p.injury)}</b>${p.injury_detail ? ' (' + esc(p.injury_detail) + ')' : ''}` : 'No injury designation'}</p>`;
-    html += `<p>${o.kind === 'fa' ? 'Free agent' : o.kind === 'mine' ? 'On your team' : 'Rostered by ' + esc(o.team)}</p>`;
+    if (p.injury) {
+      html += `<h3>Injury</h3><p><b>${esc(p.injury)}</b>${p.injury_detail ? ' (' + esc(p.injury_detail) + ')' : ''}</p>`;
+    }
 
     if (p.tier != null) {
       const total = block.breaks.length + 1;
@@ -256,76 +351,22 @@
       }
       html += '</p>';
     }
-    html += '<p class="fresh">My Score is the projection alone for now. The consensus blend and adjustments come next.</p>';
     return html + '</div>';
   }
 
-  // ---------- checks ----------
-
-  function renderChecks() {
-    const set = data.checks.settings;
-    const okCount = set.filter((c) => c.ok).length;
-    let html = `<div class="card"><h2>League settings: ${okCount} of ${set.length} match</h2>
-      <p>What you told me vs what Sleeper reports. Scoring always uses Sleeper's real settings.</p>
-      <table class="checks"><thead><tr><th>Setting</th><th class="n">You said</th><th class="n">Sleeper</th><th class="n"></th></tr></thead><tbody>`;
-    html += set.map((c) => `<tr><td>${esc(c.label)}</td><td class="n">${esc(c.expected)}</td><td class="n">${esc(c.actual == null ? '?' : c.actual)}</td>
-      <td class="n ${c.ok ? 'ok' : 'bad'}">${c.ok ? '✓' : '✗'}</td></tr>`).join('');
-    html += '</tbody></table></div>';
-
-    const weeks = data.checks.scoring.filter((w) => w.week);
-    const matched = weeks.reduce((n, w) => n + w.matched, 0);
-    const checked = weeks.reduce((n, w) => n + w.checked, 0);
-    html += `<div class="card"><h2>Scoring engine: ${matched} of ${checked} match</h2>
-      <p>Every finished week, each rostered player's real stats are rescored with your settings and compared to the points Sleeper officially gave him.</p>
-      <table class="checks"><thead><tr><th>Week</th><th class="n">Matched</th><th class="n"></th></tr></thead><tbody>`;
-    html += weeks.map((w) => `<tr><td>Week ${w.week}</td><td class="n">${w.matched} / ${w.checked}</td>
-      <td class="n ${w.misses.length ? 'bad' : 'ok'}">${w.misses.length ? '✗' : '✓'}</td></tr>`).join('');
-    html += '</tbody></table>';
-    for (const w of weeks) {
-      for (const m of w.misses) {
-        html += `<p class="warn">Week ${w.week}: ${esc(m.name)} (${esc(m.pos)}) ours ${num(m.ours)} vs Sleeper ${num(m.official)}</p>`;
-      }
-    }
-    for (const w of data.checks.scoring.filter((x) => x.error)) html += `<p class="warn">${esc(w.error)}</p>`;
-    html += '</div>';
-
-    html += `<div class="card"><h2>Data sources</h2><table class="checks"><tbody>`;
-    html += data.sources.map((s) => `<tr><td><b>${esc(s.label)}</b><br><span class="fresh">${esc(s.detail)}</span>
-      ${s.updated ? `<br><span class="fresh">Source updated ${esc(when(s.updated))} (${esc(ago(s.updated))})</span>` : ''}</td>
-      <td class="n">${esc(when(s.fetched))}</td><td class="n ${s.ok ? 'ok' : 'bad'}">${s.ok ? '✓' : '✗'}</td></tr>`).join('');
-    html += '</tbody></table></div>';
-
-    const t = data.settings.tiers;
-    html += `<div class="card"><h2>Tier rule</h2>
-      <p>Going down each position, a new tier starts when the gap to the next player is bigger than
-      ${t.gap_multiplier}× the median of the ${t.window} nearby gaps (never below ${t.min_median_gap} pts).
-      Tiers keep at least ${t.min_tier_size} players, unless the gap is ${t.always_break_gap} pts or more.
-      Change these in settings.toml.</p></div>`;
-
-    const scoring = Object.entries(data.league.scoring);
-    html += `<div class="card"><details><summary><b>All ${scoring.length} scoring settings from Sleeper</b></summary>
-      <table class="checks"><tbody>${scoring.map(([k, v]) =>
-        `<tr><td>${esc(statName(k))} <span class="fresh">${esc(k)}</span></td><td class="n">${esc(v)}</td></tr>`).join('')}
-      </tbody></table></details></div>`;
-    $('#checks').innerHTML = html;
-  }
-
-  // ---------- views ----------
+  // ---------- render ----------
 
   function render() {
     if (!data) return;
     renderHeader();
     renderStatus();
-    document.querySelectorAll('[data-view]').forEach((b) => b.setAttribute('aria-pressed', b.dataset.view === ui.view));
-    $('#view-tiers').hidden = ui.view !== 'tiers';
-    $('#view-checks').hidden = ui.view !== 'checks';
-    if (ui.view === 'tiers') { renderTabs(); renderTiers(); } else { renderChecks(); }
+    renderTabs();
+    renderTiers();
   }
 
   document.addEventListener('click', (e) => {
     const t = e.target.closest('button');
     if (!t) return;
-    if (t.dataset.view) { ui.view = t.dataset.view; saveUi(); render(); window.scrollTo(0, 0); return; }
     if (t.dataset.pos) { ui.pos = t.dataset.pos; saveUi(); renderTabs(); renderTiers(); return; }
     if (t.dataset.filter) { ui.filter = t.dataset.filter; saveUi(); renderTabs(); renderTiers(); return; }
     if (t.classList.contains('row')) {

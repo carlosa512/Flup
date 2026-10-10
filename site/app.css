@@ -65,22 +65,12 @@ h1 {
 .matchup .vs { color: var(--muted); font-weight: 400; }
 .rec { font-weight: 400; opacity: .8; }
 
-.views { display: flex; gap: 6px; margin: 14px 0 0; border-bottom: 3px solid var(--turf); }
-.views button {
-  font: 700 1.25rem/1 "Barlow Condensed", "Arial Narrow", sans-serif; color: var(--muted);
-  background: none; border: 0; border-radius: 10px 10px 0 0; padding: 12px 16px; min-height: 48px; cursor: pointer;
-}
-.views button[aria-pressed="true"] { background: var(--turf); color: var(--on-turf); }
-.dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--out); vertical-align: middle; margin-left: 4px; }
-
 main { padding-top: 12px; padding-bottom: 40px; }
 .warn, .note {
   border-radius: 10px; padding: 12px 14px; margin: 0 0 10px; font-size: .95rem;
 }
 .warn { background: var(--warn-bg); color: var(--warn); }
 .note { background: var(--note-bg); color: var(--note); }
-.fresh { color: var(--muted); font-size: .9rem; margin: 0 0 10px; }
-
 /* Position tabs and filters */
 .bar {
   position: sticky; top: 0; z-index: 3; background: var(--paper);
@@ -141,19 +131,46 @@ ul.players { list-style: none; margin: 0; padding: 6px 0; min-width: 0; }
 .math td { padding: 4px 0; border-bottom: 1px solid var(--line); }
 .math td.n { text-align: right; padding-left: 8px; white-space: nowrap; }
 .math td.x { color: var(--muted); }
-.math tr.total td { font-weight: 700; border-bottom: 0; }
 .detail p { margin: 4px 0; }
 
-/* Checks */
-.card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px; margin: 0 0 12px; }
-.card h2 { font: 700 1.3rem/1.1 "Barlow Condensed", "Arial Narrow", sans-serif; margin: 0 0 4px; }
-.card > p { margin: 0 0 8px; color: var(--muted); font-size: .92rem; }
+/* Status line with the checks folded inside */
+.health { margin: 0 0 8px; }
+.health > summary, .check > summary, .every > summary {
+  list-style: none; cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.health > summary::-webkit-details-marker, .check > summary::-webkit-details-marker,
+.every > summary::-webkit-details-marker { display: none; }
+.health > summary {
+  display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 4px 12px;
+  min-height: 44px; color: var(--muted); font-size: .9rem;
+}
+.health > summary .ok, .health > summary .bad { font-weight: 700; }
+.health > summary::after, .check > summary::after, .every > summary::after {
+  content: ""; width: 7px; height: 7px; flex: none; margin-left: 2px;
+  border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted);
+  transform: translateY(-2px) rotate(45deg);
+}
+.health[open] > summary::after, .check[open] > summary::after, .every[open] > summary::after {
+  transform: translateY(2px) rotate(-135deg);
+}
+.health-body { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 4px 14px; margin: 0 0 12px; }
+.check { border-top: 1px solid var(--line); }
+.check:first-child { border-top: 0; }
+.check > summary { display: flex; align-items: center; gap: 8px; padding: 12px 0; min-height: 48px; font-weight: 600; font-size: .95rem; }
+.check > summary::after { margin-left: auto; }
+.check > p, .check > table { margin: 0 0 10px; font-size: .92rem; }
+.check > p { color: var(--muted); }
+.check > p b { color: var(--ink); }
 .checks { width: 100%; border-collapse: collapse; font-size: .92rem; }
 .checks th { text-align: left; color: var(--muted); font-weight: 600; font-size: .8rem; padding: 4px 0; }
 .checks td { padding: 7px 0; border-top: 1px solid var(--line); vertical-align: top; }
 .checks td.n, .checks th.n { text-align: right; padding-left: 8px; font-variant-numeric: tabular-nums; }
 .ok { color: var(--ok); font-weight: 700; }
 .bad { color: var(--out); font-weight: 700; }
+.every { margin: 2px 0 4px; }
+.every > summary { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: .88rem; padding: 8px 0; min-height: 40px; }
+.every > summary::after { width: 6px; height: 6px; }
+.every .math { margin-top: 4px; }
 
 .toast {
   position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom, 0)); transform: translateX(-50%);

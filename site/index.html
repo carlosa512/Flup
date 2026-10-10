@@ -39,25 +39,17 @@
     </div>
   </div>
   <p class="matchup" id="matchup"></p>
-  <nav class="views" aria-label="Sections">
-    <button type="button" data-view="tiers" aria-pressed="true">Tiers</button>
-    <button type="button" data-view="checks" aria-pressed="false">Checks <span class="dot" id="checks-dot" hidden></span></button>
-  </nav>
 </header>
 
 <main>
   <div id="status"></div>
 
-  <section id="view-tiers" class="view">
+  <section id="view-tiers">
     <div class="bar">
       <div class="tabs" id="pos-tabs" role="tablist" aria-label="Positions"></div>
       <div class="filters" id="filters" aria-label="Show"></div>
     </div>
     <div id="tiers"></div>
-  </section>
-
-  <section id="view-checks" class="view" hidden>
-    <div id="checks"></div>
   </section>
 
   <p class="toast" id="toast" role="status" aria-live="polite" hidden></p>
