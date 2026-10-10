@@ -7,7 +7,7 @@ import tomllib
 from datetime import datetime, timezone
 from pathlib import Path
 
-from . import consensus, espn, history, model, sleeper
+from . import consensus, espn, history, lineup, model, sleeper
 from .fetch import FetchError
 from .league import context, sanity
 from .scoring import score_line
@@ -230,6 +230,10 @@ def build(settings, week=None, league_id=None, now=None):
         "ok": not failed, "fetched": now, "updated": iso(newest / 1000) if newest else None,
         "detail": "; ".join(failed) if failed else f"{sum(len(p['players']) for p in positions.values())} players scored"})
 
+    # My best lineup, both teams' totals and my win %
+    my_lineup = lineup.build(positions, ctx, lg.get("roster_positions") or [], games,
+                             settings["lineup"], now)
+
     # Prove the scoring engine on every finished week
     weeks = []
     for past in range(1, week):
@@ -243,7 +247,7 @@ def build(settings, week=None, league_id=None, now=None):
             weeks.append({"week": None, "error": str(err)})
 
     return {
-        "version": 2,
+        "version": 3,
         "generated": now,
         "season": season,
         "week": week,
@@ -259,6 +263,7 @@ def build(settings, week=None, league_id=None, now=None):
                      "blend": settings["blend"], "floor_ceiling": fc,
                      "stale_hours": settings.get("stale", {}).get("data_hours", 36)},
         "positions": positions,
+        "lineup": my_lineup,
         "games": game_list,
     }
 

@@ -7,7 +7,7 @@
   // Keyed by path so the main site and /preview/ don't share saved data
   const DATA_KEY = 'flup:data:' + location.pathname;
   const UI_KEY = 'flup:ui:' + location.pathname;
-  const DATA_VERSION = 2;  // the data format this app reads
+  const DATA_VERSION = 3;  // the data format this app reads
   const FILTERS = [['all', 'All'], ['mine', 'My team'], ['fa', 'Free agents'], ['matchup', 'My matchup']];
   const EMPTY = {
     all: 'No projections at this position yet.',
@@ -33,6 +33,8 @@
 
   let data = null;
   let ui = Object.assign({ pos: 'QB', filter: 'all' }, read(UI_KEY) || {});
+  let view = 'lineup';  // the app always opens on the lineup
+  let index = new Map();  // player id -> player
   const open = new Set();
 
   // ---------- small helpers ----------
@@ -393,25 +395,155 @@
     return html + '</div>';
   }
 
+  // ---------- lineup ----------
+
+  const MODE = {
+    favored: { word: 'Favored', line: 'playing it safe', cls: 'fav' },
+    underdog: { word: 'Underdog', line: 'swinging for upside', cls: 'dog' },
+    even: { word: 'Close matchup', line: 'going with My Score', cls: 'even' },
+  };
+  const SLOT_SHORT = { SUPER_FLEX: 'SF', WRRB_FLEX: 'W/R', REC_FLEX: 'W/T' };
+  const pct = (x) => Math.round(x * 100) + '%';
+  const nameOf = (id) => (index.get(id) || {}).name || 'Unknown player';
+
+  function lineupRow(e, side) {
+    const slot = `<span class="slot">${esc(SLOT_SHORT[e.slot] || e.slot)}</span>`;
+    if (!e.id) {
+      const why = side === 'me' ? 'No healthy player with a game for this slot.' : 'Nobody in this slot.';
+      return `<li class="player empty-slot"><div class="row lu">${slot}<span class="nm">Empty</span>
+        <span class="pts">${pts(0)}</span><span class="sub">${why}</span></div></li>`;
+    }
+    const p = index.get(e.id);
+    if (!p) {
+      return `<li class="player"><div class="row lu">${slot}<span class="nm">Unknown player</span>
+        <span class="pts">${pts(e.pts)}</span><span class="sub">Not in this week's projections</span></div></li>`;
+    }
+    const inj = p.injury ? `<span class="inj ${injClass(p.injury)}" title="${esc(p.injury)}">${esc(injShort(p.injury))}</span>` : '';
+    const state = e.state === 'final' ? 'Played' : e.state === 'live' ? 'Live' : '';
+    const sub = [
+      `<span>${esc(gameText(p))}</span>`,
+      state ? `<span class="played">${state}</span>` : (p.kickoff ? `<span>${esc(when(p.kickoff))}</span>` : ''),
+      e.new ? '<span class="chip new">New</span>' : '',
+    ].join('');
+    let why = side === 'me' ? e.why || '' : '';
+    if (side !== 'me' && e.state === 'live') why = `${pts(e.actual)} so far, ${Math.round(e.left * 100)}% of the game left`;
+    const isOpen = open.has(p.id);
+    return `<li class="player ${e.new ? 'new' : ''}" data-id="${esc(p.id)}">
+      <button type="button" class="row lu" aria-expanded="${isOpen}">
+        ${slot}
+        <span class="nm">${esc(p.name)}${inj}</span>
+        <span class="pts">${pts(e.pts)}</span>
+        <span class="sub">${sub}</span>
+        ${why ? `<span class="why">${esc(why)}</span>` : ''}
+      </button>${isOpen ? detail(p) : ''}</li>`;
+  }
+
+  function lineupMath(L) {
+    const me = L.me, opp = L.opp, f = L.first;
+    const diff = me.total - opp.total;
+    const comb = Math.sqrt(me.sd * me.sd + opp.sd * opp.sd);
+    const lean = Math.round(L.lean * 100) + '%';
+    let html = `<p>Each starter counts his expected points: My Score if his game hasn't started,
+      points so far plus My Score for the part of the game left if it's live, and his actual points once it's over.</p>`;
+    html += `<p>You <b>${pts(me.total)}</b> (give or take ${pts(me.sd)}) vs them <b>${pts(opp.total)}</b>
+      (give or take ${pts(opp.sd)}). Their lineup is counted exactly as set in Sleeper.</p>`;
+    if (comb > 0) {
+      html += `<p>Win % is the chance your total ends up higher: ${signedPts(diff)} ÷ √(${pts(me.sd)}² + ${pts(opp.sd)}²)
+        = ${signedPts(diff)} ÷ ${pts(comb)} = ${(diff < 0 ? '−' : '') + Math.abs(diff / comb).toFixed(2)} on the bell curve → <b>${pct(L.win)}</b>.</p>`;
+    }
+    if (L.mode === 'even') {
+      html += `<p>Your best lineup by My Score wins ${pct(f.win)} of the time. That's between ${pct(L.underdog)} and
+        ${pct(L.favored)}, so players are ranked by My Score as is.</p>`;
+    } else {
+      const dog = L.mode === 'underdog';
+      html += `<p>Your best lineup by My Score wins ${pct(f.win)} of the time. That's ${dog ? 'under ' + pct(L.underdog) + ': underdog' : pct(L.favored) + ' or more: favored'}.
+        So players are ranked by <b>${dog ? 'upside score' : 'safe score'}</b>: My Score moved ${lean} of the way
+        ${dog ? 'up to his ceiling, which favors boom-or-bust players' : 'down to his floor, which favors steady players'}.
+        Final lineup: ${pct(L.win)}.</p>`;
+    }
+    html += `<p class="muted">This treats every player as scoring on his own. Teammates (a QB and his receivers)
+      tend to boom or bust together, so the real spread is a bit wider and this % is a little too sure of itself.</p>`;
+    return html;
+  }
+
+  function verdict(L) {
+    const opp = data.league.teams[data.league.opp_rid];
+    if (!L.opp || L.win == null) {
+      return `<div class="verdict"><p class="mode-line">No opponent found this week</p>
+        <div class="totals"><div><span class="lbl">You</span><b>${pts(L.me.total)}</b></div></div></div>`;
+    }
+    const m = MODE[L.mode] || MODE.even;
+    return `<div class="verdict ${m.cls}">
+      <p class="mode-line"><b>${m.word} ${pct(L.win)}</b>: ${m.line}</p>
+      <div class="winbar" role="img" aria-label="${pct(L.win)} chance to win"><span style="width:${(L.win * 100).toFixed(1)}%"></span></div>
+      <div class="totals">
+        <div><span class="lbl">You</span><b>${pts(L.me.total)}</b></div>
+        <div class="them"><span class="lbl">${esc(opp ? opp.name : 'Them')}</span><b>${pts(L.opp.total)}</b></div>
+      </div>
+      <details class="every"><summary>How this is worked out</summary><div class="math-text">${lineupMath(L)}</div></details>
+    </div>`;
+  }
+
+  function changesBox(L) {
+    if (!L.changes.length) return '<p class="note done">✓ Your Sleeper lineup already matches.</p>';
+    const items = L.changes.map((c) => {
+      if (c.in && c.out) return `Start <b>${esc(nameOf(c.in))}</b> for ${esc(nameOf(c.out))}`;
+      if (c.in) return `Start <b>${esc(nameOf(c.in))}</b> in the empty ${esc(c.slot)} slot`;
+      return `Bench ${esc(nameOf(c.out))}: no healthy player to put in`;
+    });
+    const n = L.changes.length;
+    return `<div class="note todo"><b>Make ${n} change${n > 1 ? 's' : ''} in Sleeper</b>
+      <ul>${items.map((t) => `<li>${t}</li>`).join('')}</ul></div>`;
+  }
+
+  function renderLineup() {
+    const L = data.lineup;
+    if (!L) {
+      $('#lineup').innerHTML = '<p class="warn">Couldn\'t find your team in this league, so there\'s no lineup.</p>';
+      return;
+    }
+    let html = verdict(L) + changesBox(L);
+    html += `<h2 class="section">Your lineup</h2><ul class="players lineup">${L.me.starters.map((e) => lineupRow(e, 'me')).join('')}</ul>`;
+    if (L.opp) {
+      html += `<details class="their"><summary>Their lineup, as set in Sleeper <b>${pts(L.opp.total)}</b></summary>
+        <ul class="players lineup">${L.opp.starters.map((e) => lineupRow(e, 'opp')).join('')}</ul></details>`;
+    }
+    const isOpen = document.querySelector('#lineup details.their[open]');
+    const mathOpen = document.querySelector('#lineup .verdict details[open]');
+    $('#lineup').innerHTML = html;
+    if (isOpen) document.querySelector('#lineup details.their').open = true;
+    if (mathOpen) document.querySelector('#lineup .verdict details').open = true;
+  }
+
   // ---------- render ----------
+
+  function renderView() {
+    for (const b of document.querySelectorAll('[data-view]')) b.setAttribute('aria-selected', String(b.dataset.view === view));
+    $('#view-lineup').hidden = view !== 'lineup';
+    $('#view-tiers').hidden = view !== 'tiers';
+    if (view === 'lineup') renderLineup();
+    else { renderTabs(); renderTiers(); }
+  }
 
   function render() {
     if (!data) return;
+    index = new Map();
+    for (const block of Object.values(data.positions)) for (const p of block.players) index.set(p.id, p);
     renderHeader();
     renderStatus();
-    renderTabs();
-    renderTiers();
+    renderView();
   }
 
   document.addEventListener('click', (e) => {
     const t = e.target.closest('button');
     if (!t) return;
+    if (t.dataset.view) { view = t.dataset.view; if (data) renderView(); window.scrollTo(0, 0); return; }
     if (t.dataset.pos) { ui.pos = t.dataset.pos; saveUi(); renderTabs(); renderTiers(); return; }
     if (t.dataset.filter) { ui.filter = t.dataset.filter; saveUi(); renderTabs(); renderTiers(); return; }
     if (t.classList.contains('row')) {
       const id = t.closest('.player').dataset.id;
       if (open.has(id)) open.delete(id); else open.add(id);
-      renderTiers();
+      renderView();
     }
   });
 

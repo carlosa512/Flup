@@ -42,9 +42,17 @@
 </header>
 
 <main>
+  <div class="views" role="tablist" aria-label="Views">
+    <button type="button" role="tab" data-view="lineup" aria-selected="true">Lineup</button>
+    <button type="button" role="tab" data-view="tiers" aria-selected="false">Tiers</button>
+  </div>
   <div id="status"></div>
 
-  <section id="view-tiers">
+  <section id="view-lineup">
+    <div id="lineup"></div>
+  </section>
+
+  <section id="view-tiers" hidden>
     <div class="bar">
       <div class="tabs" id="pos-tabs" role="tablist" aria-label="Positions"></div>
       <div class="filters" id="filters" aria-label="Show"></div>

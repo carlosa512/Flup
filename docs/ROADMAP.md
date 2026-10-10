@@ -40,20 +40,27 @@ handed over.
   (`[adjust.injury] doubtful`). Owner hasn't confirmed.
 - `always_break_gap` = 1.5 for tiers (1.0 splits TE/DEF tops more).
 
-Phase 3, ask before building:
-1. How "lean on floor/ceiling" changes picks. Proposal: win % from the My
-   Score lineup -> mode -> re-pick by floor (favored) or ceiling (underdog)
-   -> show the final win %. (It's circular otherwise.)
-2. Close calls (~1.5 pts): measured on the number the mode uses. Gap in
-   settings.toml.
-3. Boom/bust label: e.g. ceiling/score vs the position's typical ratio.
-4. A separate Lineup tab vs a section above Tiers (index.html only has the
-   Tiers view; the Tiers/Checks tab bar was removed in Phase 1).
-5. Can a free agent added now play this week? League has FAAB with
-   daily_waivers=1, waiver_clear_days=1 in league settings.
-6. Live games on Sunday: proposed rule below; confirm.
+Phase 3 decisions (owner, 2026-10-10):
+1. Favored/underdog leans **halfway**: players are ranked by My Score moved
+   `[lineup] lean` (0.5) of the way to the floor (favored, "safe score") or
+   ceiling (underdog, "upside score"). Win % from the My Score lineup sets
+   the mode; the final win % is from the re-picked lineup.
+2. Close calls: within 1.5 pts (`[lineup] close_call`) on the number the
+   mode uses.
+3. Boom/bust label: "Boom" when ceiling/score is well above the position's
+   usual ratio, "Steady" when floor/score is. No label otherwise.
+4. Two tabs, Lineup | Tiers; the app always opens on Lineup.
+5. Free agents are instant adds in this league (only recently dropped
+   players go through waivers): a free agent can start this week if his
+   game hasn't kicked off.
+6. Opponent lineup is used **exactly as set** in Sleeper (an Out starter
+   counts 0).
+7. Live games: points so far + My Score x share of the game left (quarter
+   and clock from ESPN); sd x sqrt(share left). Finished: actual points.
+8. Doubtful stays 60% off. Never start Out/IR. No FAAB bid suggestions;
+   show Sleeper's trending-adds count instead.
 
-## What the data already has (site/data/latest.json, version 2)
+## What the data already has (site/data/latest.json, version 3)
 
 Per player (in `positions[POS].players`): `id, name, pos, team, opp, home,
 kickoff, game_status, implied, spread, injury, injury_detail, proj, parts,
@@ -64,7 +71,18 @@ League: `id, name, teams {"rid" (string keys "1".."12"): name, user, wins,
 losses, ties, points_for, faab_left}`, `my_rid` / `opp_rid` (ints, same as
 player `roster`; in Python use `teams[str(rid)]`), `roster_positions`,
 `scoring`. Top level: `version, generated, season, week, league, sources,
-checks, settings, positions, games`. `positions[POS]` = `{players, breaks}`.
+checks, settings, positions, lineup, games`. `positions[POS]` =
+`{players, breaks}`. `games[]` also has `state` (pre/in/post),
+`completed`, `period`, `clock` (seconds left in the quarter).
+
+`lineup` (null if my team isn't found): `slots` (starting slots only),
+`mode` (favored/underdog/even), `win` (final, null without an opponent),
+`lean, favored, underdog, close_call`, `first {total, sd, win}` (the My
+Score lineup that set the mode), `me` and `opp` = `{total, sd, starters}`
+(`opp` null without an opponent), `current` (my Sleeper starter ids, "0" =
+empty), `changes [{slot, in, out}]` (`in` or `out` may be null). Each
+starter: `slot, id (null = empty), pts, sd, state (pre/live/final/none/
+empty/unknown), actual, left`; mine also `why, new, replaces?`.
 
 Nullable: `range` (players with no projection or no game; their `note`
 says which), `cons` (no consensus rank), `tier` (below the top-N cut).
@@ -73,7 +91,18 @@ my roster or my opponent's is included. In week 5 that covered every
 rostered player on both teams, including IR and bye players (score 0 with a
 note), because Sleeper gives them projection rows too.
 
-## Phase 3: lineup, win %, close calls, waivers (next)
+## Phase 3: lineup, win %, close calls, waivers (in progress)
+
+Built in pieces on `claude/phase-3-planning-z9glru`:
+1. Done: Lineup tab with win %, mode, totals, the math, changes from the
+   Sleeper lineup, one-line reasons, their lineup behind a tap
+   (pipeline/lineup.py; live/finished/locked games are already handled).
+2. Next: close calls (case for each side) + late-swap tip.
+3. Bench FLEX options + 3-5 free agents with Boom/Steady labels, kickoff,
+   trending count; "On waivers" for players dropped in the last day if the
+   transactions endpoint shows it.
+4. Sunday afternoon: app marks players whose kickoff passed while viewing;
+   check live/locked handling against a real Sunday dev-raw capture.
 
 From the spec ("Win probability and boom/bust" and "What the dashboard
 shows" 1-3 and 6):

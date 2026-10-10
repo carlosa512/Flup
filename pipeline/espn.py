@@ -47,9 +47,17 @@ def parse(data):
         home, away = sides.get("home"), sides.get("away")
         if not home or not away:
             continue
+        status = comp.get("status") or ev.get("status") or {}
+        kind = status.get("type") or {}
+        clock = status.get("clock")
         game = {"id": ev.get("id"), "home": home, "away": away,
                 "kickoff": comp.get("date") or ev.get("date"),
-                "status": ((comp.get("status") or {}).get("type") or {}).get("name"),
+                "status": kind.get("name"),
+                # pre / in / post, plus where a live game is: quarter and
+                # seconds left in it
+                "state": kind.get("state"), "completed": bool(kind.get("completed")),
+                "period": status.get("period") or 0,
+                "clock": float(clock) if isinstance(clock, (int, float)) else 0.0,
                 "spread_home": None, "total": None, "book": None}
         odds = (comp.get("odds") or [None])[0]
         if odds:
@@ -74,8 +82,10 @@ def by_team(games):
             if g["total"] is not None and spread is not None:
                 implied = round(g["total"] / 2 - spread / 2, 2)
             out[me] = {"opp": opp, "home": home, "kickoff": g["kickoff"],
-                       "status": g["status"], "spread": spread,
-                       "total": g["total"], "implied": implied}
+                       "status": g["status"], "state": g.get("state"),
+                       "completed": g.get("completed", False),
+                       "period": g.get("period", 0), "clock": g.get("clock", 0.0),
+                       "spread": spread, "total": g["total"], "implied": implied}
     return out
 
 

@@ -120,6 +120,19 @@ ceiling_pct = 90
 last_season_games = 12    # most recent games from last season to include
 shrink_games = 6          # a player's own spread counts half at this many games
 
+# ---------------------------------------------------------------------------
+# Lineup and win %
+# ---------------------------------------------------------------------------
+
+# Win % comes from your best lineup by My Score. Favored: players are ranked
+# partway toward their floor (playing it safe). Underdog: partway toward
+# their ceiling (swinging for upside). In between: My Score as is.
+[lineup]
+favored = 0.65            # win chance at or above this = favored
+underdog = 0.35           # win chance below this = underdog
+lean = 0.5                # how far toward floor/ceiling: 0 = not at all, 1 = all the way
+close_call = 1.5          # points; starters closer than this to a bench player are close calls
+
 [stale]
 # The page warns when the data is older than this
 data_hours = 36

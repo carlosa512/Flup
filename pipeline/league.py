@@ -13,7 +13,7 @@ def context(league, users, rosters, matchups, username, my_user_id=None):
             mine_ids.add(u["user_id"])
     display = {u["user_id"]: u.get("display_name") or "" for u in users}
 
-    teams, owners, my_rid = {}, {}, None
+    teams, owners, reserve, my_rid = {}, {}, {}, None
     for r in rosters:
         rid = r.get("roster_id")
         if rid is None:
@@ -30,17 +30,24 @@ def context(league, users, rosters, matchups, username, my_user_id=None):
             my_rid = rid
         for pid in r.get("players") or []:
             owners[str(pid)] = rid
+        reserve[rid] = [str(pid) for pid in r.get("reserve") or []]
 
-    groups = {}
+    groups, lineups = {}, {}
     for m in matchups:
         if m.get("matchup_id") is not None:
             groups.setdefault(m["matchup_id"], []).append(m.get("roster_id"))
+        # Starters in roster_positions order ("0" = empty slot) and this
+        # week's points so far for everyone on the roster
+        lineups[m.get("roster_id")] = {
+            "starters": [str(pid) for pid in m.get("starters") or []],
+            "points": {str(k): v for k, v in (m.get("players_points") or {}).items()
+                       if isinstance(v, (int, float))}}
     pairs = {}
     for ids in groups.values():
         if len(ids) == 2:
             pairs[ids[0]], pairs[ids[1]] = ids[1], ids[0]
-    return {"teams": teams, "owners": owners, "my_rid": my_rid,
-            "opp_rid": pairs.get(my_rid), "pairs": pairs}
+    return {"teams": teams, "owners": owners, "reserve": reserve, "lineups": lineups,
+            "my_rid": my_rid, "opp_rid": pairs.get(my_rid), "pairs": pairs}
 
 
 def playoff_weeks(settings):
