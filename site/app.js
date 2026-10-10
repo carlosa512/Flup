@@ -4,8 +4,10 @@
   'use strict';
 
   const DATA_URL = 'data/latest.json';
-  const DATA_KEY = 'flup:data';
-  const UI_KEY = 'flup:ui';
+  // Keyed by path so the main site and /preview/ don't share saved data
+  const DATA_KEY = 'flup:data:' + location.pathname;
+  const UI_KEY = 'flup:ui:' + location.pathname;
+  const DATA_VERSION = 2;  // the data format this app reads
   const FILTERS = [['all', 'All'], ['mine', 'My team'], ['fa', 'Free agents'], ['matchup', 'My matchup']];
   const EMPTY = {
     all: 'No projections at this position yet.',
@@ -233,7 +235,7 @@
       <button type="button" class="row" aria-expanded="${isOpen}">
         <span class="rk">${p.rank}</span>
         <span class="nm">${esc(p.name)}${inj}</span>
-        <span class="pts">${pts(p.proj)}</span>
+        <span class="pts">${pts(p.score)}</span>
         <span class="sub">${sub}</span>
       </button>${isOpen ? detail(p) : ''}</li>`;
   }
@@ -318,10 +320,49 @@
       covered += s.points;
     }
     const penalty = all.filter((s) => s.points <= -1).sort((a, b) => a.points - b.points)[0];
-    let text = `<b>${pts(p.proj)} pts</b> in your scoring`;
+    let text = `Sleeper projects <b>${pts(p.proj)}</b> in your scoring`;
     if (picks.length) text += ', mostly from ' + andList(picks.map(phrase));
     if (penalty) text += ', minus ' + phrase(penalty);
     return text + '.';
+  }
+
+  function signedPts(n) {
+    return (n > 0 ? '+' : n < 0 ? '−' : '') + Math.abs(n).toFixed(1);
+  }
+
+  // Lines worth showing on their own: half a point or more, plus injury
+  // and return yards (real points). Smaller tweaks fold into one line.
+  const BIG = 0.5;
+  function adjRow(a) {
+    return `<li><span class="adj-pts ${a.pts > 0 ? 'up' : 'down'}">${signedPts(a.pts)}</span>
+      <span><b>${esc(a.label)}</b><small>${esc(a.why)}</small></span></li>`;
+  }
+
+  function myScore(p) {
+    const r = p.range;
+    const out = p.flag && p.flag !== 'Doubtful';
+    if (out) {
+      return `<p class="warn">${esc(p.flag)}${p.injury_detail ? ' (' + esc(p.injury_detail) + ')' : ''}: not playing. Start someone else.</p>`
+        + (r ? `<p class="muted">If he were playing: ${pts(r.floor)}–${pts(r.ceiling)}</p>` : '');
+    }
+    if (p.note) return `<p>${esc(p.note)}.</p>`;
+    let html = `<div class="score-head"><b class="big">${pts(p.score)}</b>`;
+    if (r) html += `<span>${r.if_plays ? 'If he plays: ' : ''}Floor ${pts(r.floor)} · Ceiling ${pts(r.ceiling)}</span>`;
+    html += '</div>';
+    if (p.flag === 'Doubtful') html += '<p class="warn">Doubtful: likely sits. Have a backup ready.</p>';
+    const c = p.cons;
+    let start = p.proj > 0 ? `Projection ${pts(p.proj)}` : 'No projection';
+    if (c && c.pts != null) start += ` · Experts ${esc(p.pos)}${c.rank} (${pts(c.pts)})`;
+    html += `<p class="muted">${start} → ${pts(p.base)}</p>`;
+    const big = p.adj.filter((a) => Math.abs(a.pts) >= BIG || a.key === 'injury' || a.key === 'returns');
+    const small = p.adj.filter((a) => !big.includes(a));
+    if (big.length) html += '<ul class="adj">' + big.map(adjRow).join('') + '</ul>';
+    if (small.length) {
+      const sum = small.reduce((n, a) => n + a.pts, 0);
+      html += `<details class="every"><summary>${signedPts(sum)} from ${small.length} small tweak${small.length > 1 ? 's' : ''}</summary>
+        <ul class="adj">${small.map(adjRow).join('')}</ul></details>`;
+    }
+    return html;
   }
 
   function detail(p) {
@@ -330,13 +371,13 @@
       const calc = weight == null ? `${num(value)} → bracket blend` : `${num(value)} × ${num(weight)}`;
       return `<tr><td>${esc(statName(stat))}</td><td class="n x">${esc(calc)}</td><td class="n">${signed(points)}</td></tr>`;
     }).join('');
-    let html = '<div class="detail"><h3>Projection</h3>';
-    html += p.parts.length
-      ? `<p>${projectionSentence(p)}</p>
-        <details class="every"><summary>See every stat</summary>
+    let html = `<div class="detail"><h3>My Score</h3>${myScore(p)}`;
+    if (p.parts.length) {
+      html += `<details class="every"><summary>How the projection adds up</summary>
+          <p>${projectionSentence(p)}</p>
           <table class="math"><tbody>${rows}</tbody></table>
-        </details>`
-      : '<p>No projection this week.</p>';
+        </details>`;
+    }
 
     html += '<h3>Game</h3>';
     html += `<p>${esc(gameText(p))}${p.kickoff ? ' · ' + esc(when(p.kickoff)) : ''}${gameState(p) ? ' · ' + gameState(p) : ''}</p>`;
@@ -346,20 +387,8 @@
       html += '<p>No Vegas line posted yet.</p>';
     }
 
-    if (p.injury) {
-      html += `<h3>Injury</h3><p><b>${esc(p.injury)}</b>${p.injury_detail ? ' (' + esc(p.injury_detail) + ')' : ''}</p>`;
-    }
-
     if (p.tier != null) {
-      const total = block.breaks.length + 1;
-      const b = block.breaks[p.tier - 2];
-      html += '<h3>Tier</h3>';
-      html += `<p>Tier ${p.tier} of ${total}, rank ${p.rank} at ${esc(p.pos)}.`;
-      if (b) {
-        html += ` This tier starts after a ${pts(b.gap)} pt gap; nearby gaps are about ${num(b.local_median)} pts (${b.ratio}×)`;
-        html += b.big_gap ? ', big enough to split on its own.' : '.';
-      }
-      html += '</p>';
+      html += `<h3>Tier</h3><p>Tier ${p.tier} of ${block.breaks.length + 1} · rank ${p.rank} at ${esc(p.pos)}</p>`;
     }
     return html + '</div>';
   }
@@ -402,6 +431,10 @@
       const resp = await fetch(DATA_URL + '?t=' + Date.now(), { cache: 'no-store' });
       if (!resp.ok) throw new Error('HTTP ' + resp.status);
       const fresh = await resp.json();
+      if (fresh.version !== DATA_VERSION) {
+        updateApp();
+        return;
+      }
       const changed = !data || fresh.generated !== data.generated;
       data = fresh;
       write(DATA_KEY, fresh);
@@ -418,13 +451,24 @@
     }
   }
 
+  // New data needs a newer app: fetch it and reload once
+  function updateApp() {
+    try {
+      if (sessionStorage.getItem('flup:reloaded')) return;
+      sessionStorage.setItem('flup:reloaded', '1');
+    } catch (e) { return; }
+    toast('Updating the app…');
+    const reg = navigator.serviceWorker && navigator.serviceWorker.getRegistration();
+    Promise.resolve(reg).then((r) => r && r.update()).catch(() => {}).then(() => location.reload());
+  }
+
   $('#refresh-btn').addEventListener('click', () => refresh(true));
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible' && data && hoursOld(data.generated) > 0.5) refresh(false);
   });
 
   data = read(DATA_KEY);
-  if (data && data.version !== 1) data = null;
+  if (data && data.version !== DATA_VERSION) data = null;
   render();
   refresh(false);
 

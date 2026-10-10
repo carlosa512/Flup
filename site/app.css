@@ -132,6 +132,18 @@ ul.players { list-style: none; margin: 0; padding: 6px 0; min-width: 0; }
 .math td.n { text-align: right; padding-left: 8px; white-space: nowrap; }
 .math td.x { color: var(--muted); }
 .detail p { margin: 4px 0; }
+.detail .muted { color: var(--muted); font-size: .9rem; }
+.detail .warn { margin: 8px 0; }
+.score-head { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 12px; }
+.score-head .big { font: 700 2rem/1 "Barlow Condensed", "Arial Narrow", sans-serif; }
+.score-head span { color: var(--muted); font-size: .9rem; }
+ul.adj { list-style: none; margin: 8px 0 2px; padding: 0; }
+ul.adj li { display: grid; grid-template-columns: 44px 1fr; gap: 8px; padding: 6px 0; border-top: 1px solid var(--line); }
+ul.adj li:first-child { border-top: 0; }
+.adj-pts { font-weight: 700; font-variant-numeric: tabular-nums; text-align: right; }
+.adj-pts.up { color: var(--ok); }
+.adj-pts.down { color: var(--out); }
+ul.adj small { display: block; color: var(--muted); font-size: .85rem; }
 
 /* Status line with the checks folded inside */
 .health { margin: 0 0 8px; }

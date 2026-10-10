@@ -8,6 +8,7 @@ data captured by GitHub's runners.
 """
 
 import gzip
+import http.client
 import json
 import os
 import time
@@ -47,7 +48,8 @@ def _download(url, retries=3):
         except HTTPError as err:
             if err.code < 500 or attempt == retries:
                 raise FetchError(f"{url} answered HTTP {err.code}") from err
-        except (URLError, TimeoutError) as err:
+        except (URLError, TimeoutError, OSError, http.client.HTTPException) as err:
+            # includes connections dropped mid-download
             if attempt == retries:
                 raise FetchError(f"could not reach {url} ({err})") from err
         time.sleep(2 * attempt)
@@ -59,25 +61,32 @@ def _record(url, raw):
         return
     root = Path(folder)
     root.mkdir(parents=True, exist_ok=True)
-    name = f"r{len(_record_index):03d}.json.gz"
+    name = f"r{len(_record_index):03d}.gz"
     (root / name).write_bytes(gzip.compress(raw))
     _record_index.append({"file": name, "url": url, "status": 200, "bytes": len(raw)})
     (root / "index.json").write_text(json.dumps({"files": _record_index}, indent=1))
 
 
-def get_json(url):
+def get_bytes(url):
     replay = _replay_map()
     if replay is not None:
         path = replay.get(url)
         if path is None:
             raise FetchError(f"not in the replay snapshot: {url}")
         raw = path.read_bytes()
-        if path.suffix == ".gz":
-            raw = gzip.decompress(raw)
-    else:
-        raw = _download(url)
-        _record(url, raw)
+        return gzip.decompress(raw) if path.suffix == ".gz" else raw
+    raw = _download(url)
+    _record(url, raw)
+    return raw
+
+
+def get_json(url):
+    raw = get_bytes(url)
     try:
         return json.loads(raw)
     except ValueError as err:
         raise FetchError(f"{url} did not return JSON") from err
+
+
+def get_text(url):
+    return get_bytes(url).decode("utf-8-sig")

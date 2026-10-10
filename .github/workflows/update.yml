@@ -19,6 +19,7 @@ on:
       - "site/**"
       - "tests/**"
       - "settings.toml"
+      - "inputs/**"
       - "requirements*.txt"
       - ".github/workflows/update.yml"
 
@@ -50,18 +51,33 @@ jobs:
           FLUP_RECORD: ${{ runner.temp }}/raw
         run: python -m pipeline
 
+      # main publishes the real site at the root. Development branches
+      # publish to /preview/ so changes can be tried on a phone without
+      # touching the site used on game day. Each keeps the other's files.
       - name: Publish site and data to gh-pages
+        env:
+          REPO: https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git
         run: |
           sed -i "s/__BUILD__/${GITHUB_SHA::7}-${GITHUB_RUN_ID}/" site/sw.js
-          cp -r site "$RUNNER_TEMP/publish"
-          touch "$RUNNER_TEMP/publish/.nojekyll"
-          cd "$RUNNER_TEMP/publish"
+          PUB="$RUNNER_TEMP/publish"
+          git clone -q --depth 1 --branch gh-pages "$REPO" "$PUB" 2>/dev/null || mkdir -p "$PUB"
+          rm -rf "$PUB/.git"
+          if [ "$GITHUB_REF" = "refs/heads/main" ]; then
+            find "$PUB" -mindepth 1 -maxdepth 1 ! -name preview -exec rm -rf {} +
+            cp -r site/. "$PUB/"
+          else
+            rm -rf "$PUB/preview"
+            mkdir -p "$PUB/preview"
+            cp -r site/. "$PUB/preview/"
+          fi
+          touch "$PUB/.nojekyll"
+          cd "$PUB"
           git init -q -b gh-pages
           git config user.name "github-actions[bot]"
           git config user.email "41898099+github-actions[bot]@users.noreply.github.com"
           git add -A
           git commit -qm "Site and data from ${GITHUB_REF_NAME} @ ${GITHUB_SHA::7}"
-          git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" gh-pages
+          git push -qf "$REPO" gh-pages
 
       # Development only: keep the raw responses so changes can be built and
       # tested offline against real data (FLUP_REPLAY).
