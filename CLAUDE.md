@@ -28,7 +28,9 @@ Total cost must stay $0: no paid APIs, no API keys anywhere.
 
 - League `1374496898462785536` "The League", 2026, 12 teams. User `clos512`,
   team "Raider of the Lost Bowers", roster_id 12.
-- Slots: QB, RB, RB, WR, WR, TE, FLEX, FLEX (RB/WR/TE), K, DEF, 6 BN, 1 IR.
+- Slots (`roster_positions`): QB, RB, RB, WR, WR, TE, FLEX, FLEX (RB/WR/TE),
+  K, DEF, 6 BN. Plus 1 IR slot, which is `rosters[].reserve`, not a slot in
+  roster_positions.
 - Half PPR (`rec` 0.5) + TE premium (`bonus_rec_te` 0.5); pass TD 6; INT -3;
   `kr_yd`/`pr_yd` 0.05; `fum` -1 and `fum_lost` -2 (a lost fumble is -3).
 - Playoffs weeks 15-17, 8 teams. Waivers are FAAB, $200 budget.
@@ -55,28 +57,39 @@ tests/               pytest; test_real_snapshot.py runs only with FLUP_REPLAY
 tools/               snapshot.py (dev raw capture), make_icons.py
 ```
 
-Data format: `site/data/latest.json`, `"version": 2`. app.js refuses other
-versions (DATA_VERSION) and reloads itself. Bump both together when the
-shape changes.
+Data format: `site/data/latest.json`, `"version": 2` (field list in
+docs/ROADMAP.md). It's gitignored, so generate it first (below). app.js
+refuses other versions (DATA_VERSION) and reloads itself. Bump both
+together when the shape changes.
 
 ## Running and testing
 
+The cloud container can't reach Sleeper, ESPN or github.io (proxy 403);
+raw.githubusercontent.com and PyPI work. Real data comes from GitHub's
+runners, saved on two branches:
+
+- `dev-raw`: exactly what the last `claude/**` pipeline run fetched
+  (files r000.gz...). Use it to run the pipeline offline.
+- `dev-snapshots`: tools/snapshot.py output with readable names, including
+  every finished week's matchups/stats, last season's stats, the Sleeper
+  players DB and trending adds. Use it for tests/test_real_snapshot.py (it
+  fails with `assert 0 > 0` on dev-raw). Refresh it by pushing a change to
+  tools/snapshot.py or Actions > Dev snapshot > Run workflow.
+
 ```
+git fetch origin dev-raw dev-snapshots
+mkdir -p /tmp/raw /tmp/snap
+git archive origin/dev-raw | tar -x -C /tmp/raw
+git archive origin/dev-snapshots | tar -x -C /tmp/snap
+
 python3 -m pytest -q
-FLUP_REPLAY=<dir> python3 -m pytest -q tests/test_real_snapshot.py
-FLUP_REPLAY=<dir> python3 -m pipeline        # writes site/data/latest.json
+FLUP_REPLAY=/tmp/snap python3 -m pytest -q tests/test_real_snapshot.py   # 755/755 proof
+FLUP_REPLAY=/tmp/raw python3 -m pipeline       # writes site/data/latest.json
 cd site && python3 -m http.server 8765         # then Playwright at iPhone 13 size
 ```
 
-The cloud container can't reach Sleeper, ESPN or github.io (proxy 403);
-raw.githubusercontent.com and PyPI work. Real data comes from GitHub's
-runners: every push to a `claude/**` branch runs the pipeline with
-FLUP_RECORD and saves the raw responses to the `dev-raw` branch:
-
-```
-git fetch origin dev-raw && mkdir -p /tmp/raw && git archive origin/dev-raw | tar -x -C /tmp/raw
-FLUP_REPLAY=/tmp/raw python3 -m pipeline
-```
+Pipeline code that depends on time must take build()'s `now` and never
+read the clock directly; a replay of old data runs "now".
 
 Screenshots: Playwright via node (`NODE_PATH=$(npm root -g)`), device
 iPhone 13, `timezoneId: 'America/Chicago'` (the owner's local time).
@@ -84,11 +97,16 @@ iPhone 13, `timezoneId: 'America/Chicago'` (the owner's local time).
 ## Deploy and schedule
 
 - update.yml runs on schedule (Wed ~9 AM, Fri ~6 PM, Sun ~11:45 AM and
-  ~3:15 PM Eastern; each listed for EDT and EST in UTC), on push, and by
-  "Run workflow". Tests run first; a failed run publishes nothing.
+  ~3:15 PM Eastern; each listed for EDT and EST in UTC), by "Run workflow",
+  and on pushes to `main` or `claude/**` that touch pipeline/, site/,
+  tests/, inputs/, settings.toml, requirements*.txt or update.yml
+  (docs-only pushes don't run it). Tests run first; a failed run publishes
+  nothing.
 - `main` publishes the gh-pages root; `claude/**` publishes gh-pages
-  `/preview/`; each keeps the other's files.
-- Scheduled runs only happen from `main`.
+  `/preview/` and overwrites `dev-raw`; each keeps the other's files.
+- Scheduled runs only happen from `main`, so preview data never refreshes on
+  its own. For fresh preview data: Run workflow on the branch (the GitHub MCP
+  `actions_run_trigger` can do it).
 - The service worker serves the cached shell first, so the first open after
   a deploy shows the previous app once.
 
@@ -113,7 +131,10 @@ iPhone 13, `timezoneId: 'America/Chicago'` (the owner's local time).
 - The scoring engine matches Sleeper's official points 755/755 (weeks 1-4,
   2026). Any scoring change must keep test_real_snapshot.py passing.
 - Thursday games are already played by the weekend; players show "Played"
-  (game_status from ESPN). Projections still exist for them.
+  (game_status from ESPN). Projections still exist for them, and their
+  actual points are in this week's Sleeper matchups (`players_points`).
+- Kickers have a team snap count but no player snap count; snap share is
+  only computed when the player's own count exists (real zeros are kept).
 
 ## Commits
 

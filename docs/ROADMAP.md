@@ -30,7 +30,8 @@ handed over.
 - Floor/ceiling (25th/90th percentile) from each player's weekly scores in
   league scoring (this season + last 12 games of last season), scaled to
   this week's score, shrunk toward the position's typical spread; backup-role
-  games ignored. `range.sd` is stored for win probability.
+  games ignored. `range.sd` is stored for win probability (every kicker and
+  player with a game has one).
 - Player card: score + floor/ceiling, blend line, adjustments of 0.5+ shown
   (smaller ones folded), projection math behind a tap, game, tier.
 
@@ -39,6 +40,19 @@ handed over.
   (`[adjust.injury] doubtful`). Owner hasn't confirmed.
 - `always_break_gap` = 1.5 for tiers (1.0 splits TE/DEF tops more).
 
+Phase 3, ask before building:
+1. How "lean on floor/ceiling" changes picks. Proposal: win % from the My
+   Score lineup -> mode -> re-pick by floor (favored) or ceiling (underdog)
+   -> show the final win %. (It's circular otherwise.)
+2. Close calls (~1.5 pts): measured on the number the mode uses. Gap in
+   settings.toml.
+3. Boom/bust label: e.g. ceiling/score vs the position's typical ratio.
+4. A separate Lineup tab vs a section above Tiers (index.html only has the
+   Tiers view; the Tiers/Checks tab bar was removed in Phase 1).
+5. Can a free agent added now play this week? League has FAAB with
+   daily_waivers=1, waiver_clear_days=1 in league settings.
+6. Live games on Sunday: proposed rule below; confirm.
+
 ## What the data already has (site/data/latest.json, version 2)
 
 Per player (in `positions[POS].players`): `id, name, pos, team, opp, home,
@@ -46,12 +60,18 @@ kickoff, game_status, implied, spread, injury, injury_detail, proj, parts,
 roster (roster_id or null = free agent), rank, tier, score, base, blend,
 note, cons {rank, pts, url}, adj [{key,label,pts,why}], range {floor,
 ceiling, sd, games, if_plays?}, flag`.
-League: `teams {rid: name, user, wins, losses, points_for, faab_left}`,
-`my_rid`, `opp_rid`, `roster_positions`, `scoring`. Also `games` (ESPN),
-`sources`, `checks`, `settings`.
+League: `id, name, teams {"rid" (string keys "1".."12"): name, user, wins,
+losses, ties, points_for, faab_left}`, `my_rid` / `opp_rid` (ints, same as
+player `roster`; in Python use `teams[str(rid)]`), `roster_positions`,
+`scoring`. Top level: `version, generated, season, week, league, sources,
+checks, settings, positions, games`. `positions[POS]` = `{players, breaks}`.
 
+Nullable: `range` (players with no projection or no game; their `note`
+says which), `cons` (no consensus rank), `tier` (below the top-N cut).
 Only the top N per position (settings `[positions]`) plus every player on
-my roster or my opponent's is included.
+my roster or my opponent's is included. In week 5 that covered every
+rostered player on both teams, including IR and bye players (score 0 with a
+note), because Sleeper gives them projection rows too.
 
 ## Phase 3: lineup, win %, close calls, waivers (next)
 
@@ -78,13 +98,32 @@ shows" 1-3 and 6):
 7. Top of the page answers first: lineup, win %, my total vs theirs.
 
 Things Phase 3 will need:
-- Sleeper players DB (`/v1/players/nfl`, about 5 MB, once per run) for
-  rostered players missing from projections (byes, IR) and positions.
-- Live/finished games: Sleeper matchups `players_points` / `starters_points`
-  give actual points for games already played (e.g. Thursday night).
-- Add the new endpoints to tools/snapshot.py or rely on dev-raw recording.
+- Current starters: build.py already fetches `sleeper.rosters` and this
+  week's `sleeper.matchups`, but league.context keeps only owners and the
+  opponent. Both have `starters`: player ids in roster_positions order,
+  "0" for an empty slot, DEF ids are team codes like "HOU". They're always
+  set (carried over from last week). Add both teams' starters to
+  latest.json and show my lineup as changes from my current Sleeper
+  starters.
+- Locked and finished games: a player whose game has started is locked
+  (keep him in his slot). Finished: use actual `players_points` from this
+  week's matchups (sd 0). Live: actual points plus My Score x the share of
+  the game left (needs period/clock from espn.parse) or a simpler rule the
+  owner OKs. Not started: My Score. In week 5 the opponent already had 43.7
+  actual points from Thursday.
+- Compute the lineup, win % and close calls in the pipeline (unit tests +
+  replay). Time-based logic takes build()'s `now`; tests pass a fixed time.
+  app.js only marks players whose kickoff passed while viewing.
+- Win % needs an sd for every starter; `range` is null for no-projection /
+  no-game players (score 0 anyway, use sd 0).
+- The Sleeper players DB is probably not needed (every rostered player had
+  a projection row in week 5). If it is: `/v1/players/nfl` is ~15 MB raw /
+  ~2 MB gzipped and Sleeper asks for at most one call a day. A copy is on
+  `dev-snapshots` (sleeper/players_nfl.json.gz), as are trending adds
+  (sleeper/trending_add.json).
+- Anything the pipeline newly fetches lands in `dev-raw` on the next
+  `claude/**` run; add it to tools/snapshot.py too if a test needs it.
 - Bump the data version (and DATA_VERSION in app.js) if the shape changes.
-- A new top section/view in the site; the Tiers view stays.
 
 ## Phase 4: news, write-ups, refresh
 - News links per player from RSS/public feeds (ESPN, Pro Football Talk,

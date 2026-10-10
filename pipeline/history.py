@@ -37,7 +37,7 @@ def build(weeks, scoring, current_season):
             game = {"season": str(season), "week": week, "team": team, "opp": opp,
                     "pts": pts, "pos": pos}
             for k in KEEP:
-                if stats.get(k):
+                if isinstance(stats.get(k), (int, float)):  # real zeros kept
                     game[k] = stats[k]
             games[str(r.get("player_id"))].append(game)
             key = (str(season), week, team)
@@ -48,8 +48,10 @@ def build(weeks, scoring, current_season):
     for player_games in games.values():
         for g in player_games:
             key = (g["season"], g["week"], g["team"])
-            if g.get("tm_off_snp"):
-                g["snap_share"] = (g.get("off_snp") or 0) / g["tm_off_snp"]
+            # Only when his own snap count exists: kickers (and some weeks of
+            # data) have a team count but no player count, which isn't zero
+            if g.get("tm_off_snp") and "off_snp" in g:
+                g["snap_share"] = g["off_snp"] / g["tm_off_snp"]
             if team_tgt[key]:
                 g["tgt_share"] = (g.get("rec_tgt") or 0) / team_tgt[key]
             if team_rush[key]:
