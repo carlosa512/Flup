@@ -58,3 +58,24 @@ def test_projected_kick_return_yards_are_scored():
     ctx = {"owners": {}, "my_rid": 1, "opp_rid": 2}
     players, raw = player_rows(rows, "WR", {"rec": 0.5, "kr_yd": 0.05}, ctx, {}, True, {})
     assert players[0]["proj"] == 1.0 + 4.0 and raw["7"]["kr_yd"] == 80
+
+
+def test_fetch_market_reads_trending_and_latest_completed_drops(monkeypatch):
+    from pipeline import build
+    from pipeline.fetch import FetchError
+    monkeypatch.setattr(build.sleeper, "trending_adds", lambda: [{"player_id": 11630, "count": 1136943}])
+    moves = {
+        4: [{"status": "complete", "status_updated": 100, "drops": {"9": 3}}],
+        5: [{"status": "complete", "status_updated": 300, "drops": {"9": 5}, "adds": {"7": 5}},
+            {"status": "failed", "status_updated": 400, "drops": {"8": 2}}],
+    }
+    monkeypatch.setattr(build.sleeper, "transactions", lambda lid, leg: moves[leg])
+    market, problems = build.fetch_market("L", 5)
+    assert problems == [] and market["trending"] == {"11630": 1136943}
+    assert market["dropped"] == {"9": 300}            # newest completed drop; failed claims ignored
+
+    def down(lid, leg):
+        raise FetchError("HTTP 500")
+    monkeypatch.setattr(build.sleeper, "transactions", down)
+    market, problems = build.fetch_market("L", 5)
+    assert market["dropped"] == {} and len(problems) == 2

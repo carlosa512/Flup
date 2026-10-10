@@ -39,10 +39,7 @@ handed over.
 - Doubtful: spec says "flag"; currently flagged AND 60% off
   (`[adjust.injury] doubtful`). Owner hasn't confirmed.
 - `always_break_gap` = 1.5 for tiers (1.0 splits TE/DEF tops more).
-- Lean re-pick: the halfway lean toward ceiling/floor can lower the bell
-  curve win % a little (it can't see skew). Currently kept and disclosed in
-  the math; alternative: keep the My Score lineup whenever the lean lowers
-  win %. Owner to decide.
+
 
 Phase 3 decisions (owner, 2026-10-10):
 1. Favored/underdog leans **halfway**: players are ranked by My Score moved
@@ -63,6 +60,8 @@ Phase 3 decisions (owner, 2026-10-10):
    and clock from ESPN); sd x sqrt(share left). Finished: actual points.
 8. Doubtful stays 60% off. Never start Out/IR. No FAAB bid suggestions;
    show Sleeper's trending-adds count instead.
+9. Keep the lean even when it lowers the bell-curve win % a little; the
+   math box says so (owner, after piece 2).
 
 ## What the data already has (site/data/latest.json, version 3)
 
@@ -100,7 +99,17 @@ mode's number: My Score / upside score / safe score) is under
 FLEX already has the latest games or no rearrangement can):
 `{moves [{id, to}], latest, kickoff, deadline}`, same starters, slots only;
 `deadline` is the earliest kickoff among the moved players (the app hides
-the tip after it).
+the tip after it). `bench_flex [{id, value, behind, gap, label, why}]`: my
+best 3 healthy, not-yet-played bench RB/WR/TE vs the weakest FLEX starter.
+`free_agents [{id, value, can_start, start_over, gap, label, trending,
+dropped, why}]` (settings `[lineup] free_agents`, default 5): first those
+who beat the starter they'd replace (biggest gap first, K/DEF/QB only
+then), then the best RB/WR/TE, players whose game started last; at most 2
+per position. `label` is "Boom" / "Steady" / "" (settings `[labels]`:
+ceiling/score or floor/score vs the position's usual from
+model.position_ratios). `trending` = Sleeper adds in all leagues over 48h;
+`dropped` = when he was dropped in this league, if within
+waiver_clear_days + 1 day (shown as "Maybe on waivers").
 
 Modeling notes (from the Phase 3 review):
 - A Doubtful player's floor/ceiling are percentiles of "plays with chance
@@ -131,9 +140,13 @@ Built in pieces on `claude/phase-3-planning-z9glru`:
    (pipeline/lineup.py; live/finished/locked games are already handled).
 2. Close calls (case for each side, behind a tap) + late-swap tip; more
    depth in the player rows (owner: "feels flat").
-3. Bench FLEX options + 3-5 free agents with Boom/Steady labels, kickoff,
-   trending count; "On waivers" for players dropped in the last day if the
-   transactions endpoint shows it.
+3. Done: bench FLEX options + free agents with Boom/Steady labels,
+   kickoff, trending count, FAAB left and "Maybe on waivers" (from this
+   league's transactions, this week and last). New Sleeper calls:
+   `/v1/players/nfl/trending/add?lookback_hours=48&limit=50` and
+   `/v1/league/<id>/transactions/<week>` (both optional; a failure shows in
+   the sources list). Transactions weren't captured before piece 3, so the
+   parsing is tested on samples; check the first real dev-raw.
 4. Sunday afternoon: app marks players whose kickoff passed while viewing;
    check live/locked handling against a real Sunday dev-raw capture.
 

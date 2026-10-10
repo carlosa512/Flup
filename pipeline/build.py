@@ -112,6 +112,34 @@ def load_consensus(rows_by_pos, game_list, week):
     return cons, notes, problems
 
 
+def fetch_market(lid, week):
+    """Sleeper trending adds (all leagues) and this league's drops from this
+    week and last, with when each happened. Optional: lineups work without."""
+    market, problems = {"trending": {}, "dropped": {}}, []
+    try:
+        for row in sleeper.trending_adds():
+            if row.get("player_id"):
+                market["trending"][str(row["player_id"])] = row.get("count") or 0
+    except FetchError as err:
+        problems.append(f"trending adds: {err}")
+    for leg in (week - 1, week):
+        if leg < 1:
+            continue
+        try:
+            moves = sleeper.transactions(lid, leg)
+        except FetchError as err:
+            problems.append(f"week {leg} moves: {err}")
+            continue
+        for t in moves:
+            if t.get("status") != "complete":
+                continue
+            when = t.get("status_updated") or t.get("created")
+            for pid in (t.get("drops") or {}):
+                if when and when > market["dropped"].get(str(pid), 0):
+                    market["dropped"][str(pid)] = when
+    return market, problems
+
+
 def build(settings, week=None, league_id=None, now=None):
     now = now or iso()
     lid = league_id or settings["league"]["id"]
@@ -231,11 +259,21 @@ def build(settings, week=None, league_id=None, now=None):
         "ok": not failed, "fetched": now, "updated": iso(newest / 1000) if newest else None,
         "detail": "; ".join(failed) if failed else f"{sum(len(p['players']) for p in positions.values())} players scored"})
 
+    # Free-agent market: who's trending, who was just dropped (maybe on waivers)
+    market, market_problems = fetch_market(lid, week)
+    sources.append({"id": "market", "label": "Trending adds and league moves (Sleeper)",
+                    "ok": not market_problems, "fetched": now,
+                    "detail": "; ".join(market_problems) or
+                    f"{len(market['trending'])} trending players, {len(market['dropped'])} recent drops"})
+    market["clear_days"] = (lg.get("settings") or {}).get("waiver_clear_days", 1)
+    market["ratios"] = model_ctx["pos_ratios"]
+    market["labels"] = settings.get("labels", {"boom": 1.05, "steady": 1.10})
+
     # My best lineup, both teams' totals and my win %
     my_lineup = lineup.build(positions, ctx, lg.get("roster_positions") or [], games,
                              dict(settings["lineup"], floor_pct=fc["floor_pct"],
                                   ceiling_pct=fc["ceiling_pct"]),
-                             now, scoring)
+                             now, scoring, market)
 
     # Prove the scoring engine on every finished week
     weeks = []

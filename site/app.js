@@ -552,6 +552,61 @@
     return `<h2 class="section">Close calls</h2><div class="calls">${items.join('')}</div>`;
   }
 
+  // ---------- bench and free agents ----------
+
+  function bigCount(n) {
+    if (n >= 1e6) return (n / 1e6).toFixed(1).replace(/\.0$/, '') + 'M';
+    if (n >= 1e3) return Math.round(n / 1e3) + 'k';
+    return String(n);
+  }
+  function labelChip(l) {
+    if (l === 'Boom') return '<span class="chip label boom" title="Ceiling well above usual for his position">▲ Boom</span>';
+    if (l === 'Steady') return '<span class="chip label steady" title="Floor well above usual for his position">◆ Steady</span>';
+    return '';
+  }
+
+  function pickRow(item, why, extra) {
+    const p = index.get(item.id);
+    if (!p) return '';
+    const inj = p.injury ? `<span class="inj ${injClass(p.injury)}" title="${esc(p.injury)}">${esc(injShort(p.injury))}</span>` : '';
+    const state = gameState(p);
+    const sub = [
+      `<span>${esc(gameText(p))}</span>`,
+      state ? `<span class="played">${state}</span>` : (p.kickoff ? `<span>${esc(when(p.kickoff))}</span>` : ''),
+      labelChip(item.label), extra || '',
+    ].join('');
+    const isOpen = open.has(p.id);
+    return `<li class="player" data-id="${esc(p.id)}">
+      <button type="button" class="row lu" aria-expanded="${isOpen}">
+        <span class="slot">${esc(p.pos)}</span>
+        <span class="nm">${esc(p.name)}${inj}</span>
+        <span class="pts">${pts(p.score)}</span>
+        <span class="sub">${sub}</span>
+        <span class="why">${esc(why)}</span>
+      </button>${isOpen ? detail(p) : ''}</li>`;
+  }
+
+  function pickups(L) {
+    let html = '';
+    const bench = L.bench_flex || [];
+    if (bench.length) {
+      html += `<h2 class="section">Bench options for FLEX</h2><ul class="players lineup">${bench.map((b) =>
+        pickRow(b, b.why)).join('')}</ul>`;
+    }
+    const fas = L.free_agents || [];
+    if (fas.length) {
+      const me = data.league.teams[data.league.my_rid];
+      const faab = me && me.faab_left != null ? `<span class="faab">$${esc(me.faab_left)} FAAB left</span>` : '';
+      html += `<h2 class="section">Free agents ${faab}</h2><ul class="players lineup">${fas.map((f) => {
+        let extra = '';
+        if (f.dropped) extra += `<span class="chip" title="Dropped ${esc(when(f.dropped))}">Maybe on waivers</span>`;
+        if (f.trending) extra += `<span>${bigCount(f.trending)} adds in 2 days</span>`;
+        return pickRow(f, f.why, extra);
+      }).join('')}</ul>`;
+    }
+    return html;
+  }
+
   function renderLineup() {
     const L = data.lineup;
     if (!L) {
@@ -565,6 +620,7 @@
     html += verdict(L) + changesBox(L) + lateSwapTip(L);
     html += `<h2 class="section">Your lineup</h2><ul class="players lineup">${L.me.starters.map((e) => lineupRow(e, 'me')).join('')}</ul>`;
     html += closeCalls(L);
+    html += pickups(L);
     if (L.opp) {
       html += `<details class="their" data-k="their"><summary>Their lineup, as set in Sleeper <b>${pts(L.opp.total)}</b></summary>
         <ul class="players lineup">${L.opp.starters.map((e) => lineupRow(e, 'opp')).join('')}</ul></details>`;

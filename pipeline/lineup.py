@@ -36,6 +36,7 @@ POS_WORD = {"K": "kicker", "DEF": "defense"}
 # What the ranking number is called when it leans toward floor or ceiling
 VALUE_NAME = {"underdog": " upside score", "favored": " safe score"}
 MEASURE = {"underdog": "upside score", "favored": "safe score", "even": "My Score"}
+ON_MEASURE = {"underdog": " on upside score", "favored": " on safe score"}
 SUFFIXES = {"Jr", "Sr", "II", "III", "IV", "V"}
 CALLS_PER_STARTER = 2
 MAX_CALLS = 4
@@ -459,6 +460,102 @@ def late_swap(slots, open_slots, final, kickoff):
             "deadline": _iso(min(kickoff(p) for p in ins + outs))}
 
 
+# ---------- bench and free agents ----------
+
+def label(p, ratios, cfg, pcts=PCTS):
+    """"Boom" when his ceiling/score is well above the usual for his
+    position, "Steady" when his floor/score is; "" otherwise. Ratios are
+    (floor, ceiling, sd) per score point, from model.position_ratios."""
+    found, usual = outcome(p, pcts), (ratios or {}).get(p["pos"])
+    if not found or not usual or p["score"] <= 0 or usual[0] <= 0 or usual[1] <= 0:
+        return ""
+    boom = found[1] / p["score"] / usual[1] - cfg["boom"]
+    steady = found[0] / p["score"] / usual[0] - cfg["steady"]
+    if boom >= 0 and boom >= steady:
+        return "Boom"
+    return "Steady" if steady >= 0 else ""
+
+
+def _dropped_recently(pid, market, now):
+    """When he was dropped, if recent enough that he may still be on waivers
+    (dropped within the league's waiver_clear_days, plus a day for the
+    daily waiver run)."""
+    when = (market.get("dropped") or {}).get(pid)
+    if not when or now is None:
+        return None
+    dropped = datetime.fromtimestamp(when / 1000, timezone.utc)
+    if now - dropped <= timedelta(days=market.get("clear_days", 1) + 1):
+        return _iso(dropped)
+    return None
+
+
+def pickups(slots, entries, bench, by_id, value, mode, cfg, market, now, phase_of, pcts=PCTS):
+    """Best FLEX options on my bench, and the free agents most worth
+    starting (they beat the starter they'd replace) or grabbing."""
+    ratios, labels = market.get("ratios"), market.get("labels") or {"boom": 1.05, "steady": 1.10}
+    starters = [(i, by_id[e["id"]]) for i, e in enumerate(entries)
+                if e["state"] == "pre" and e["id"] in by_id]
+
+    def weakest(p):
+        options = [s for i, s in starters if p["pos"] in _accepts(slots[i])]
+        return min(options, key=lambda s: (value(s), s["score"]), default=None)
+
+    def gap(a, b):  # from the numbers as shown
+        return round(round(value(a), 1) - round(value(b), 1), 1)
+
+    flex = [(i, s) for i, s in starters if len(_accepts(slots[i])) > 1]
+    bench_flex = []
+    if flex:
+        _, low = min(flex, key=lambda o: (value(o[1]), o[1]["score"]))
+        fits = set().union(*(_accepts(slots[i]) for i, _ in flex))
+        for b in sorted((b for b in bench if b["pos"] in fits), key=value, reverse=True)[:3]:
+            g = gap(low, b)
+            bench_flex.append({"id": b["id"], "value": round(value(b), 1), "behind": low["id"],
+                               "gap": g, "label": label(b, ratios, labels, pcts),
+                               "why": f"{g:.1f} behind {low['name']}{ON_MEASURE.get(mode, '')}"})
+
+    rows = []
+    for p in by_id.values():
+        if p["roster"] is not None or p.get("flag") in OUT_STATUSES or not p.get("opp"):
+            continue
+        state = phase_of(p)
+        can_start = state == "pre"
+        low = weakest(p) if can_start else None
+        rows.append({"p": p, "can_start": can_start, "low": low,
+                     "gap": gap(p, low) if low else None})
+    worth = sorted((r for r in rows if r["can_start"] and r["gap"] is not None and r["gap"] > 0),
+                   key=lambda r: -r["gap"])
+    rest = sorted((r for r in rows if r not in worth and r["p"]["pos"] in ("RB", "WR", "TE")),
+                  key=lambda r: (not r["can_start"], -value(r["p"]), r["p"]["name"]))
+    chosen, per_pos = [], {}
+    for r in worth + rest:
+        if len(chosen) >= cfg.get("free_agents", 5):
+            break
+        pos = r["p"]["pos"]
+        if per_pos.get(pos, 0) >= 2:
+            continue
+        per_pos[pos] = per_pos.get(pos, 0) + 1
+        chosen.append(r)
+
+    free_agents = []
+    for r in chosen:
+        p, low = r["p"], r["low"]
+        if not r["can_start"]:
+            why = "His game has started: one to grab for later weeks"
+        elif r["gap"] is not None and r["gap"] > 0:
+            why = f"Start over {low['name']} ({_signed(r['gap'])}{VALUE_NAME.get(mode, '')})"
+        else:
+            why = f"#{p['rank']} {POS_WORD.get(p['pos'], p['pos'])} this week"
+            if low is not None:
+                why += f" · {abs(r['gap']):.1f} behind {low['name']}{ON_MEASURE.get(mode, '')}"
+        free_agents.append({"id": p["id"], "value": round(value(p), 1), "can_start": r["can_start"],
+                            "start_over": low["id"] if low and r["gap"] and r["gap"] > 0 else None,
+                            "gap": r["gap"], "label": label(p, ratios, labels, pcts),
+                            "trending": (market.get("trending") or {}).get(p["id"]),
+                            "dropped": _dropped_recently(p["id"], market, now), "why": why})
+    return bench_flex, free_agents
+
+
 def _entry(slot, pid, p, game, actual, now, pcts, scoring):
     if not pid or pid == "0":
         return {"slot": slot, "id": None, "pts": 0.0, "sd": 0.0, "state": "empty",
@@ -475,10 +572,12 @@ def _round(e):
 
 # ---------- putting it together ----------
 
-def build(positions, ctx, roster_positions, games, cfg, now, scoring=None):
+def build(positions, ctx, roster_positions, games, cfg, now, scoring=None, market=None):
     """positions: latest.json's positions; ctx: league.context(); games:
     espn.by_team(); cfg: settings.toml [lineup] plus floor_pct/ceiling_pct;
-    now: ISO time of the run; scoring: the league's scoring_settings."""
+    now: ISO time of the run; scoring: the league's scoring_settings;
+    market: trending adds, recent drops, waiver days, position ratios and
+    label cutoffs (build.fetch_market)."""
     my_rid, opp_rid = ctx.get("my_rid"), ctx.get("opp_rid")
     if my_rid is None:
         return None
@@ -584,6 +683,9 @@ def build(positions, ctx, roster_positions, games, cfg, now, scoring=None):
     def kickoff(p):
         return _time((game_of(p) or {}).get("kickoff"))
     swap = late_swap(slots, open_slots, final, kickoff)
+    bench_flex, free_agents = pickups(
+        slots, entries, bench, by_id, value, mode, cfg, market or {}, now_dt,
+        lambda p: phase(p, game_of(p), now_dt)[0], pcts)
 
     return {
         "slots": slots, "mode": mode, "win": None if win is None else round(win, 3),
@@ -603,4 +705,6 @@ def build(positions, ctx, roster_positions, games, cfg, now, scoring=None):
         "changes": changes,
         "close_calls": calls,
         "late_swap": swap,
+        "bench_flex": bench_flex,
+        "free_agents": free_agents,
     }

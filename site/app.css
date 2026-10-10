@@ -11,6 +11,7 @@
   /* Player cards: paper -> tile -> pill/well */
   --tile:#FFFFFF; --tile-edge:#E2E8E4; --pill:rgba(20,32,26,.06); --pill-ink:#3D4A43; --well:rgba(20,32,26,.035);
   --raise:0 1px 2px rgba(20,32,26,.06), 0 4px 14px rgba(20,32,26,.06);
+  --boom:#BE185D; --steady:#1F4FB8;
 }
 :root[data-theme="dark"] {
   --paper:#121815; --card:#18201C; --ink:#E7EEEA; --muted:#93A39A; --line:#2B3631;
@@ -23,6 +24,7 @@
   --q:#FB923C; --out:#F87171; --ok:#4FBF86;
   --tile:#1E2823; --tile-edge:#2A3530; --pill:rgba(255,255,255,.07); --pill-ink:#C9D4CE; --well:rgba(0,0,0,.2);
   --raise:inset 0 1px 0 rgba(255,255,255,.05), 0 2px 8px rgba(0,0,0,.35);
+  --boom:#F472B6; --steady:#8FB0FF;
 }
 @media (prefers-color-scheme: dark) {
   :root[data-theme="auto"] {
@@ -36,6 +38,7 @@
     --q:#FB923C; --out:#F87171; --ok:#4FBF86;
     --tile:#1E2823; --tile-edge:#2A3530; --pill:rgba(255,255,255,.07); --pill-ink:#C9D4CE; --well:rgba(0,0,0,.2);
     --raise:inset 0 1px 0 rgba(255,255,255,.05), 0 2px 8px rgba(0,0,0,.35);
+    --boom:#F472B6; --steady:#8FB0FF;
   }
 }
 
@@ -75,7 +78,9 @@ h1 {
 main { padding-top: 12px; padding-bottom: 40px; }
 .warn, .note {
   border-radius: 10px; padding: 12px 14px; margin: 0 0 10px; font-size: .95rem;
+  overflow-wrap: anywhere;  /* error details can hold long web addresses */
 }
+.check > p { overflow-wrap: anywhere; }
 .warn { background: var(--warn-bg); color: var(--warn); }
 .note { background: var(--note-bg); color: var(--note); }
 /* Lineup | Tiers */
@@ -177,6 +182,12 @@ h2.section {
 .call-side li { margin: 3px 0; }
 .call-side li.muted, .call-body > p.muted { color: var(--muted); }
 .call-body > p { margin: 6px 0 0; font-size: .85rem; }
+
+/* Bench options and free agents */
+.chip.label { background: none; border: 1.5px solid currentColor; padding: 2px 8px; }
+.chip.boom { color: var(--boom); }
+.chip.steady { color: var(--steady); }
+h2.section .faab { float: right; text-transform: none; letter-spacing: 0; font-weight: 600; color: var(--ink); font-size: .85rem; }
 
 /* Position tabs and filters */
 .bar {

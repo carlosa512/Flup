@@ -29,7 +29,7 @@ def game(state="pre", kickoff=SUNDAY, period=0, clock=0.0, status=None):
 
 
 def run(players, starters, opp_starters=None, games=None, points=None, opp_points=None,
-        reserve=None, now=NOW, cfg=CFG):
+        reserve=None, now=NOW, cfg=CFG, market=None):
     positions = {}
     for p in players:
         positions.setdefault(p["pos"], {"players": [], "breaks": []})["players"].append(p)
@@ -39,7 +39,7 @@ def run(players, starters, opp_starters=None, games=None, points=None, opp_point
     ctx = {"my_rid": 1, "opp_rid": 2 if opp_starters is not None else None,
            "lineups": lineups, "reserve": {1: reserve or []}}
     games = games if games is not None else {p["team"]: game() for p in players}
-    return lineup.build(positions, ctx, SLOTS, games, cfg, now)
+    return lineup.build(positions, ctx, SLOTS, games, cfg, now, market=market)
 
 
 def roster():
@@ -410,3 +410,50 @@ def test_close_call_gap_matches_the_numbers_shown():
 def test_mode_uses_the_percent_shown():
     assert lineup.mode_for(0.347, CFG) == "even"     # shows as 35%, so not "under 35%"
     assert lineup.mode_for(0.646, CFG) == "favored"  # shows as 65%
+
+
+# ---------- bench and free agents ----------
+
+RATIOS = {"QB": (0.6, 1.6, 0.5), "RB": (0.6, 1.6, 0.5), "WR": (0.6, 1.6, 0.5), "TE": (0.6, 1.6, 0.5),
+          "K": (0.6, 1.6, 0.5), "DEF": (0.6, 1.6, 0.5)}
+MARKET = {"ratios": RATIOS, "labels": {"boom": 1.05, "steady": 1.10}, "trending": {}, "dropped": {},
+          "clear_days": 1}
+
+
+def test_labels_against_the_position_usual():
+    usual = {"boom": 1.05, "steady": 1.10}
+    assert lineup.label(player("a", "WR", 10, floor=6, ceiling=17), RATIOS, usual) == "Boom"      # 1.7 vs 1.6
+    assert lineup.label(player("b", "WR", 10, floor=6.8, ceiling=16), RATIOS, usual) == "Steady"  # 0.68 vs 0.6
+    assert lineup.label(player("c", "WR", 10, floor=6, ceiling=16), RATIOS, usual) == ""
+
+
+def test_free_agent_who_beats_a_starter_comes_first():
+    fa = [player("fa1", "WR", 9.5, roster=None, ceiling=16), player("fa2", "RB", 6, roster=None),
+          player("fa3", "K", 7, roster=None), player("fa4", "K", 9, roster=None)]
+    r = run(roster() + fa, BEST, market=MARKET)
+    got = {f["id"]: f for f in r["free_agents"]}
+    # Biggest upgrade first: the kicker by 1.0, then the WR by 0.5 over rb3 in FLEX
+    assert [f["id"] for f in r["free_agents"][:2]] == ["fa4", "fa1"]
+    assert got["fa1"]["start_over"] == "rb3" and got["fa1"]["gap"] == 0.5
+    assert got["fa1"]["why"] == "Start over Prb3 (+0.5)"
+    assert "fa4" in got and got["fa4"]["start_over"] == "k1"   # a better kicker is worth streaming
+    assert "fa3" not in got                        # a worse kicker isn't listed at all
+    assert got["fa2"]["why"].endswith("3.0 behind Prb3")
+
+
+def test_free_agents_already_played_rank_last_and_can_be_flagged_as_dropped():
+    fa = [player("fa1", "WR", 9.5, roster=None, team="THU"), player("fa2", "WR", 6, roster=None)]
+    games = {p["team"]: game() for p in roster() + fa}
+    games["THU"] = game("post", kickoff="2026-10-09T00:15Z")
+    market = dict(MARKET, dropped={"fa2": 1791636000000}, trending={"fa2": 5400})   # dropped 2026-10-10 12:40Z
+    r = run(roster() + fa, BEST, games=games, market=market)
+    assert [f["id"] for f in r["free_agents"]] == ["fa2", "fa1"]
+    assert r["free_agents"][1]["why"].startswith("His game has started")
+    assert r["free_agents"][0]["dropped"] == "2026-10-10T12:40Z" and r["free_agents"][0]["trending"] == 5400
+
+
+def test_bench_flex_options():
+    r = run(roster(), BEST, market=MARKET)
+    assert [b["id"] for b in r["bench_flex"]] == ["te2", "wr4", "rb4"]
+    assert r["bench_flex"][0] == {"id": "te2", "value": 7.0, "behind": "rb3", "gap": 2.0, "label": "",
+                                  "why": "2.0 behind Prb3"}
