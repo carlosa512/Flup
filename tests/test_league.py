@@ -49,3 +49,12 @@ def test_zero_projection_free_agents_dropped_even_without_opponent():
     # ...but kept when the consensus still ranks him (consensus-only fallback)
     players, _ = player_rows(rows, "WR", {"rec": 0.5}, ctx, {}, True, {"1": {"ecr": 40}})
     assert sorted(p["name"] for p in players) == ["Bye Guy", "My Guy"]
+
+
+def test_projected_kick_return_yards_are_scored():
+    from pipeline.build import player_rows
+    rows = [{"player_id": "7", "team": "DAL", "stats": {"rec": 2, "def_kr_yd": 80},
+             "player": {"first_name": "Return", "last_name": "Man", "position": "WR"}}]
+    ctx = {"owners": {}, "my_rid": 1, "opp_rid": 2}
+    players, raw = player_rows(rows, "WR", {"rec": 0.5, "kr_yd": 0.05}, ctx, {}, True, {})
+    assert players[0]["proj"] == 1.0 + 4.0 and raw["7"]["kr_yd"] == 80

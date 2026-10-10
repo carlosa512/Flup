@@ -8,6 +8,7 @@ data captured by GitHub's runners.
 """
 
 import gzip
+import http.client
 import json
 import os
 import time
@@ -47,7 +48,8 @@ def _download(url, retries=3):
         except HTTPError as err:
             if err.code < 500 or attempt == retries:
                 raise FetchError(f"{url} answered HTTP {err.code}") from err
-        except (URLError, TimeoutError) as err:
+        except (URLError, TimeoutError, OSError, http.client.HTTPException) as err:
+            # includes connections dropped mid-download
             if attempt == retries:
                 raise FetchError(f"could not reach {url} ({err})") from err
         time.sleep(2 * attempt)

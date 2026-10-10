@@ -39,7 +39,10 @@ def player_rows(rows, pos, scoring, ctx, games, smooth, cons):
         if info.get("position") and info["position"] != pos:
             continue
         pid = str(row.get("player_id"))
-        stats = row.get("stats") or {}
+        stats = dict(row.get("stats") or {})
+        if pos != "DEF" and "kr_yd" not in stats and stats.get("def_kr_yd"):
+            # Sleeper files a player's projected kick return yards under def_kr_yd
+            stats["kr_yd"] = stats["def_kr_yd"]
         proj, parts = score_line(stats, pos, scoring, smooth_def_brackets=smooth)
         rid = ctx["owners"].get(pid)
         in_matchup = rid is not None and rid in (ctx["my_rid"], ctx["opp_rid"])
@@ -86,21 +89,23 @@ def load_consensus(rows_by_pos, game_list, week):
     """FantasyPros consensus by Sleeper id. Your uploaded CSV replaces the
     automatic file for the positions it covers."""
     index = consensus.player_index(rows_by_pos)
+    dates = {r.get("date") for rows in rows_by_pos.values() for r in rows if r.get("date")}
     notes, problems = [], []
     try:
-        cons, note = consensus.from_dynastyprocess(index, game_list)
+        cons, note = consensus.from_dynastyprocess(index, game_list, dates)
         notes.append(note)
-    except FetchError as err:
+    except (FetchError, ValueError, KeyError) as err:
         cons = {}
-        problems.append(str(err))
+        problems.append(f"automatic file: {err}")
     try:
-        mine, note = consensus.from_uploads(UPLOADS, week, index)
+        mine, note, upload_problems = consensus.from_uploads(UPLOADS, week, index)
+        problems += upload_problems
     except (OSError, ValueError) as err:
         mine, note = {}, ""
         problems.append(f"your CSV: {err}")
     if mine:
-        covered = {c["pos"] for c in mine.values()}
-        cons = {pid: c for pid, c in cons.items() if c["pos"] not in covered}
+        # Your ranks replace the automatic ones player by player; anyone your
+        # file didn't match keeps the automatic rank
         cons.update(mine)
         notes.insert(0, note)
     return cons, notes, problems
@@ -182,6 +187,7 @@ def build(settings, week=None, league_id=None, now=None):
         if gs:
             by_pos_hist.setdefault(gs[-1]["pos"], []).append(recent_games(pid))
     model_ctx = {
+        "relevant_mean": RELEVANT_MEAN,
         "settings": settings, "scoring": scoring, "history": hist,
         "season_games": season_games, "recent_games": recent_games,
         "implied": implied,

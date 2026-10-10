@@ -55,18 +55,26 @@ def match(index, name, pos, team):
     return None
 
 
-def _current(kickoffs, games):
-    """True when the file's kickoff times fall inside this week's games."""
-    starts = [g["kickoff"] for g in games if g.get("kickoff")]
+def _current(kickoffs, games, dates=()):
+    """True when the file's kickoff times fall inside this week's games.
+    Uses ESPN's kickoffs, or the game dates on Sleeper's projection rows
+    when ESPN didn't load."""
+    starts = [datetime.fromisoformat(g["kickoff"].replace("Z", "+00:00")).timestamp()
+              for g in games if g.get("kickoff")]
+    for d in dates or ():
+        try:
+            day = datetime.fromisoformat(d + "T00:00:00+00:00").timestamp()
+            starts += [day, day + 86400]
+        except (TypeError, ValueError):
+            pass
     if not kickoffs or not starts:
         return True  # can't tell; trust it
-    first = min(datetime.fromisoformat(k.replace("Z", "+00:00")).timestamp() for k in starts)
-    last = max(datetime.fromisoformat(k.replace("Z", "+00:00")).timestamp() for k in starts)
+    first, last = min(starts), max(starts)
     inside = sum(1 for k in kickoffs if first - 86400 <= k <= last + 86400)
     return inside >= 0.5 * len(kickoffs)
 
 
-def from_dynastyprocess(index, games):
+def from_dynastyprocess(index, games, dates=()):
     """sleeper id -> consensus entry, plus a note about the file."""
     ids = {}
     for r in csv.DictReader(io.StringIO(get_text(IDS_URL))):
@@ -95,7 +103,7 @@ def from_dynastyprocess(index, games):
         out[pid] = {"pos": pos, "ecr": ecr, "rank": rank, "url": r.get("player_page_url") or ""}
     if not out:
         raise FetchError("the consensus file had no usable rankings")
-    if not _current(kickoffs, games):
+    if not _current(kickoffs, games, dates):
         raise FetchError(f"the consensus file (from {max(dates)}) is for a different week")
     return out, f"FantasyPros consensus via DynastyProcess, posted {max(dates)}"
 
@@ -123,7 +131,7 @@ def parse_fantasypros_csv(text, filename, index):
     for token in re.split(r"[^a-z]+", Path(filename).stem.lower()):
         if token.upper() in ("QB", "RB", "WR", "TE", "K", "DST", "DEF"):
             file_pos = POS_FIX.get(token.upper(), token.upper())
-    seen, out = {}, {}
+    seen, out, unmatched = {}, {}, []
     for r in reader:
         name = (r.get(name_col) or "").strip()
         raw_pos = (r.get(pos_col) or "").strip().upper() if pos_col else ""
@@ -138,17 +146,27 @@ def parse_fantasypros_csv(text, filename, index):
         pid = team if pos == "DEF" else match(index, name, pos, team)
         if pid:
             out[pid] = {"pos": pos, "ecr": float(rank), "rank": rank, "url": ""}
-    return out
+        else:
+            unmatched.append(name)
+    return out, unmatched
 
 
 def from_uploads(folder, week, index):
-    """Your own FantasyPros CSVs for this week (empty dict if none)."""
-    files = sorted(Path(folder).glob(f"week{int(week):02d}*.csv"))
-    out = {}
-    for f in files:
-        out.update(parse_fantasypros_csv(f.read_text(encoding="utf-8-sig"), f.name, index))
-    note = "Your FantasyPros CSV: " + ", ".join(f.name for f in files) if files else ""
-    return out, note
+    """Your own FantasyPros CSVs for this week -> (ranks, note, problems)."""
+    out, used, problems = {}, [], []
+    for f in sorted(Path(folder).glob(f"week{int(week):02d}*.csv")):
+        ranks, unmatched = parse_fantasypros_csv(f.read_text(encoding="utf-8-sig"), f.name, index)
+        if not ranks:
+            problems.append(f"{f.name} had no players I could read (name the file with the "
+                            "position, like week05_wr.csv, if it has no POS column)")
+            continue
+        out.update(ranks)
+        used.append(f.name)
+        if unmatched:
+            problems.append(f"{f.name}: couldn't match {len(unmatched)} name(s), e.g. "
+                            + ", ".join(unmatched[:3]) + " (they keep the automatic rank)")
+    note = "Your FantasyPros CSV: " + ", ".join(used) if used else ""
+    return out, note, problems
 
 
 def curve(projections):
@@ -157,10 +175,13 @@ def curve(projections):
 
 
 def rank_points(points_curve, ecr):
-    """Points for a (possibly fractional) consensus rank on the curve."""
+    """Points for a (possibly fractional) consensus rank on the curve. Ranks
+    past the end of the curve (deeper than anyone Sleeper projects) get None."""
     if not points_curve or ecr is None:
         return None
     x = max(float(ecr), 1.0) - 1
+    if x > len(points_curve) - 1:
+        return None
     i = int(x)
     if i >= len(points_curve) - 1:
         return points_curve[-1]

@@ -82,28 +82,31 @@ cap = 1.5
 # Points the opponent allows to the position vs the league average
 [adjust.matchup]
 weight = 0.30
-shrink_games = 4          # an opponent's games needed before its numbers count fully
+shrink_games = 4          # an opponent's numbers count half at this many games, more after
 cap = 1.5
 
-# QBs: interception habit vs what the projection assumes, and a bump for
-# QBs whose points lean on rushing. Computed from game logs, not names.
+# QBs, from game logs (not names): a penalty for throwing picks above the
+# league rate, and a bonus for low-INT QBs whose points lean on running.
+# The projection already counts its own expected picks, so keep these small.
 [adjust.qb]
-int_weight = 0.5
+int_weight = 0.5          # share of the extra picks' cost applied
 int_cap = 1.0
-shrink_attempts = 150     # pass attempts before a QB's own INT rate counts fully
+shrink_attempts = 150     # his own INT rate counts half at this many attempts
 rush_share_start = 0.15   # rushing share of points where the bump starts...
 rush_share_full = 0.35    # ...and where it reaches the full rush_bonus
 rush_bonus = 0.6
 
-# Return men: kick return yards aren't in projections, so they're added
-# from recent games, plus a small bump for return-TD upside.
+# Return men: a small bump for return-TD upside. Return yards the
+# projection doesn't include are added from recent games.
 [adjust.returns]
 recent_games = 3
 min_returns_per_game = 1.0
 bonus = 0.3
 cap = 4.0
 
-# Share of the score taken off by injury status
+# Share of the score taken off by injury status. Questionable comes off the
+# projection's part only (the experts' ranks already account for injuries).
+# Doubtful and Out are also flagged on the card.
 [adjust.injury]
 questionable = 0.08
 doubtful = 0.60
@@ -115,7 +118,7 @@ out = 1.00
 floor_pct = 25
 ceiling_pct = 90
 last_season_games = 12    # most recent games from last season to include
-shrink_games = 6          # games before a player's own spread counts fully
+shrink_games = 6          # a player's own spread counts half at this many games
 
 [stale]
 # The page warns when the data is older than this

@@ -19,6 +19,7 @@ on:
       - "site/**"
       - "tests/**"
       - "settings.toml"
+      - "inputs/**"
       - "requirements*.txt"
       - ".github/workflows/update.yml"
 
