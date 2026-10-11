@@ -136,6 +136,10 @@ iPhone 13, `timezoneId: 'America/Chicago'` (the owner's local time).
   actual points are in this week's Sleeper matchups (`players_points`).
 - Kickers have a team snap count but no player snap count; snap share is
   only computed when the player's own count exists (real zeros are kept).
+- Sleeper transactions (`/v1/league/<id>/transactions/<week>`): types
+  free_agent / waiver / trade, status complete / failed, times in ms. A
+  trade lists each traded player in both `adds` and `drops`, so it is not
+  a release. Trending adds counts are across all Sleeper leagues.
 
 ## Commits
 

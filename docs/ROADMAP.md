@@ -149,8 +149,8 @@ Built in pieces on `claude/phase-3-planning-z9glru`:
    league's transactions, this week and last). New Sleeper calls:
    `/v1/players/nfl/trending/add?lookback_hours=48&limit=50` and
    `/v1/league/<id>/transactions/<week>` (both optional; a failure shows in
-   the sources list). Transactions weren't captured before piece 3, so the
-   parsing is tested on samples; check the first real dev-raw.
+   the sources list). Checked against the first real capture (Oct 11):
+   formats match.
 4. Sunday afternoon: app marks players whose kickoff passed while viewing;
    check live/locked handling against a real Sunday dev-raw capture.
 
