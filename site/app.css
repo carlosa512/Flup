@@ -252,6 +252,10 @@ ul.players { list-style: none; margin: 0; padding: 8px 0; min-width: 0; display:
 .inj.q { color: var(--q); }
 .inj.out { color: var(--out); }
 .stale { font-size: .75rem; font-weight: 700; color: var(--q); border: 1px solid currentColor; border-radius: 6px; padding: 0 6px; }
+.copy-btn {
+  display: block; width: 100%; min-height: 44px; margin: 14px 0 4px; border-radius: 10px; cursor: pointer;
+  font-family: inherit; font-size: .95rem; font-weight: 600; color: var(--ink); background: none; border: 1.5px solid var(--line);
+}
 .news { list-style: none; margin: 0; padding: 0; }
 .news li { margin: 0 0 10px; }
 .news a { color: var(--ink); font-weight: 600; text-decoration: underline; text-decoration-color: var(--line); text-underline-offset: 3px; }

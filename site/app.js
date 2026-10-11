@@ -481,6 +481,7 @@
     if (p.tier != null) {
       html += `<h3>Tier</h3><p>Tier ${p.tier} of ${block.breaks.length + 1} · rank ${p.rank} at ${esc(p.pos)}</p>`;
     }
+    html += `<button type="button" class="copy-btn" data-copy="player" data-id="${esc(p.id)}">Copy for Claude</button>`;
     return html + '</div>';
   }
 
@@ -741,12 +742,131 @@
       html += `<details class="their" data-k="their"><summary>Their lineup, as set in Sleeper <b>${pts(L.opp.total)}</b></summary>
         <ul class="players lineup">${L.opp.starters.map((e) => lineupRow(e, 'opp')).join('')}</ul></details>`;
     }
+    html += '<button type="button" class="copy-btn" data-copy="lineup">Copy my matchup for Claude</button>';
     // Re-rendering (a player tapped open) keeps the open sections open
     const kept = [...document.querySelectorAll('#lineup details[data-k]')].filter((d) => d.open).map((d) => d.dataset.k);
     $('#lineup').innerHTML = html;
     for (const k of kept) {
       const d = document.querySelector(`#lineup details[data-k="${k}"]`);
       if (d) d.open = true;
+    }
+  }
+
+  // ---------- Copy for Claude: a ready-to-paste prompt with every input ----------
+
+  const SCORING_WORDS = [['pass_td', 'pass TD'], ['pass_yd', 'per pass yd'], ['pass_int', 'INT'],
+    ['rush_td', 'rush TD'], ['rush_yd', 'per rush yd'], ['rec', 'per catch'], ['bonus_rec_te', 'TE bonus per catch'],
+    ['rec_td', 'rec TD'], ['rec_yd', 'per rec yd'], ['fum', 'fumble'], ['fum_lost', 'fumble lost (extra)'],
+    ['kr_yd', 'per kick return yd'], ['pr_yd', 'per punt return yd']];
+  const plain = (n) => (n < 0 ? '-' : '') + Math.abs(n).toFixed(1);
+  const sgn = (n) => (n >= 0 ? '+' : '-') + Math.abs(n).toFixed(1);
+
+  function promptHeader() {
+    const lg = data.league, L = data.lineup, sc = lg.scoring || {};
+    const me = lg.teams[lg.my_rid] || {}, opp = lg.teams[lg.opp_rid];
+    let zone = '';
+    try { zone = Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch (e) { /* ignore */ }
+    const lines = [`Fantasy football, ${lg.name}, ${data.season} week ${data.week}. Data from ${when(data.generated)}`
+      + (zone ? ` (times are ${zone})` : '') + '.',
+      'Scoring (from Sleeper): ' + SCORING_WORDS.filter(([k]) => sc[k]).map(([k, w]) => `${w} ${num(sc[k])}`).join(', ') + '.'];
+    if (L && L.opp && opp) {
+      lines.push(`My team: ${me.name} (${me.wins}-${me.losses}) vs ${opp.name} (${opp.wins}-${opp.losses}). `
+        + `Projected ${pts(L.me.total)} (sd ${pts(L.me.sd)}) vs ${pts(L.opp.total)} (sd ${pts(L.opp.sd)}): `
+        + `win chance ${pct(L.win)}, so the dashboard is in "${(MODE[L.mode] || MODE.even).word}" mode `
+        + `(players ranked ${L.mode === 'underdog' ? 'toward their ceiling' : L.mode === 'favored' ? 'toward their floor' : 'by My Score'}).`);
+    }
+    lines.push('My Score = 60% Sleeper projection (rescored in my scoring) + 40% FantasyPros consensus rank turned into points, '
+      + 'plus small capped adjustments. Floor/ceiling = 25th/90th percentile of his weekly scores, scaled to this week.');
+    return lines.join('\n');
+  }
+
+  function roleOf(p) {
+    const L = data.lineup;
+    if (L) {
+      const mine = L.me.starters.find((e) => e.id === p.id);
+      if (mine) return `my starter at ${mine.slot}`;
+      const theirs = L.opp && L.opp.starters.find((e) => e.id === p.id);
+      if (theirs) return `opponent's starter at ${theirs.slot}`;
+    }
+    const o = owner(p);
+    return o.kind === 'mine' ? 'on my bench' : o.kind === 'fa' ? 'free agent' : o.kind === 'opp' ? "on opponent's bench" : `on ${o.team}`;
+  }
+
+  function playerText(p, withNews) {
+    const out = [];
+    const inj = p.injury ? `, ${p.injury}${p.injury_detail ? ' (' + p.injury_detail + ')' : ''}` : '';
+    out.push(`${p.name} (${p.pos}, ${gameText(p)}${p.kickoff ? ', ' + when(p.kickoff) : ''}${inj}): ${roleOf(p)}.`);
+    if (p.note) { out.push(`  ${p.note}.`); return out.join('\n'); }
+    const r = p.range;
+    out.push(`  My Score ${plain(p.score)}` + (r ? ` (floor ${plain(r.floor)}, ceiling ${plain(r.ceiling)}${r.if_plays ? ', if he plays' : ''})` : '')
+      + (p.tier != null ? `, tier ${p.tier}, rank ${p.rank} at ${p.pos}` : '') + '.');
+    out.push(`  Sleeper projection ${plain(p.proj)}` + (p.cons ? `; experts ${p.pos}${p.cons.rank}${p.cons.pts != null ? ' (about ' + plain(p.cons.pts) + ')' : ''}` : '')
+      + ` -> ${plain(p.base)} (${p.blend}).`);
+    if (p.adj && p.adj.length) out.push('  Adjustments: ' + p.adj.map((a) => `${a.label} ${sgn(a.pts)} (${a.why})`).join('; ') + '.');
+    if (p.implied != null) out.push(`  Vegas: ${p.team} ${p.spread > 0 ? '+' : ''}${num(p.spread)}, implied ${num(p.implied)} pts.`);
+    if (p.actual) out.push(`  ${gameState(p) === 'Live' ? 'So far' : 'Scored'}: ${plain(realPts(p))} pts.`);
+    if (withNews && p.news && p.news.length) {
+      out.push('  News:');
+      for (const n of p.news) out.push(`  - ${n.title} (${n.source}, ${n.tag}, ${new Date(n.date).toLocaleDateString()}) ${n.url}`);
+    }
+    return out.join('\n');
+  }
+
+  function playerPrompt(p) {
+    const L = data.lineup;
+    const calls = ((L && L.close_calls) || []).filter((c) => c.start === p.id || c.bench === p.id);
+    const extra = calls.map((c) => `Close call (${c.measure}): ${nameOf(c.start)} ${plain(c.values[0])} starting vs ${nameOf(c.bench)} ${plain(c.values[1])} on the bench.`);
+    const others = calls.map((c) => index.get(c.start === p.id ? c.bench : c.start)).filter(Boolean);
+    return [promptHeader(), '', playerText(p, true), ...others.map((o) => playerText(o, true)), ...extra, '',
+      `Should I ${roleOf(p).startsWith('my starter') ? 'keep starting' : 'start or pick up'} ${p.name} this week? `
+      + 'Answer in 3-4 sentences using these numbers and anything you know about him; say what would change your mind.'].join('\n');
+  }
+
+  function lineupPrompt() {
+    const L = data.lineup;
+    const parts = [promptHeader(), '', 'MY LINEUP (as the dashboard recommends):'];
+    for (const e of L.me.starters) {
+      const p = index.get(e.id);
+      parts.push(p ? playerText(p, true) : `${e.slot}: empty`);
+    }
+    if (L.changes.length) {
+      parts.push('', 'Changes from my current Sleeper lineup: ' + L.changes.map((c) =>
+        (c.in ? `start ${nameOf(c.in)}` : '') + (c.in && c.out ? ' for ' : '') + (c.out ? `bench ${nameOf(c.out)}` : '')).join('; ') + '.');
+    }
+    if ((L.close_calls || []).length) {
+      parts.push('', 'Close calls: ' + L.close_calls.map((c) => `${nameOf(c.start)} ${plain(c.values[0])} vs ${nameOf(c.bench)} ${plain(c.values[1])} (${c.measure})`).join('; ') + '.');
+    }
+    const bench = (L.bench_flex || []).map((b) => index.get(b.id)).filter(Boolean);
+    if (bench.length) parts.push('', 'BENCH OPTIONS:', ...bench.map((p) => playerText(p, false)));
+    const fas = (L.free_agents || []).map((f) => index.get(f.id)).filter(Boolean);
+    if (fas.length) parts.push('', `FREE AGENTS (instant adds; $${(data.league.teams[data.league.my_rid] || {}).faab_left} FAAB left):`, ...fas.map((p) => playerText(p, false)));
+    if (L.opp) {
+      parts.push('', "THEIR LINEUP (as set in Sleeper): " + L.opp.starters.map((e) => {
+        const p = index.get(e.id);
+        return `${e.slot} ${p ? p.name : 'empty'} ${plain(e.pts)}`;
+      }).join('; ') + '.');
+    }
+    parts.push('', 'Review my lineup. Is anything worth changing (starts, FLEX, a free agent)? '
+      + 'Keep it short: the moves, one line each on why, using these numbers and anything you know.');
+    return parts.join('\n');
+  }
+
+  async function copyText(text) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch (e) {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.setAttribute('readonly', '');
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      let ok = false;
+      try { ok = document.execCommand('copy'); } catch (e2) { /* ignore */ }
+      ta.remove();
+      return ok;
     }
   }
 
@@ -775,6 +895,12 @@
     if (t.dataset.view) { view = t.dataset.view; if (data) renderView(); window.scrollTo(0, 0); return; }
     if (t.dataset.pos) { ui.pos = t.dataset.pos; saveUi(); renderTabs(); renderTiers(); return; }
     if (t.dataset.filter) { ui.filter = t.dataset.filter; saveUi(); renderTabs(); renderTiers(); return; }
+    if (t.dataset.copy) {
+      const p = t.dataset.copy === 'player' ? index.get(t.dataset.id) : null;
+      const text = p ? playerPrompt(p) : lineupPrompt();
+      copyText(text).then((ok) => toast(ok ? 'Copied. Paste it into the Claude app.' : "Couldn't copy on this device."));
+      return;
+    }
     if (t.classList.contains('row')) {
       const id = t.closest('.player').dataset.id;
       if (open.has(id)) open.delete(id); else open.add(id);
