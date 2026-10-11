@@ -236,7 +236,13 @@ Status (2026-10-11): all six built on `claude/phase-4-news`, waiting for
 the owner to try the preview. Feed test results: ESPN per-player, PFT and
 RotoBaller RSS and Bluesky work; FantasyPros has no public feed (skipped,
 RotoBaller instead); beat writers found for 28 teams (none for ATL, DAL,
-LAC, TEN), unverified. Not done yet: a full multi-angle review.
+LAC, TEN), unverified. Reviewed 2026-10-11 (code review + real-data
+checks): fixed name matching (punctuation, possessives, a teammate's first
+name), RotoWire notes collapsing into one, non-web links, write-ups losing
+the My Score sentence, the browser's DEF fallback and missing-ESPN team,
+"no news" for players who never had any; phone width checked with every
+card open. Open: should the lineup avoid starting a Doubtful player now
+that he takes nothing off (asked the owner)?
 
 New data (no version bump, all additions): players get `news_at`
 (Sleeper's latest news time), `writeup` (template), `news [{title, source,
