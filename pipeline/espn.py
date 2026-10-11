@@ -101,3 +101,27 @@ def by_team(games):
 
 def scoreboard(season, week):
     return parse(get_json(URL.format(season=season, week=week)))
+
+
+STANDINGS_URL = "https://site.api.espn.com/apis/v2/sports/football/nfl/standings?season={season}"
+
+
+def parse_standings(data):
+    """Standings JSON -> team -> {clincher, seed, wins, losses}. ESPN's
+    clinch marks: * = the #1 seed (bye), z = division, y = wild card,
+    x = playoff spot, e = eliminated."""
+    out = {}
+    for conf in (data or {}).get("children") or []:
+        for e in ((conf.get("standings") or {}).get("entries")) or []:
+            abbr = team((e.get("team") or {}).get("abbreviation") or "")
+            if not abbr:
+                continue
+            st = {x.get("name"): x.get("displayValue") for x in e.get("stats") or []}
+            num = lambda k: int(st[k]) if str(st.get(k) or "").isdigit() else None
+            out[abbr] = {"clincher": st.get("clincher") or "", "seed": num("playoffSeed"),
+                         "wins": num("wins"), "losses": num("losses")}
+    return out
+
+
+def standings(season):
+    return parse_standings(get_json(STANDINGS_URL.format(season=season)))

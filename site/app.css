@@ -369,6 +369,8 @@ ul.adj small { display: block; color: var(--muted); font-size: .85rem; }
 .their > summary .dot { flex: none; }
 .face {
   width: 26px; height: 26px; border-radius: 50%; object-fit: cover; object-position: top;
-  vertical-align: -7px; margin-right: 8px; background: var(--pill);
+  vertical-align: -7px; margin-right: 8px;
+  /* grey head-and-shoulders silhouette: shows while loading or with no photo */
+  background: var(--pill) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Ccircle cx='20' cy='15.5' r='7.5' fill='%237d8a83'/%3E%3Cpath d='M5 41c0-10 6.5-15.5 15-15.5S35 31 35 41z' fill='%237d8a83'/%3E%3C/svg%3E") center / 100% no-repeat;
 }
-.face.logo { object-fit: contain; padding: 2px; background: #fff; }
+.face.logo { object-fit: contain; padding: 2px; background: #fff; }  /* see-through logos: no silhouette behind */

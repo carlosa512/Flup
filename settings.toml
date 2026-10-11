@@ -149,6 +149,14 @@ game_day_hours = 3
 # this before kickoff gets "no injury news since ..." (shown in the last day)
 injury_news_hours = 24
 
+[rest]
+# Late in the season, players on teams that have clinched may sit. They're
+# flagged on the card (no points off) in these weeks (17 = your final).
+weeks = [16, 17]
+# ESPN clinch marks that count: "*" = clinched the #1 seed (the only bye).
+# Add "z" (won the division) to flag more teams.
+clinchers = ["*"]
+
 [news]
 # Links per player: headline, source, date and link only, newest first.
 # For my roster, the opponent's starters and suggested free agents.

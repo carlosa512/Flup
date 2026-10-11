@@ -110,6 +110,28 @@ def attach_actuals(positions, lines, official):
                            "official": official.get(p["id"])}
 
 
+CLINCHED = {"*": "the #1 seed", "z": "its division", "y": "a wild card spot", "x": "a playoff spot"}
+
+
+def add_rest_flags(positions, standings, week, cfg):
+    """Late in the season, players on teams that have clinched (settings
+    [rest] clinchers, "*" = the #1 seed) may sit: flag them, no points off.
+    Returns how many players were flagged."""
+    weeks = cfg.get("weeks") or []
+    if week not in weeks:
+        return 0
+    last = max(weeks)
+    when = "this week" if week == last else f"in week {last}"
+    n = 0
+    for block in positions.values():
+        for p in block["players"]:
+            mark = (standings.get(p.get("team")) or {}).get("clincher")
+            if mark and mark in (cfg.get("clinchers") or []):
+                p["rest"] = f"{p['team']} has clinched {CLINCHED.get(mark, 'a playoff spot')}: starters may rest {when}."
+                n += 1
+    return n
+
+
 def add_news(positions, ctx, my_lineup, rows_by_pos, cfg, now, sources):
     """Attach `news` (newest links) to the players worth reading about."""
     by_id = {p["id"]: p for block in positions.values() for p in block["players"]}
@@ -361,6 +383,17 @@ def build(settings, week=None, league_id=None, now=None):
                              dict(settings["lineup"], floor_pct=fc["floor_pct"],
                                   ceiling_pct=fc["ceiling_pct"]),
                              now, scoring, market)
+
+    # Teams that may rest starters late in the season (flag only)
+    rest_cfg = settings.get("rest") or {}
+    if week in (rest_cfg.get("weeks") or []):
+        try:
+            n = add_rest_flags(positions, espn.standings(season), week, rest_cfg)
+            sources.append({"id": "standings", "label": "NFL standings (ESPN)", "ok": True, "fetched": now,
+                            "detail": f"{n} players on teams that have clinched"})
+        except FetchError as err:
+            sources.append({"id": "standings", "label": "NFL standings (ESPN)", "ok": False,
+                            "fetched": now, "detail": str(err)})
 
     # A short write-up of each player's breakdown (the card shows it first)
     for block in positions.values():

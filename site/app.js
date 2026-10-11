@@ -95,12 +95,15 @@
     return { cls: '', label: team, kind: 'owned', team };
   }
   // A small headshot (a team logo for a defense) from Sleeper's image
-  // server; one that doesn't load just disappears
+  // server. A grey silhouette (the CSS background) shows while it loads and
+  // stays if there's no photo: a failed one swaps to a see-through pixel.
+  const BLANK = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
   function face(p) {
     const src = p.pos === 'DEF'
       ? `https://sleepercdn.com/images/team_logos/nfl/${encodeURIComponent((p.team || '').toLowerCase())}.png`
       : `https://sleepercdn.com/content/nfl/players/thumb/${encodeURIComponent(p.id)}.jpg`;
-    return `<img class="face${p.pos === 'DEF' ? ' logo' : ''}" src="${src}" alt="" loading="lazy" decoding="async" onerror="this.remove()">`;
+    return `<img class="face${p.pos === 'DEF' ? ' logo' : ''}" src="${src}" alt="" loading="lazy" decoding="async"
+      onerror="this.onerror=null;this.src='${BLANK}'">`;
   }
   function injClass(s) {
     if (!s) return '';
@@ -431,6 +434,7 @@
     if (r) html += `<span>${r.if_plays ? 'If he plays: ' : ''}Floor ${pts(r.floor)} · Ceiling ${pts(r.ceiling)}</span>`;
     html += '</div>';
     if (p.flag === 'Doubtful') html += '<p class="warn">Doubtful: likely sits. Have a backup ready.</p>';
+    if (p.rest) html += `<p class="warn">${esc(p.rest)}</p>`;
     const c = p.cons;
     let start = p.proj > 0 ? `Projection ${pts(p.proj)}` : 'No projection';
     if (c && c.pts != null) start += ` · Experts ${esc(p.pos)}${c.rank} (${pts(c.pts)})`;
@@ -547,6 +551,7 @@
       `<span>${esc(gameText(p))}</span>`,
       state ? `<span class="played">${state}</span>` : (p.kickoff ? `<span>${esc(when(p.kickoff))}</span>` : ''),
       e.new ? '<span class="chip new">New</span>' : '',
+      p.rest ? '<span class="stale">May rest</span>' : '',
       side === 'me' && quietInjury(p) ? `<span class="stale">${quietInjury(p) === 'never' ? 'No news' : 'No news since ' + esc(when(quietInjury(p)).split(' ')[0])}</span>` : '',
     ].join('');
     let why = side === 'me' ? e.why || '' : '';
@@ -710,7 +715,7 @@
     const sub = [
       `<span>${esc(gameText(p))}</span>`,
       state ? `<span class="played">${state}</span>` : (p.kickoff ? `<span>${esc(when(p.kickoff))}</span>` : ''),
-      labelChip(item.label), extra || '',
+      labelChip(item.label), p.rest ? '<span class="stale">May rest</span>' : '', extra || '',
     ].join('');
     const isOpen = open.has(p.id);
     return `<li class="player" data-id="${esc(p.id)}">
@@ -1052,6 +1057,7 @@
     out.push(`  Sleeper projection ${plain(p.proj)}` + (p.cons ? `; experts ${p.pos}${p.cons.rank}${p.cons.pts != null ? ' (about ' + plain(p.cons.pts) + ')' : ''}` : '')
       + ` -> ${plain(p.base)} (${p.blend}).`);
     if (p.adj && p.adj.length) out.push('  Adjustments: ' + p.adj.map((a) => `${a.label} ${sgn(a.pts)} (${a.why})`).join('; ') + '.');
+    if (p.rest) out.push(`  ${p.rest}`);
     if (p.implied != null) out.push(`  Vegas: ${p.team} ${p.spread > 0 ? '+' : ''}${num(p.spread)}, implied ${num(p.implied)} pts.`);
     if (p.actual) out.push(`  ${gameState(p) === 'Live' ? 'So far' : 'Scored'}: ${plain(realPts(p))} pts.`);
     if (withNews && p.news && p.news.length) {
