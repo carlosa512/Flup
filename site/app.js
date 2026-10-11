@@ -223,11 +223,18 @@
     return kind === ui.filter;
   }
 
+  // Once he has played (or while he plays) the big number is his real
+  // score, with My Score small underneath; before that, My Score
+  function scoreCell(p) {
+    const a = gameState(p) && p.actual;
+    if (!a) return `<span class="pts">${pts(p.score)}</span>`;
+    return `<span class="pts real">${pts(a.official != null ? a.official : a.pts)}<small>My Score ${pts(p.score)}</small></span>`;
+  }
+
   function playerRow(p) {
     const o = owner(p);
     const inj = p.injury ? `<span class="inj ${injClass(p.injury)}" title="${esc(p.injury)}">${esc(injShort(p.injury))}</span>` : '';
-    let state = gameState(p);
-    if (state && p.actual) state += ' · ' + pts(p.actual.official != null ? p.actual.official : p.actual.pts);
+    const state = gameState(p);
     const isOpen = open.has(p.id);
     const sub = [
       `<span>${esc(gameText(p))}</span>`,
@@ -238,7 +245,7 @@
       <button type="button" class="row" aria-expanded="${isOpen}">
         <span class="rk">${p.rank}</span>
         <span class="nm">${esc(p.name)}${inj}</span>
-        <span class="pts">${pts(p.score)}</span>
+        ${scoreCell(p)}
         <span class="sub">${sub}</span>
       </button>${isOpen ? detail(p) : ''}</li>`;
   }
@@ -623,7 +630,7 @@
       <button type="button" class="row lu" aria-expanded="${isOpen}">
         <span class="slot">${esc(p.pos)}</span>
         <span class="nm">${esc(p.name)}${inj}</span>
-        <span class="pts">${pts(p.score)}</span>
+        ${scoreCell(p)}
         <span class="sub">${sub}</span>
         <span class="why">${esc(why)}</span>
       </button>${isOpen ? detail(p) : ''}</li>`;

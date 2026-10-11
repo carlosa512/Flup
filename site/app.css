@@ -188,6 +188,9 @@ h2.section {
 .chip.boom { color: var(--boom); }
 .chip.steady { color: var(--steady); }
 .chip.drop { max-width: 100%; white-space: normal; }
+.pts.real small {
+  display: block; margin-top: 3px; font: 600 .7rem/1 "Barlow", system-ui, sans-serif; color: var(--muted);
+}
 .note.todo s { opacity: .7; }
 .note.todo .gone { display: block; font-size: .82rem; opacity: .85; }
 .legend { color: var(--muted); font-size: .85rem; margin: 10px 2px 0; }
