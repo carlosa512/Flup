@@ -44,6 +44,8 @@ Rules:
   scoring). Rounding a real number is fine. Don't invent stats.
 - If you add something you know from outside the data, say so
   ("Not in the data: ...") and keep it to one clause.
+- Get his role from `lineup.me.starters`: starters start, everyone else
+  is bench or a free agent (the checker flags a mismatch).
 - Plain words, no betting language, vary the wording between players.
 - At most about 600 characters each.
 

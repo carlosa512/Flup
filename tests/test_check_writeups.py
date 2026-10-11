@@ -38,3 +38,13 @@ def test_wrong_week_unknown_player_and_old_status():
     assert any("week 4" in p for p in problems)
     assert any("123: not in the data" in p for p in problems)
     assert any("status should be Questionable" in p for p in problems)
+
+
+def test_role_must_match_lineup():
+    bench = check_writeups.check(file("Bench. MIA allows 20.4 pts/game to WRs."), DATA)
+    assert any("he starts, but the text says bench" in p for p in bench)
+    ok = check_writeups.check(file("Start him. The closest bench options trail him."), DATA)
+    assert not any("says" in p for p in ok)
+    d = dict(DATA, lineup={**DATA["lineup"], "me": {"starters": []}})
+    start = check_writeups.check(file("Starting at your FLEX. Fine."), d)
+    assert any("isn't a starter, but the text says start" in p for p in start)

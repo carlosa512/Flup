@@ -6,6 +6,8 @@ was written from, before it's pushed:
 - each write-up is 2-4 sentences and not too long
 - every number in the text is in that player's data, the matchup (win %,
   totals, close calls) or the league's scoring: "only real numbers"
+- the role matches the lineup: a starter isn't called bench, a bench or
+  free-agent player isn't told he's starting
 
     python3 tools/check_writeups.py inputs/writeups.json /tmp/latest.json
 
@@ -18,6 +20,10 @@ import sys
 
 NUM = re.compile(r"(?<![\w.])\d+(?:\.\d+)?")
 MAX_CHARS = 700
+# A sentence that opens with "Bench"/"Sit him", or says he's on the bench.
+SAYS_BENCH = re.compile(r"(?:^|[.!?]\s+)(?:bench|sit him)\b|\b(?:on|to) (?:the|your) bench\b", re.I)
+# "Start him", "Starting at your FLEX", "in your lineup".
+SAYS_START = re.compile(r"(?:^|[.!?]\s+)start(?:ing)?\b|\bstart him\b|\bin your lineup\b", re.I)
 
 
 def _forms(x):
@@ -86,6 +92,7 @@ def check(file, data):
         problems.append('missing "written" (ISO time)')
     players = {p["id"]: p for b in data.get("positions", {}).values() for p in b["players"]}
     entries = file.get("players") or {}
+    starters = {e.get("id") for e in ((data.get("lineup") or {}).get("me") or {}).get("starters") or []}
     if not entries:
         problems.append("no players")
     for pid, e in entries.items():
@@ -100,6 +107,10 @@ def check(file, data):
             problems.append(f"{name}: {n} sentences (want 2-4)")
         if len(text) > MAX_CHARS:
             problems.append(f"{name}: {len(text)} characters (max {MAX_CHARS})")
+        if pid in starters and SAYS_BENCH.search(text):
+            problems.append(f"{name}: he starts, but the text says bench")
+        if pid not in starters and SAYS_START.search(text):
+            problems.append(f"{name}: he isn't a starter, but the text says start")
         status = p.get("injury") or ""
         if (e or {}).get("status", "") != status:
             problems.append(f"{name}: status should be {status or 'empty (healthy)'}")
