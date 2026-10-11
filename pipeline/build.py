@@ -66,6 +66,35 @@ def player_rows(rows, pos, scoring, ctx, games, smooth, cons):
     return out, raw
 
 
+def actual_lines(rows, scoring):
+    """This week's real stat lines (live or final) in your scoring, with
+    the parts that make up each total: {player_id: (points, parts)}.
+    A game counts once gp >= 1, as in the history."""
+    out = {}
+    for r in rows:
+        pos = (r.get("player") or {}).get("position")
+        stats = r.get("stats") or {}
+        if not pos or (stats.get("gp") or 0) <= 0:
+            continue
+        out[str(r.get("player_id"))] = score_line(stats, pos, scoring)
+    return out
+
+
+def attach_actuals(positions, lines, official):
+    """Give everyone who has played (or is playing) this week his real
+    points and their breakdown. official: Sleeper's own points for
+    rostered players; the card shows Sleeper's number and says so if the
+    stat line adds up differently (a stat correction still pending)."""
+    for block in positions.values():
+        for p in block["players"]:
+            found = lines.get(p["id"])
+            if not found:
+                continue
+            pts, parts = found
+            p["actual"] = {"pts": round(pts, 2), "parts": parts,
+                           "official": official.get(p["id"])}
+
+
 def fetch_history(season, week, scoring):
     """This season's finished weeks and all of last season, scored."""
     weeks, problems = [], []
@@ -264,6 +293,17 @@ def build(settings, week=None, league_id=None, now=None):
         "id": "projections", "label": "Sleeper projections" + (f" ({', '.join(companies)})" if companies else ""),
         "ok": not failed, "fetched": now, "updated": iso(newest / 1000) if newest else None,
         "detail": "; ".join(failed) if failed else f"{sum(len(p['players']) for p in positions.values())} players scored"})
+
+    # This week's real points so far (Thursday games, then Sunday as it goes)
+    try:
+        lines = actual_lines(sleeper.stats(season, week), scoring)
+        official = {pid: pts for lu in ctx["lineups"].values() for pid, pts in lu["points"].items()}
+        attach_actuals(positions, lines, official)
+        sources.append({"id": "live", "label": "This week's stats so far (Sleeper)", "ok": True,
+                        "fetched": now, "detail": f"{len(lines)} players have played or are playing"})
+    except FetchError as err:
+        sources.append({"id": "live", "label": "This week's stats so far (Sleeper)", "ok": False,
+                        "fetched": now, "detail": str(err)})
 
     # Free-agent market: who's trending, who was just dropped (maybe on waivers)
     market, market_problems = fetch_market(lid, week)

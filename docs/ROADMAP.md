@@ -78,7 +78,11 @@ checks, settings, positions, lineup, games`. `positions[POS]` =
 `{players, breaks}`. `games[]` also has `state` (pre/in/post),
 `completed`, `period`, `clock` (seconds left in the quarter),
 `score_home`, `score_away`. Players also carry `game_date` (Sleeper's
-Eastern date, the fallback when ESPN doesn't load).
+Eastern date, the fallback when ESPN doesn't load), and once they've played
+or are playing this week `actual {pts, parts, official}`: this week's real
+stat line from Sleeper's stats endpoint scored with the league's settings
+(`parts` like the projection's), plus Sleeper's own points for rostered
+players (`official`, shown first; the card says so when they differ).
 
 `lineup` (null if my team isn't found): `slots` (starting slots only),
 `mode` (favored/underdog/even), `win` (final, null without an opponent),
@@ -151,8 +155,12 @@ Built in pieces on `claude/phase-3-planning-z9glru`:
    `/v1/league/<id>/transactions/<week>` (both optional; a failure shows in
    the sources list). Checked against the first real capture (Oct 11):
    formats match.
-4. Sunday afternoon: app marks players whose kickoff passed while viewing;
-   check live/locked handling against a real Sunday dev-raw capture.
+4. Sunday: played players show their real points and breakdown first
+   (owner's idea); the app marks players whose kickoff passed while
+   viewing ("Started"), crosses out Sleeper moves for them and hides their
+   close calls, with a note that the data is from before kickoff. To do:
+   check live/locked handling and the live DEF bracket against real
+   Sunday captures (runs triggered on the branch during the games).
 
 From the spec ("Win probability and boom/bust" and "What the dashboard
 shows" 1-3 and 6):

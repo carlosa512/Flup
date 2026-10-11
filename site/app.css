@@ -188,6 +188,8 @@ h2.section {
 .chip.boom { color: var(--boom); }
 .chip.steady { color: var(--steady); }
 .chip.drop { max-width: 100%; white-space: normal; }
+.note.todo s { opacity: .7; }
+.note.todo .gone { display: block; font-size: .82rem; opacity: .85; }
 .legend { color: var(--muted); font-size: .85rem; margin: 10px 2px 0; }
 .legend b { color: var(--ink); font-weight: 600; }
 h2.section .faab { float: right; text-transform: none; letter-spacing: 0; font-weight: 600; color: var(--ink); font-size: .85rem; }

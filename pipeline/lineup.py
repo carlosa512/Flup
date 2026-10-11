@@ -284,9 +284,10 @@ def _signed(x):
 
 def _why(p, e, close, swapped_for, mode, pcts=PCTS):
     if e["state"] == "final":
-        return f"Played: {e['actual']:.1f} pts"
+        return f"Played: {e['actual']:.1f} pts (My Score was {p['score']:.1f})"
     if e["state"] == "live":
-        return f"Playing now: {e['actual']:.1f} so far, {round(e['left'] * 100)}% of the game left"
+        return (f"Playing now: {e['actual']:.1f} so far, {round(e['left'] * 100)}% of the game left"
+                f" (My Score {p['score']:.1f})")
     main = None
     mine, theirs = outcome(p, pcts), outcome(swapped_for, pcts)
     if mine and theirs:

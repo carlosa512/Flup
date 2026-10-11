@@ -79,3 +79,19 @@ def test_fetch_market_reads_trending_and_latest_completed_drops(monkeypatch):
     monkeypatch.setattr(build.sleeper, "transactions", down)
     market, problems = build.fetch_market("L", 5)
     assert market["dropped"] == {} and len(problems) == 2
+
+
+def test_actual_lines_score_only_players_who_played():
+    from pipeline.build import actual_lines, attach_actuals
+    rows = [{"player_id": "1", "player": {"position": "WR"}, "stats": {"gp": 1, "rec": 6, "rec_yd": 85}},
+            {"player_id": "2", "player": {"position": "WR"}, "stats": {"gp": 0, "rec": 0}},
+            {"player_id": "3", "player": {"position": "TE"}, "stats": {"gp": 1, "rec": 4, "bonus_rec_te": 4}}]
+    lines = actual_lines(rows, {"rec": 0.5, "rec_yd": 0.1, "bonus_rec_te": 0.5})
+    assert set(lines) == {"1", "3"}
+    assert lines["1"][0] == 11.5 and lines["3"][0] == 4.0      # the TE bonus counted once
+    positions = {"WR": {"players": [{"id": "1"}, {"id": "2"}], "breaks": []}}
+    attach_actuals(positions, lines, {"1": 11.5})
+    p1, p2 = positions["WR"]["players"]
+    assert p1["actual"]["pts"] == 11.5 and p1["actual"]["official"] == 11.5
+    assert [part[0] for part in p1["actual"]["parts"]] == ["rec_yd", "rec"]
+    assert "actual" not in p2

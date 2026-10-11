@@ -170,7 +170,7 @@ def test_locked_starter_stays_and_uses_actual_points():
     r = run(players, current, games=games, points={"te2": 21.4})
     te = r["me"]["starters"][5]
     assert te["id"] == "te2" and te["pts"] == 21.4 and te["sd"] == 0 and te["state"] == "final"
-    assert te["why"] == "Played: 21.4 pts"
+    assert te["why"] == "Played: 21.4 pts (My Score was 7.0)"
     assert "te1" in ids(r)                           # te1 still starts, in a FLEX
 
 

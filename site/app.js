@@ -226,7 +226,8 @@
   function playerRow(p) {
     const o = owner(p);
     const inj = p.injury ? `<span class="inj ${injClass(p.injury)}" title="${esc(p.injury)}">${esc(injShort(p.injury))}</span>` : '';
-    const state = gameState(p);
+    let state = gameState(p);
+    if (state && p.actual) state += ' · ' + pts(p.actual.official != null ? p.actual.official : p.actual.pts);
     const isOpen = open.has(p.id);
     const sub = [
       `<span>${esc(gameText(p))}</span>`,
@@ -299,12 +300,14 @@
     return [...out.values()];
   }
 
-  function phrase(s) {
+  // real: counts from an actual game (whole numbers), not a projection
+  function phrase(s, real) {
     const name = SHORT[s.stat] || statName(s.stat).toLowerCase();
     const delta = (s.points >= 0 ? '+' : '−') + Math.abs(s.points).toFixed(1);
     if (s.stat === 'pts_allow') return `about ${Math.round(s.value)} ${name} (${delta})`;
-    if (/_td$|int$/.test(s.stat)) return `${name} (${delta})`;  // "0.4 TDs" reads oddly
-    const amount = /_yd$/.test(s.stat) ? String(Math.round(s.value)) : s.value.toFixed(1);
+    if (real && /^pts_allow_/.test(s.stat)) return `${name.replace(/^allowed/, 'allowing')} (${delta})`;
+    if (/_td$|int$/.test(s.stat)) return real ? `${num(s.value)} ${name} (${delta})` : `${name} (${delta})`;  // "0.4 TDs" reads oddly
+    const amount = /_yd$/.test(s.stat) || (real && Number.isInteger(s.value)) ? String(Math.round(s.value)) : s.value.toFixed(1);
     return `${amount} ${name} (${delta})`;
   }
 
@@ -314,21 +317,53 @@
 
   // One plain sentence: the 2-3 stats that make up most of the projection,
   // plus the biggest penalty if it costs a point or more.
-  function projectionSentence(p) {
-    const all = merged(p.parts);
+  // "mostly from X, Y and Z, minus W": the 2-3 stats that make up most of
+  // the total, plus the biggest penalty if it costs a point or more
+  function partsPhrase(parts, total, real) {
+    const all = merged(parts);
     const gains = all.filter((s) => s.points > 0).sort((a, b) => b.points - a.points);
     const picks = [];
     let covered = 0;
     for (const s of gains) {
-      if (picks.length === 3 || (picks.length >= 2 && covered >= 0.7 * p.proj)) break;
+      if (picks.length === 3 || (picks.length >= 2 && covered >= 0.7 * total)) break;
       picks.push(s);
       covered += s.points;
     }
     const penalty = all.filter((s) => s.points <= -1).sort((a, b) => a.points - b.points)[0];
-    let text = `Sleeper projects <b>${pts(p.proj)}</b> in your scoring`;
-    if (picks.length) text += ', mostly from ' + andList(picks.map(phrase));
-    if (penalty) text += ', minus ' + phrase(penalty);
-    return text + '.';
+    let text = '';
+    if (picks.length) text += ', mostly from ' + andList(picks.map((x) => phrase(x, real)));
+    if (penalty) text += ', minus ' + phrase(penalty, real);
+    return text;
+  }
+
+  function projectionSentence(p) {
+    return `Sleeper projects <b>${pts(p.proj)}</b> in your scoring${partsPhrase(p.parts, p.proj)}.`;
+  }
+
+  function partsTable(parts, real) {
+    return parts.map(([stat, value, weight, points]) => {
+      const calc = weight == null ? `${num(value)} → bracket blend` : real && /^pts_allow_/.test(stat) ? 'bracket' : `${num(value)} × ${num(weight)}`;
+      return `<tr><td>${esc(statName(stat))}</td><td class="n x">${esc(calc)}</td><td class="n">${signed(points)}</td></tr>`;
+    }).join('');
+  }
+
+  // Once he has played (or while he plays): his real points first
+  function actualBlock(p) {
+    const a = p.actual;
+    if (!a) return '';
+    const live = gameState(p) === 'Live';
+    const shown = a.official != null ? a.official : a.pts;
+    let html = `<h3>${live ? 'So far' : 'Scored'}</h3>
+      <div class="score-head"><b class="big">${pts(shown)}</b><span>My Score was ${pts(p.score)} (${signedPts(shown - p.score)})</span></div>`;
+    if (a.parts.length) {
+      html += `<p class="muted">${live ? 'So far' : 'His points came'}${partsPhrase(a.parts, a.pts, true).replace(/^, mostly/, ' mostly') || ': nothing yet'}.</p>
+        <details class="every"><summary>How his points add up</summary>
+        <table class="math"><tbody>${partsTable(a.parts, true)}</tbody></table></details>`;
+    }
+    if (a.official != null && Math.abs(a.official - a.pts) > 0.05) {
+      html += `<p class="muted">Sleeper shows ${pts(a.official)}; his stat line here adds up to ${pts(a.pts)}. Sleeper may still be correcting a stat.</p>`;
+    }
+    return html;
   }
 
   function signedPts(n) {
@@ -372,11 +407,8 @@
 
   function detail(p) {
     const block = data.positions[p.pos];
-    const rows = p.parts.map(([stat, value, weight, points]) => {
-      const calc = weight == null ? `${num(value)} → bracket blend` : `${num(value)} × ${num(weight)}`;
-      return `<tr><td>${esc(statName(stat))}</td><td class="n x">${esc(calc)}</td><td class="n">${signed(points)}</td></tr>`;
-    }).join('');
-    let html = `<div class="detail"><h3>My Score</h3>${myScore(p)}`;
+    const rows = partsTable(p.parts);
+    let html = `<div class="detail">${actualBlock(p)}<h3>${p.actual ? 'My Score (before the game)' : 'My Score'}</h3>${myScore(p)}`;
     if (p.parts.length) {
       html += `<details class="every"><summary>How the projection adds up</summary>
           <p>${projectionSentence(p)}</p>
@@ -408,6 +440,13 @@
   const SLOT_SHORT = { SUPER_FLEX: 'SF', WRRB_FLEX: 'W/R', REC_FLEX: 'W/T' };
   const SINGLE = new Set(['QB', 'RB', 'WR', 'TE', 'K', 'DEF']);
   const pct = (x) => Math.round(x * 100) + '%';
+
+  // The data is a snapshot. Between updates, a player whose kickoff has
+  // passed is locked in Sleeper even though the data says "not started".
+  function startedSince(p) {
+    return !!(p && p.kickoff && !gameState(p) && Date.now() >= Date.parse(p.kickoff));
+  }
+  const startedId = (id) => startedSince(index.get(id));
   const nameOf = (id) => (index.get(id) || {}).name || 'Unknown player';
 
   function lineupRow(e, side) {
@@ -427,7 +466,7 @@
         <span class="pts">${pts(e.pts)}</span><span class="sub">Not in this week's projections</span></div></li>`;
     }
     const inj = p.injury ? `<span class="inj ${injClass(p.injury)}" title="${esc(p.injury)}">${esc(injShort(p.injury))}</span>` : '';
-    const state = e.state === 'final' ? 'Played' : e.state === 'live' ? 'Live' : '';
+    const state = e.state === 'final' ? 'Played' : e.state === 'live' ? 'Live' : startedSince(p) ? 'Started' : '';
     const sub = [
       `<span>${esc(gameText(p))}</span>`,
       state ? `<span class="played">${state}</span>` : (p.kickoff ? `<span>${esc(when(p.kickoff))}</span>` : ''),
@@ -500,10 +539,13 @@
     const moves = L.moves || [];
     if (!L.changes.length && !moves.length) return '<p class="note done">✓ Your Sleeper lineup already matches.</p>';
     // Slides first: they open up the slot a newcomer goes into
-    const items = moves.map((m) => `Move <b>${esc(nameOf(m.id))}</b> to ${esc(m.to)}`).concat(L.changes.map((c) => {
-      if (c.in && c.out) return `Start <b>${esc(nameOf(c.in))}</b> for ${esc(nameOf(c.out))}`;
-      if (c.in) return `Start <b>${esc(nameOf(c.in))}</b> in the empty ${esc(c.slot)} slot`;
-      return `Bench ${esc(nameOf(c.out))}: no healthy player to put in`;
+    const locked = (text, ids) => (ids.some(startedId)
+      ? `<s>${text}</s> <span class="gone">game started, Sleeper has locked it</span>` : text);
+    const items = moves.map((m) => locked(`Move <b>${esc(nameOf(m.id))}</b> to ${esc(m.to)}`, [m.id])).concat(L.changes.map((c) => {
+      const ids = [c.in, c.out].filter(Boolean);
+      if (c.in && c.out) return locked(`Start <b>${esc(nameOf(c.in))}</b> for ${esc(nameOf(c.out))}`, ids);
+      if (c.in) return locked(`Start <b>${esc(nameOf(c.in))}</b> in the empty ${esc(c.slot)} slot`, ids);
+      return locked(`Bench ${esc(nameOf(c.out))}: no healthy player to put in`, ids);
     }));
     const n = items.length;
     return `<div class="note todo"><b>Make ${n} change${n > 1 ? 's' : ''} in Sleeper</b>
@@ -531,7 +573,8 @@
   }
 
   function closeCalls(L) {
-    const calls = (L.close_calls || []).filter((c) => index.get(c.start) && index.get(c.bench));
+    const calls = (L.close_calls || []).filter((c) => index.get(c.start) && index.get(c.bench)
+      && !startedId(c.start) && !startedId(c.bench));
     if (!calls.length) return '';
     const how = {
       'upside score': 'My Score moved halfway up to the ceiling, because you\'re the underdog',
@@ -591,8 +634,11 @@
     const bench = L.bench_flex || [];
     const fas = L.free_agents || [];
     if (bench.length) {
-      html += `<h2 class="section">Bench options</h2><ul class="players lineup">${bench.map((b) =>
-        pickRow(b, b.why)).join('')}</ul>`;
+      const avail = bench.filter((b) => !startedId(b.id));
+      if (avail.length) {
+        html += `<h2 class="section">Bench options</h2><ul class="players lineup">${avail.map((b) =>
+          pickRow(b, b.why)).join('')}</ul>`;
+      }
     }
     if (fas.length) {
       const me = data.league.teams[data.league.my_rid];
@@ -605,7 +651,7 @@
         }
         const adds = Number(f.trending) || 0;
         if (adds) extra += `<span>${esc(bigCount(adds))} adds in 2 days</span>`;
-        return pickRow(f, f.why, extra);
+        return pickRow(f, startedId(f.id) ? 'His game has started: one to grab for later weeks' : f.why, extra);
       }).join('')}</ul>`;
     }
     // Phones can't show hover tips, so the labels are explained once in words
@@ -625,6 +671,12 @@
     let html = '';
     if (L.times_known === false) {
       html += '<p class="warn">ESPN didn\'t load, so game times are guessed from Sleeper: anyone with points this week counts as played. Check locked players in Sleeper.</p>';
+    }
+    const ids = L.me.starters.concat(L.opp ? L.opp.starters : []).map((e) => e.id)
+      .concat((L.bench_flex || []).map((b) => b.id), (L.free_agents || []).map((f) => f.id));
+    if (ids.some(startedId)) {
+      html += `<p class="note">Games have started since this data (from ${esc(when(data.generated))}).
+        Totals and win % are as of then. Sleeper has locked those players, so any moves for them are crossed out.</p>`;
     }
     html += verdict(L) + changesBox(L) + lateSwapTip(L);
     html += `<h2 class="section">Your lineup</h2><ul class="players lineup">${L.me.starters.map((e) => lineupRow(e, 'me')).join('')}</ul>`;
@@ -723,6 +775,13 @@
   }
 
   $('#refresh-btn').addEventListener('click', () => refresh(true));
+  // Kickoffs pass while the page is open: redraw the lineup when one does
+  let startedCount = -1;
+  setInterval(() => {
+    if (!data || !data.lineup || view !== 'lineup' || document.visibilityState !== 'visible') return;
+    const n = [...index.values()].filter(startedSince).length;
+    if (n !== startedCount) { startedCount = n; renderLineup(); }
+  }, 60000);
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible' && data && hoursOld(data.generated) > 0.5) refresh(false);
   });
