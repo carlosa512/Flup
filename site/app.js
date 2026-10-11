@@ -228,7 +228,14 @@
   function scoreCell(p) {
     const a = gameState(p) && p.actual;
     if (!a) return `<span class="pts">${pts(p.score)}</span>`;
-    return `<span class="pts real">${pts(a.official != null ? a.official : a.pts)}<small>My Score ${pts(p.score)}</small></span>`;
+    return `<span class="pts real">${pts(realPts(p))}<small>My Score ${pts(p.score)}</small></span>`;
+  }
+
+  // Live: his stat line (Sleeper's matchup points can lag it by a play or
+  // two). Final: Sleeper's official points.
+  function realPts(p) {
+    const a = p.actual;
+    return gameState(p) === 'Live' || a.official == null ? a.pts : a.official;
   }
 
   function playerRow(p) {
@@ -309,7 +316,8 @@
 
   // real: counts from an actual game (whole numbers), not a projection
   function phrase(s, real) {
-    const name = SHORT[s.stat] || statName(s.stat).toLowerCase();
+    let name = SHORT[s.stat] || statName(s.stat).toLowerCase();
+    if (real && s.value === 1 && !/^pts_allow/.test(s.stat)) name = name.replace(/ies$/, 'y').replace(/ches$/, 'ch').replace(/([^us])s$/, '$1');  // "1 fumble"
     const delta = (s.points >= 0 ? '+' : '−') + Math.abs(s.points).toFixed(1);
     if (s.stat === 'pts_allow') return `about ${Math.round(s.value)} ${name} (${delta})`;
     if (real && /^pts_allow_/.test(s.stat)) return `${name.replace(/^allowed/, 'allowing')} (${delta})`;
@@ -359,7 +367,7 @@
     const a = p.actual;
     if (!a) return '';
     const live = gameState(p) === 'Live';
-    const shown = a.official != null ? a.official : a.pts;
+    const shown = realPts(p);
     let html = `<h3>${live ? 'So far' : 'Scored'}</h3>
       <div class="score-head"><b class="big">${pts(shown)}</b><span>My Score was ${pts(p.score)} (${signedPts(shown - p.score)})</span></div>`;
     if (a.parts.length) {
@@ -368,7 +376,9 @@
         <table class="math"><tbody>${partsTable(a.parts, true)}</tbody></table></details>`;
     }
     if (a.official != null && Math.abs(a.official - a.pts) > 0.05) {
-      html += `<p class="muted">Sleeper shows ${pts(a.official)}; his stat line here adds up to ${pts(a.pts)}. Sleeper may still be correcting a stat.</p>`;
+      html += live
+        ? `<p class="muted">Sleeper's matchup score still shows ${pts(a.official)}; it usually catches up within minutes.</p>`
+        : `<p class="muted">Sleeper shows ${pts(a.official)}; his stat line here adds up to ${pts(a.pts)}. Sleeper may still be correcting a stat.</p>`;
     }
     return html;
   }

@@ -155,6 +155,11 @@ def expected(p, game, actual, now, pcts=PCTS, scoring=None):
     if state == "final":
         return {"state": state, "pts": got, "sd": 0.0, "actual": got, "left": 0.0}
     if state == "live":
+        line = p.get("actual")
+        if line:
+            # Sleeper's matchup points can lag its stats by a play or two;
+            # the stat line (scored here, it matches Sleeper) is fresher
+            got = line["pts"]
         rest = score
         if got and _healthy(p) > score:
             # He's scoring, so he's playing: no "might not play" discount
@@ -169,6 +174,20 @@ def expected(p, game, actual, now, pcts=PCTS, scoring=None):
     return {"state": state, "pts": score, "sd": sd, "actual": None, "left": 1.0}
 
 
+def _counted_bracket(p, got, allowed_now, scoring):
+    """The points-allowed bracket inside his points so far. Sleeper's live
+    line carries the flag for the score so far (seen 2026-10-11: JAX DEF,
+    7 allowed, pts_allow_7_13 flag, 4 + 1 = 5 = Sleeper's points), so read it
+    from the line: ESPN's score can be a play ahead. No line and no points
+    yet: nothing counted."""
+    line = (p.get("actual") or {}).get("parts")
+    if line is not None:
+        return sum(part[3] for part in line if part[0].startswith("pts_allow_"))
+    if not got or allowed_now is None:
+        return 0.0
+    return bracket_points(scoring, "pts_allow", allowed_now)
+
+
 def _live_def(p, game, got, rest, left, scoring):
     """A live defense's points so far already include the points-allowed
     bracket for the score right now (Sleeper scores the current stats).
@@ -178,11 +197,12 @@ def _live_def(p, game, got, rest, left, scoring):
     allowed_proj, bracket_proj = _def_bracket_part(p)
     rest_no_bracket = rest - bracket_proj
     allowed_now = (game or {}).get("opp_score")
+    counted = _counted_bracket(p, got, allowed_now, scoring)
     if allowed_now is None or allowed_proj is None:
         # No live score: at least don't count the bracket twice
         return got + rest_no_bracket * left
     allowed_end = allowed_now + allowed_proj * left
-    return (got - bracket_points(scoring, "pts_allow", allowed_now) + rest_no_bracket * left
+    return (got - counted + rest_no_bracket * left
             + smooth_bracket_points(scoring, "pts_allow", allowed_end))
 
 
