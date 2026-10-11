@@ -34,13 +34,13 @@
    "file": "r005.gz",
    "url": "https://api.sleeper.app/v1/league/1374496898462785536/matchups/5",
    "status": 200,
-   "bytes": 6645
+   "bytes": 6648
   },
   {
    "file": "r006.gz",
    "url": "https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?seasontype=2&week=5&dates=2026",
    "status": 200,
-   "bytes": 252875
+   "bytes": 253384
   },
   {
    "file": "r007.gz",
@@ -226,7 +226,7 @@
    "file": "r037.gz",
    "url": "https://api.sleeper.app/stats/nfl/2026/5?season_type=regular&position[]=QB&position[]=RB&position[]=WR&position[]=TE&position[]=K&position[]=DEF",
    "status": 200,
-   "bytes": 93694
+   "bytes": 94204
   },
   {
    "file": "r038.gz",
