@@ -86,8 +86,11 @@ def writeup(p, week=0):
     else:
         experts = [f"Sleeper has no projection for him; the experts' {rank} is worth about {_n(base)}."]
 
-    # Lead with the biggest factor
+    # Lead with the biggest factor (a Doubtful tag beats any number)
     sentences, rest = [], adj
+    if p.get("flag") == "Doubtful":
+        why = f" ({p['injury_detail']})" if p.get("injury_detail") else ""
+        sentences.append(f"He's Doubtful{why}: My Score assumes he plays, so have a backup ready.")
     top = adj[0] if adj else None
     if top and abs(top["pts"]) >= BIG and abs(top["pts"]) >= abs(pull):
         word = "boost" if top["pts"] > 0 else "drag"

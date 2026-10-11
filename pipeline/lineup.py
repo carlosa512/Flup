@@ -109,11 +109,11 @@ def _plays_quantile(u, healthy, floor, ceiling, pcts):
 
 def outcome(p, pcts=PCTS):
     """(floor, ceiling, sd) this week, or None. A Doubtful player's range is
-    'if he plays'. He plays with chance q = My Score / healthy score
-    (Doubtful takes 60% off, so 40%), else scores 0, so his floor and
-    ceiling are percentiles of that mix: with a 60% chance of 0 his floor
-    (25th percentile) is 0, and his ceiling (90th) is the 75th percentile of
-    his if-he-plays range."""
+    'if he plays'. He plays with chance q = My Score / healthy score, else
+    scores 0, so his floor and ceiling are percentiles of that mix. With
+    Doubtful flagged only (settings [adjust.injury] doubtful = 0), q = 1 and
+    this is just his range; at 60% off his floor (25th percentile) would be
+    0 and his ceiling (90th) the 75th percentile of his if-he-plays range."""
     r = p.get("range") if p else None
     if not r:
         return None

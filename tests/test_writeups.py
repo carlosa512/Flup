@@ -117,3 +117,10 @@ def test_a_status_change_since_writing_is_flagged():
     file = {"season": "2026", "week": 5, "written": "w", "players": {"6801": {"text": "Start him.", "status": "Questionable"}}}
     attach_claude(pos, file, "2026", 5)
     assert pos["WR"]["players"][0]["claude"]["changed"] == "Questionable -> Out"
+
+
+def test_doubtful_leads_the_writeup():
+    p = dict(GOFF, flag="Doubtful", injury="Doubtful", injury_detail="Knee")
+    first = sentences(writeup(p, 5))[0]
+    assert first == "He's Doubtful (Knee): My Score assumes he plays, so have a backup ready."
+    assert 2 <= len(sentences(writeup(p, 5))) <= 4

@@ -106,10 +106,11 @@ cap = 4.0
 
 # Share of the score taken off by injury status. Questionable comes off the
 # projection's part only (the experts' ranks already account for injuries).
-# Doubtful and Out are also flagged on the card.
+# Doubtful and Out are also flagged on the card. Doubtful is flagged only
+# (owner, 2026-10-11): no points off; it was 0.60.
 [adjust.injury]
 questionable = 0.08
-doubtful = 0.60
+doubtful = 0.0
 out = 1.00
 
 # Floor and ceiling come from each player's weekly scores in your scoring
