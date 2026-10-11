@@ -254,13 +254,15 @@
   // score, with My Score small underneath; before that, My Score
   function scoreCell(p) {
     const a = gameState(p) && p.actual;
-    if (!a) return `<span class="pts">${pts(p.score)}</span>`;
+    if (!a && !liveOf(p)) return `<span class="pts">${pts(p.score)}</span>`;
     return `<span class="pts real">${pts(realPts(p))}<small>My Score ${pts(p.score)}</small></span>`;
   }
 
   // Live: his stat line (Sleeper's matchup points can lag it by a play or
   // two). Final: Sleeper's official points.
   function realPts(p) {
+    const lv = liveOf(p);
+    if (lv) return lv.got;  // Sleeper's points from the live fetch
     const a = p.actual;
     return gameState(p) === 'Live' || a.official == null ? a.pts : a.official;
   }
@@ -268,7 +270,7 @@
   function playerRow(p) {
     const o = owner(p);
     const inj = p.injury ? `<span class="inj ${injClass(p.injury)}" title="${esc(p.injury)}">${esc(injShort(p.injury))}</span>` : '';
-    const state = gameState(p);
+    const state = stateWord(p);
     const isOpen = open.has(p.id);
     const sub = [
       `<span>${esc(gameText(p))}</span>`,
@@ -391,18 +393,24 @@
 
   // Once he has played (or while he plays): his real points first
   function actualBlock(p) {
-    const a = p.actual;
-    if (!a) return '';
-    const live = gameState(p) === 'Live';
+    const a = p.actual, lv = liveOf(p);
+    if (!a && !lv) return '';
+    const live = stateWord(p) === 'Live';
     const shown = realPts(p);
     let html = `<h3>${live ? 'So far' : 'Scored'}</h3>
       <div class="score-head"><b class="big">${pts(shown)}</b><span>My Score was ${pts(p.score)} (${signedPts(shown - p.score)})</span></div>`;
-    if (a.parts.length) {
+    if (a && a.parts.length) {
       html += `<p class="muted">${live ? 'So far' : 'His points came'}${partsPhrase(a.parts, a.pts, true).replace(/^, mostly/, ' mostly') || ': nothing yet'}.</p>
         <details class="every"><summary>How his points add up</summary>
         <table class="math"><tbody>${partsTable(a.parts, true)}</tbody></table></details>`;
     }
-    if (a.official != null && Math.abs(a.official - a.pts) > 0.05) {
+    if (lv) {
+      if (!a || Math.abs(lv.got - a.pts) > 0.05) {
+        html += `<p class="muted">Live from Sleeper, ${esc(when(liveTime()))}. ${a
+          ? `The breakdown is from the ${esc(when(data.generated))} data (${pts(a.pts)} then).`
+          : 'His breakdown comes with the next data update.'}</p>`;
+      }
+    } else if (a.official != null && Math.abs(a.official - a.pts) > 0.05) {
       html += live
         ? `<p class="muted">Sleeper's matchup score still shows ${pts(a.official)}; it usually catches up within minutes.</p>`
         : `<p class="muted">Sleeper shows ${pts(a.official)}; his stat line here adds up to ${pts(a.pts)}. Sleeper may still be correcting a stat.</p>`;
@@ -496,7 +504,7 @@
     html += newsBlock(p);
 
     html += '<h3>Game</h3>';
-    html += `<p>${esc(gameText(p))}${p.kickoff ? ' · ' + esc(when(p.kickoff)) : ''}${gameState(p) ? ' · ' + gameState(p) : ''}</p>`;
+    html += `<p>${esc(gameText(p))}${p.kickoff ? ' · ' + esc(when(p.kickoff)) : ''}${stateWord(p) ? ' · ' + stateWord(p) : ''}</p>`;
     if (p.implied != null) {
       html += `<p>${esc(p.team)} ${p.spread > 0 ? '+' : ''}${num(p.spread)}, total ${num(p.implied * 2 + p.spread)} → implied for <b>${num(p.implied)}</b> pts</p>`;
     } else if (!gameState(p)) {
@@ -546,22 +554,42 @@
         <span class="pts">${pts(e.pts)}</span><span class="sub">Not in this week's projections</span></div></li>`;
     }
     const inj = p.injury ? `<span class="inj ${injClass(p.injury)}" title="${esc(p.injury)}">${esc(injShort(p.injury))}</span>` : '';
-    const state = e.state === 'final' ? 'Played' : e.state === 'live' ? 'Live' : startedSince(p) ? 'Started' : '';
+    // Once his game is on or over, the live fetch is fresher than the data run.
+    // A recommended starter whose game has started but who is still on the
+    // Sleeper bench is locked out: his points don't count.
+    const lvr = liveFor(e.id, side);
+    const on = lvr && (lvr.state === 'live' || lvr.state === 'final');
+    const sideNow = live && live[side];
+    const benched = !!(on && sideNow && !sideNow.rows.some((r) => r.id === e.id));
+    const lv = on && !benched ? lvr : null;
+    const st = lv ? lv.state : e.state;
+    const state = st === 'final' ? 'Played' : st === 'live' ? 'Live' : startedSince(p) ? 'Started' : '';
     const sub = [
       `<span>${esc(gameText(p))}</span>`,
       state ? `<span class="played">${state}</span>` : (p.kickoff ? `<span>${esc(when(p.kickoff))}</span>` : ''),
-      e.new ? '<span class="chip new">New</span>' : '',
+      e.new && !benched ? '<span class="chip new">New</span>' : '',
+      benched ? '<span class="stale">Not in your Sleeper lineup</span>' : '',
       p.rest ? '<span class="stale">May rest</span>' : '',
       side === 'me' && quietInjury(p) ? `<span class="stale">${quietInjury(p) === 'never' ? 'No news' : 'No news since ' + esc(when(quietInjury(p)).split(' ')[0])}</span>` : '',
     ].join('');
     let why = side === 'me' ? e.why || '' : '';
-    if (side !== 'me' && e.state === 'live') why = `${pts(e.actual)} so far, ${Math.round(e.left * 100)}% of the game left`;
+    if (benched) {
+      why = `Still on your Sleeper bench, so his ${pts(lvr.got)} pts don't count`
+        + (e.replaces ? ` (${nameOf(e.replaces)} plays instead).` : '.');
+    } else if (lv && lv.state === 'live') {
+      why = `${side === 'me' ? 'Playing now: ' : ''}${pts(lv.got)} so far, ${Math.round(lv.left * 100)}% of the game left`
+        + (side === 'me' ? ` (My Score ${pts(p.score)})` : '');
+    } else if (lv) {
+      why = side === 'me' ? `Played: ${pts(lv.got)} pts (My Score was ${pts(p.score)})` : '';
+    } else if (side !== 'me' && e.state === 'live') {
+      why = `${pts(e.actual)} so far, ${Math.round(e.left * 100)}% of the game left`;
+    }
     const isOpen = open.has(p.id);
     return `<li class="player ${e.new ? 'new' : ''}" data-id="${esc(p.id)}">
       <button type="button" class="row lu" aria-expanded="${isOpen}">
         ${slot}
         <span class="nm">${face(p)}${esc(p.name)}${inj}</span>
-        <span class="pts">${pts(e.pts)}</span>
+        <span class="pts${benched ? ' nocount' : ''}">${pts(benched ? lvr.got : lv ? lv.pts : e.pts)}</span>
         <span class="sub">${sub}</span>
         ${why ? `<span class="why">${esc(why)}</span>` : ''}
       </button>${isOpen ? detail(p) : ''}</li>`;
@@ -711,7 +739,7 @@
     const p = index.get(item.id);
     if (!p) return '';
     const inj = p.injury ? `<span class="inj ${injClass(p.injury)}" title="${esc(p.injury)}">${esc(injShort(p.injury))}</span>` : '';
-    const state = gameState(p);
+    const state = stateWord(p);
     const sub = [
       `<span>${esc(gameText(p))}</span>`,
       state ? `<span class="played">${state}</span>` : (p.kickoff ? `<span>${esc(when(p.kickoff))}</span>` : ''),
@@ -775,15 +803,24 @@
       .concat((L.bench_flex || []).map((b) => b.id), (L.free_agents || []).map((f) => f.id));
     if (ids.some(startedId)) {
       html += `<p class="note">Games have started since this data (from ${esc(when(data.generated))}).
-        Totals and win % are as of then. Sleeper has locked those players, so any moves for them are crossed out.</p>`;
+        ${live && live.opp ? 'The score card is live.' : 'Totals and win % are as of then.'} Sleeper has locked those players, so any moves for them are crossed out.</p>`;
     }
     html += verdict(L) + changesBox(L) + lateSwapTip(L);
     html += `<h2 class="section"><span class="dot me"></span>Your lineup</h2><ul class="players lineup grp-me">${L.me.starters.map((e) => lineupRow(e, 'me')).join('')}</ul>`;
     html += closeCalls(L);
     html += pickups(L);
     if (L.opp) {
-      html += `<details class="their" data-k="their"><summary><span class="dot opp"></span>Their lineup, as set in Sleeper <b>${pts(L.opp.total)}</b></summary>
-        <ul class="players lineup grp-opp">${L.opp.starters.map((e) => lineupRow(e, 'opp')).join('')}</ul></details>`;
+      // During games: their lineup as set in Sleeper right now (they may have
+      // swapped someone since the data run), with the live total
+      const lo = live && live.opp;
+      const theirs = lo ? L.slots.map((slot, i) => {
+        const id = (lo.m.starters || [])[i];
+        const r = id && id !== '0' ? lo.rows.find((x) => x.id === id) : null;
+        return r ? { slot, id, pts: r.pts, state: r.state, actual: r.got, left: r.left }
+          : { slot, id: id && id !== '0' ? id : null, pts: 0, state: 'empty', actual: null, left: 0 };
+      }) : L.opp.starters;
+      html += `<details class="their" data-k="their"><summary><span class="dot opp"></span>Their lineup, as set in Sleeper <b>${pts(lo ? lo.total : L.opp.total)}</b></summary>
+        <ul class="players lineup grp-opp">${theirs.map((e) => lineupRow(e, 'opp')).join('')}</ul></details>`;
     }
     html += '<button type="button" class="copy-btn" data-copy="lineup">Copy my matchup for Claude</button>';
     // Re-rendering (a player tapped open) keeps the open sections open
@@ -834,7 +871,8 @@
   // The same math as pipeline/lineup.py: a live starter counts his points so
   // far plus My Score x the share of his game left; win % from the totals.
 
-  let live = null;  // {at, me, opp, win}
+  let live = null;  // {at, now, me, opp, win, games, defLines, gotFor}
+  const LAG_MS = 6 * 60000;
   const BELL = (z) => {  // standard normal CDF (Abramowitz-Stegun 7.1.26)
     const t = 1 / (1 + 0.3275911 * Math.abs(z) / Math.SQRT2);
     const e = 1 - (((((1.061405429 * t - 1.453152027) * t) + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t * Math.exp(-z * z / 2);
@@ -859,7 +897,8 @@
     if (g.state !== 'in' && (isNaN(kick) || now < kick)) return ['pre', 1];
     if (g.state !== 'in' || !(g.period >= 1)) return ['live', 1];
     if (g.period > 4) return ['live', 0];
-    return ['live', Math.max(0, Math.min(1, ((4 - g.period) * 900 + (g.clock || 0)) / 3600))];
+    // rounded like lineup.phase(), so the card and the server agree to the 0.1
+    return ['live', Math.round(1000 * Math.max(0, Math.min(1, ((4 - g.period) * 900 + (g.clock || 0)) / 3600))) / 1000];
   }
   function smoothBracket(x) {
     const t = data.league.def_brackets || [];
@@ -883,6 +922,7 @@
     return 0;
   }
   function liveDef(p, g, got, rest, left, line) {
+    if (left <= 0) return got;  // nothing left to play (as in lineup.py)
     let allowedProj = null, bracketProj = 0;
     for (const [stat, value, , pts_] of p.parts || []) {
       if (stat === 'pts_allow' || stat.startsWith('pts_allow_')) { bracketProj += pts_; if (stat === 'pts_allow') allowedProj = value; }
@@ -939,26 +979,71 @@
     for (const r of defs || []) if (r && r.stats && (r.stats.gp || 0) > 0) defLines[String(r.player_id)] = r.stats;
     const sc = lg.scoring || {};
     const now = Date.now();
+    // A defense's points come from his own stat line, so the bracket in
+    // them matches the one taken back; everyone else's are Sleeper's
+    // Sleeper's matchup points trail its stats by up to ~6 minutes, so
+    // right after a data run its stat line is the fresher number
+    const recent = now - Date.parse(data.generated) < LAG_MS;
+    const gotFor = (id, m) => {
+      const p = index.get(id), line = defLines[id];
+      if (p && p.pos === 'DEF' && line) {
+        return Object.entries(line).reduce((n, [k, v]) => n + (typeof v === 'number' ? v * (sc[k] || 0) : 0), 0);
+      }
+      if (recent && p && p.actual) return p.actual.pts;
+      return Number(((m && m.players_points) || {})[id] || 0);
+    };
     const side = (rid) => {
       const m = (mu || []).find((x) => x.roster_id === rid);
       if (!m) return null;
       const rows = (m.starters || []).filter((id) => id && id !== '0').map((id) => {
-        const p = index.get(id), line = defLines[id];
-        // A defense's points come from his own stat line, so the bracket in
-        // them matches the one taken back
-        const got = p && p.pos === 'DEF' && line
-          ? Object.entries(line).reduce((n, [k, v]) => n + (typeof v === 'number' ? v * (sc[k] || 0) : 0), 0)
-          : Number((m.players_points || {})[id] || 0);
-        return liveRow(id, got, p ? games[p.team] : null, now, line);
+        const p = index.get(id);
+        return liveRow(id, gotFor(id, m), p ? games[p.team] : null, now, defLines[id]);
       });
-      return { rows, now: rows.reduce((n, r) => n + r.got, 0), total: rows.reduce((n, r) => n + r.pts, 0),
+      return { rows, m, now: rows.reduce((n, r) => n + r.got, 0), total: rows.reduce((n, r) => n + r.pts, 0),
         sd: Math.sqrt(rows.reduce((n, r) => n + r.sd * r.sd, 0)) };
     };
     const me = side(lg.my_rid), opp = side(lg.opp_rid);
     if (!me) throw new Error('my team is not in the matchups');
     const comb = opp ? Math.sqrt(me.sd * me.sd + opp.sd * opp.sd) : 0;
     const win = !opp ? null : comb > 0 ? BELL((me.total - opp.total) / comb) : (me.total > opp.total ? 1 : me.total < opp.total ? 0 : 0.5);
-    return { at: new Date().toISOString(), me, opp, win };
+    return { at: new Date(now).toISOString(), now, me, opp, win, games, defLines, gotFor };
+  }
+
+  // A player's live numbers on my side or theirs, from the last fetch: his
+  // row if he's a Sleeper starter now, else worked out the same way (say, a
+  // recommended starter still on the bench in Sleeper). Null if he isn't on
+  // that roster or there's no live data.
+  function liveFor(id, sideKey) {
+    const s = live && live[sideKey];
+    if (!s || !id) return null;
+    const hit = s.rows.find((r) => r.id === id);
+    if (hit) return hit;
+    const p = index.get(id);
+    if (!p || !(s.m.players || []).includes(id)) return null;
+    return liveRow(id, live.gotFor(id, s.m), live.games[p.team] || null, live.now, live.defLines[id]);
+  }
+  // Live numbers once his game is on or over (either roster in my matchup)
+  function liveOf(p) {
+    if (!p || !live) return null;
+    for (const k of ['me', 'opp']) {
+      const r = liveFor(p.id, k);
+      if (!r || (r.state !== 'live' && r.state !== 'final')) continue;
+      // Ruled out, no stat line, nothing scored: he isn't playing
+      if (!r.got && !p.actual && p.flag && p.flag !== 'Doubtful') return null;
+      return r;
+    }
+    return null;
+  }
+  const liveTime = () => (live ? live.at : null);
+  // "Live" / "Played" for display: live data first, else the data run's.
+  // (Locking moves still goes by the data run's times: see startedSince.)
+  function stateWord(p) {
+    const lv = liveOf(p);
+    if (lv) return lv.state === 'final' ? 'Played' : 'Live';
+    const g = p && live && live.games && live.games[p.team];  // the live scoreboard has every game
+    if (g && (g.completed || g.state === 'post')) return 'Played';
+    if (g && g.state === 'in') return 'Live';
+    return gameState(p);
   }
 
   // Games on now (or just over) with a starter from either side
@@ -973,13 +1058,15 @@
 
   let liveBusy = false;
   async function refreshLive(manual) {
-    if (!data || !data.lineup || liveBusy || (!manual && !gamesOn())) return;
+    if (!data || !data.lineup || liveBusy || (!manual && !gamesOn())) return false;
     liveBusy = true;
     try {
       live = await fetchLive();
-      if (view === 'lineup') renderLineup();
+      renderView();
+      return true;
     } catch (err) {
       if (manual) toast("Live scores didn't load (" + err.message + ').');
+      return false;
     } finally {
       liveBusy = false;
     }
@@ -1021,7 +1108,12 @@
     const lines = [`Fantasy football, ${lg.name}, ${data.season} week ${data.week}. Data from ${when(data.generated)}`
       + (zone ? ` (times are ${zone})` : '') + '.',
       'Scoring (from Sleeper): ' + SCORING_WORDS.filter(([k]) => sc[k]).map(([k, w]) => `${w} ${num(sc[k])}`).join(', ') + '.'];
-    if (L && L.opp && opp) {
+    if (L && L.opp && opp && live && live.opp) {
+      lines.push(`My team: ${me.name} (${me.wins}-${me.losses}) vs ${opp.name} (${opp.wins}-${opp.losses}). `
+        + `Live from Sleeper at ${when(live.at)}: me ${pts(live.me.now)} so far, expected ${pts(live.me.total)}; `
+        + `them ${pts(live.opp.now)} so far, expected ${pts(live.opp.total)}: win chance ${pct(live.win)}. `
+        + `The lineup advice is from the data run, in "${(MODE[L.mode] || MODE.even).word}" mode.`);
+    } else if (L && L.opp && opp) {
       lines.push(`My team: ${me.name} (${me.wins}-${me.losses}) vs ${opp.name} (${opp.wins}-${opp.losses}). `
         + `Projected ${pts(L.me.total)} (sd ${pts(L.me.sd)}) vs ${pts(L.opp.total)} (sd ${pts(L.opp.sd)}): `
         + `win chance ${pct(L.win)}, so the dashboard is in "${(MODE[L.mode] || MODE.even).word}" mode `
@@ -1059,7 +1151,10 @@
     if (p.adj && p.adj.length) out.push('  Adjustments: ' + p.adj.map((a) => `${a.label} ${sgn(a.pts)} (${a.why})`).join('; ') + '.');
     if (p.rest) out.push(`  ${p.rest}`);
     if (p.implied != null) out.push(`  Vegas: ${p.team} ${p.spread > 0 ? '+' : ''}${num(p.spread)}, implied ${num(p.implied)} pts.`);
-    if (p.actual) out.push(`  ${gameState(p) === 'Live' ? 'So far' : 'Scored'}: ${plain(realPts(p))} pts.`);
+    if (p.actual || liveOf(p)) {
+      out.push(`  ${stateWord(p) === 'Live' ? 'So far' : 'Scored'}: ${plain(realPts(p))} pts`
+        + (liveOf(p) ? ` (live from Sleeper, ${when(live.at)}).` : '.'));
+    }
     if (withNews && p.news && p.news.length) {
       out.push('  News:');
       for (const n of p.news) out.push(`  - ${n.title} (${n.source}, ${n.tag}, ${new Date(n.date).toLocaleDateString()}) ${n.url}`);
@@ -1127,12 +1222,21 @@
 
   // ---------- render ----------
 
+  // A section's identity across redraws: its player and its data-k or title
+  const detailsKey = (d) => `${(d.closest('[data-id]') || { dataset: {} }).dataset.id || ''}|${
+    d.dataset.k || ((d.querySelector('summary') || {}).textContent || '').trim()}`;
+
   function renderView() {
     for (const b of document.querySelectorAll('[data-view]')) b.setAttribute('aria-selected', String(b.dataset.view === view));
     $('#view-lineup').hidden = view !== 'lineup';
     $('#view-tiers').hidden = view !== 'tiers';
+    // The live refresh redraws every 2 minutes during games: keep whatever
+    // the owner has open (a card's "How his points add up", say)
+    const root = view === 'lineup' ? $('#lineup') : $('#tiers');
+    const keep = new Set([...root.querySelectorAll('details[open]')].map(detailsKey));
     if (view === 'lineup') renderLineup();
     else { renderTabs(); renderTiers(); }
+    for (const d of root.querySelectorAll('details')) if (keep.has(detailsKey(d))) d.open = true;
   }
 
   function render() {
@@ -1188,8 +1292,8 @@
       write(DATA_KEY, fresh);
       if (changed) { live = null; render(); }
       if (gamesOn()) {
-        await refreshLive(manual);
-        if (manual && live) toast('Live scores updated' + (changed ? ', and new data loaded' : ''));
+        const ok = await refreshLive(manual);
+        if (manual && ok) toast('Live scores updated' + (changed ? ', and new data loaded' : ''));
       } else if (manual) {
         const next = nextRun();
         toast(changed ? 'New data loaded' : 'Up to date: data from ' + when(fresh.generated) + (next ? '. Next update ' + when(next.toISOString()) : ''));

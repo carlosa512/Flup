@@ -195,6 +195,8 @@ def _live_def(p, game, got, rest, left, scoring):
     So: points so far without that bracket, plus the rest of his projection
     without its bracket part, plus the bracket for the points he's expected
     to allow by the end (so far + his projected rate x the game left)."""
+    if left <= 0:
+        return got  # nothing left to play: his points so far are it
     allowed_proj, bracket_proj = _def_bracket_part(p)
     rest_no_bracket = rest - bracket_proj
     allowed_now = (game or {}).get("opp_score")

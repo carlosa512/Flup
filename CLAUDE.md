@@ -113,7 +113,11 @@ iPhone 13, `timezoneId: 'America/Chicago'` (the owner's local time).
 - `main` publishes the gh-pages root; `claude/**` publishes gh-pages
   `/preview/` and overwrites `dev-raw`; each keeps the other's files.
 - Scheduled runs only happen from `main`, so preview data never refreshes on
-  its own. For fresh preview data: Run workflow on the branch (the GitHub MCP
+  its own. GitHub starts scheduled runs late or drops them under load: on
+  2026-10-11 the first ever scheduled run came at 3:42 PM ET, and only 2
+  of ~8 half-hour slots ran that afternoon (a theory that the "Claude"
+  commit author blocked schedules was wrong). The browser's live card
+  covers live scores either way. For fresh preview data: Run workflow on the branch (the GitHub MCP
   `actions_run_trigger` can do it; the owner granted the Claude app
   Actions access on 2026-10-11 after a 403).
 - The service worker serves the cached shell first, so the first open after

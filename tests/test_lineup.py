@@ -565,3 +565,15 @@ def test_a_doubtful_player_starts_when_no_one_else_can():
     players[0].update(flag="Doubtful", injury="Doubtful")    # qb1, the only QB
     r = run(players, BEST)
     assert ids(r)[0] == "qb1"
+
+
+def test_live_defense_with_no_time_left_counts_just_his_points():
+    # Found in review: at 0:00 of the 4th (or in overtime) the smoothed
+    # bracket was still added, so 13.0 so far showed as about 13.4
+    d = player("hou", "DEF", 12.0, parts=[["sack", 3, 1.0, 3.0], ["pts_allow", 16.0, None, 1.0]],
+               actual={"pts": 13.0, "official": 13.0,
+                       "parts": [["pts_allow_1_6", 1, 7, 7.0], ["sack", 6, 1, 6.0]]})
+    for g in (dict(game("in", period=4, clock=0), opp_score=3.0),
+              dict(game("in", period=5, clock=300), opp_score=3.0)):
+        e = lineup.expected(d, g, 13.0, lineup._time(NOW), scoring=SCORING)
+        assert e["left"] == 0.0 and e["pts"] == pytest.approx(13.0)
