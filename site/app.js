@@ -552,16 +552,22 @@
       </button>${isOpen ? detail(p) : ''}</li>`;
   }
 
-  function lineupMath(L) {
+  function lineupMath(L, liveShown) {
     const me = L.me, opp = L.opp, f = L.first;
     const diff = me.total - opp.total;
     const comb = Math.sqrt(me.sd * me.sd + opp.sd * opp.sd);
     const lean = Math.round(L.lean * 100) + '%';
-    let html = `<p>Each starter counts his expected points: My Score if his game hasn't started,
-      points so far plus My Score for the part of the game left if it's live, and his actual points once it's over.</p>`;
-    html += `<p>You <b>${pts(me.total)}</b> (give or take ${pts(me.sd)}) vs them <b>${pts(opp.total)}</b>
-      (give or take ${pts(opp.sd)}). Their lineup is counted exactly as set in Sleeper.</p>`;
-    if (comb > 0) {
+    let html = '';
+    if (liveShown) {
+      html += `<h4>The lineup advice (data from ${esc(when(data.generated))})</h4>
+        <p>Then: you ${pts(me.total)} vs them ${pts(opp.total)}, ${pct(L.win)} to win. That set the mode the lineup below uses.</p>`;
+    } else {
+      html += `<p>Each starter counts his expected points: My Score if his game hasn't started,
+        points so far plus My Score for the part of the game left if it's live, and his actual points once it's over.</p>`;
+      html += `<p>You <b>${pts(me.total)}</b> (give or take ${pts(me.sd)}) vs them <b>${pts(opp.total)}</b>
+        (give or take ${pts(opp.sd)}). Their lineup is counted exactly as set in Sleeper.</p>`;
+    }
+    if (comb > 0 && !liveShown) {
       html += `<p>Win % is the chance your total ends up higher: ${signedPts(diff)} ÷ √(${pts(me.sd)}² + ${pts(opp.sd)}²)
         = ${signedPts(diff)} ÷ ${pts(comb)} = ${(diff < 0 ? '−' : '') + Math.abs(diff / comb).toFixed(2)} on the bell curve → <b>${pct(L.win)}</b>.</p>`;
     }
@@ -575,7 +581,7 @@
         ${dog ? 'up to his ceiling, which favors boom-or-bust players' : 'down to his floor, which favors steady players'}.
         Final lineup: ${pct(L.win)}.</p>`;
       if (L.win < f.win) {
-        html += `<p>The bell curve above rates that a bit lower (${pct(L.win)} vs ${pct(f.win)}): it only sees averages and
+        html += `<p>The bell curve rates that a bit lower (${pct(L.win)} vs ${pct(f.win)}): it only sees averages and
           spread, not the ${dog ? 'long upside tail a ceiling measures' : 'protection a high floor gives'}.</p>`;
       }
     }
@@ -591,14 +597,19 @@
         <div class="totals"><div><span class="lbl">You</span><b>${pts(L.me.total)}</b></div></div></div>`;
     }
     const m = MODE[L.mode] || MODE.even;
+    // During games: the live numbers from Sleeper (both lineups as set now)
+    const lv = live && live.opp ? live : null;
+    const win = lv ? lv.win : L.win;
+    const sofar = (s) => (lv ? `<span class="sofar">${pts(s.now)} so far</span>` : '');
     return `<div class="verdict ${m.cls}">
-      <p class="mode-line"><b>${m.word} ${pct(L.win)}</b>: ${m.line}</p>
-      <div class="winbar" role="img" aria-label="${pct(L.win)} chance to win"><span style="width:${(L.win * 100).toFixed(1)}%"></span></div>
+      ${lv ? `<p class="live-head"><span class="live-dot"></span> Live from Sleeper, ${esc(when(lv.at))}</p>` : ''}
+      <p class="mode-line"><b>${m.word} ${pct(win)}</b>: ${m.line}</p>
+      <div class="winbar" role="img" aria-label="${pct(win)} chance to win"><span style="width:${(win * 100).toFixed(1)}%"></span></div>
       <div class="totals">
-        <div><span class="lbl">You</span><b>${pts(L.me.total)}</b></div>
-        <div class="them"><span class="lbl">${esc(opp ? opp.name : 'Them')}</span><b>${pts(L.opp.total)}</b></div>
+        <div><span class="lbl">You</span><b>${pts(lv ? lv.me.total : L.me.total)}</b>${sofar(lv && lv.me)}</div>
+        <div class="them"><span class="lbl">${esc(opp ? opp.name : 'Them')}</span><b>${pts(lv ? lv.opp.total : L.opp.total)}</b>${sofar(lv && lv.opp)}</div>
       </div>
-      <details class="every" data-k="math"><summary>How this is worked out</summary><div class="math-text">${lineupMath(L)}</div></details>
+      <details class="every" data-k="math"><summary>How this is worked out</summary><div class="math-text">${lv ? liveMath(lv) : ''}${lineupMath(L, !!lv)}</div></details>
     </div>`;
   }
 
@@ -745,7 +756,7 @@
       html += `<p class="note">Games have started since this data (from ${esc(when(data.generated))}).
         Totals and win % are as of then. Sleeper has locked those players, so any moves for them are crossed out.</p>`;
     }
-    html += liveCard() + verdict(L) + changesBox(L) + lateSwapTip(L);
+    html += verdict(L) + changesBox(L) + lateSwapTip(L);
     html += `<h2 class="section">Your lineup</h2><ul class="players lineup">${L.me.starters.map((e) => lineupRow(e, 'me')).join('')}</ul>`;
     html += closeCalls(L);
     html += pickups(L);
@@ -941,23 +952,23 @@
     }
   }
 
-  function liveCard() {
-    if (!live) return '';
+  function liveMath(lv) {
     const name = (id) => (index.get(id) || {}).name || 'Unknown player';
-    const word = { final: 'final', live: 'live', pre: 'not started', none: 'no game', unknown: '' };
+    const word = { final: 'final', none: 'no game' };
     const rowsOf = (s) => s.rows.map((r) => `<li>${esc(name(r.id))}: ${
       r.state === 'live' ? `<b>${pts(r.got)}</b> so far, ${Math.round(r.left * 100)}% of the game left → ${pts(r.pts)}`
-        : r.state === 'pre' ? `${pts(r.pts)} (${word.pre})` : `<b>${pts(r.got)}</b> (${word[r.state] || r.state})`}</li>`).join('');
+        : r.state === 'pre' ? `${pts(r.pts)} (not started)` : `<b>${pts(r.got)}</b> (${word[r.state] || r.state})`}</li>`).join('');
     const opp = data.league.teams[data.league.opp_rid];
-    return `<div class="live-card">
-      <p class="live-head"><span class="live-dot"></span> Live from Sleeper, ${esc(when(live.at))}${live.win != null ? ` · <b>${pct(live.win)}</b> to win` : ''}</p>
-      <p class="live-line">You <b>${pts(live.me.now)}</b> now → ${pts(live.me.total)}</p>
-      ${live.opp ? `<p class="live-line">${esc(opp ? opp.name : 'Them')} <b>${pts(live.opp.now)}</b> now → ${pts(live.opp.total)}</p>` : ''}
-      <details class="every" data-k="live"><summary>Player by player</summary>
-        <p class="muted">Your and their lineups as set in Sleeper right now. Points so far are Sleeper's matchup points (they can trail a play by a few minutes); "→" is points so far plus My Score for the rest of the game.</p>
-        <h3>You</h3><ul class="live-rows">${rowsOf(live.me)}</ul>
-        ${live.opp ? `<h3>${esc(opp ? opp.name : 'Them')}</h3><ul class="live-rows">${rowsOf(live.opp)}</ul>` : ''}
-      </details></div>`;
+    const diff = lv.me.total - lv.opp.total, comb = Math.sqrt(lv.me.sd ** 2 + lv.opp.sd ** 2);
+    let html = `<p><b>Live:</b> both lineups as set in Sleeper right now. Each starter counts his points so far
+      plus My Score for the part of his game left; one who hasn't started counts My Score. Points so far are
+      Sleeper's matchup points, which can trail a play by a few minutes. Updates every 2 minutes.</p>
+      <p>You <b>${pts(lv.me.total)}</b> (give or take ${pts(lv.me.sd)}) vs them <b>${pts(lv.opp.total)}</b> (give or take ${pts(lv.opp.sd)})`;
+    html += comb > 0 ? `: ${signedPts(diff)} ÷ ${pts(comb)} = ${(diff < 0 ? '−' : '') + Math.abs(diff / comb).toFixed(2)} on the bell curve → <b>${pct(lv.win)}</b>.</p>` : '.</p>';
+    html += `<details class="every" data-k="liveplayers"><summary>Player by player</summary>
+      <h4>You</h4><ul class="live-rows">${rowsOf(lv.me)}</ul>
+      <h4>${esc(opp ? opp.name : 'Them')}</h4><ul class="live-rows">${rowsOf(lv.opp)}</ul></details>`;
+    return html;
   }
 
   // ---------- Copy for Claude: a ready-to-paste prompt with every input ----------
