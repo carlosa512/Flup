@@ -254,13 +254,15 @@
   // score, with My Score small underneath; before that, My Score
   function scoreCell(p) {
     const a = gameState(p) && p.actual;
-    if (!a) return `<span class="pts">${pts(p.score)}</span>`;
+    if (!a && !liveOf(p)) return `<span class="pts">${pts(p.score)}</span>`;
     return `<span class="pts real">${pts(realPts(p))}<small>My Score ${pts(p.score)}</small></span>`;
   }
 
   // Live: his stat line (Sleeper's matchup points can lag it by a play or
   // two). Final: Sleeper's official points.
   function realPts(p) {
+    const lv = liveOf(p);
+    if (lv) return lv.got;  // Sleeper's points from the live fetch
     const a = p.actual;
     return gameState(p) === 'Live' || a.official == null ? a.pts : a.official;
   }
@@ -268,7 +270,7 @@
   function playerRow(p) {
     const o = owner(p);
     const inj = p.injury ? `<span class="inj ${injClass(p.injury)}" title="${esc(p.injury)}">${esc(injShort(p.injury))}</span>` : '';
-    const state = gameState(p);
+    const state = stateWord(p);
     const isOpen = open.has(p.id);
     const sub = [
       `<span>${esc(gameText(p))}</span>`,
@@ -391,18 +393,24 @@
 
   // Once he has played (or while he plays): his real points first
   function actualBlock(p) {
-    const a = p.actual;
-    if (!a) return '';
-    const live = gameState(p) === 'Live';
+    const a = p.actual, lv = liveOf(p);
+    if (!a && !lv) return '';
+    const live = stateWord(p) === 'Live';
     const shown = realPts(p);
     let html = `<h3>${live ? 'So far' : 'Scored'}</h3>
       <div class="score-head"><b class="big">${pts(shown)}</b><span>My Score was ${pts(p.score)} (${signedPts(shown - p.score)})</span></div>`;
-    if (a.parts.length) {
+    if (a && a.parts.length) {
       html += `<p class="muted">${live ? 'So far' : 'His points came'}${partsPhrase(a.parts, a.pts, true).replace(/^, mostly/, ' mostly') || ': nothing yet'}.</p>
         <details class="every"><summary>How his points add up</summary>
         <table class="math"><tbody>${partsTable(a.parts, true)}</tbody></table></details>`;
     }
-    if (a.official != null && Math.abs(a.official - a.pts) > 0.05) {
+    if (lv) {
+      if (!a || Math.abs(lv.got - a.pts) > 0.05) {
+        html += `<p class="muted">Live from Sleeper, ${esc(when(liveTime()))}. ${a
+          ? `The breakdown is from the ${esc(when(data.generated))} data (${pts(a.pts)} then).`
+          : 'His breakdown comes with the next data update.'}</p>`;
+      }
+    } else if (a.official != null && Math.abs(a.official - a.pts) > 0.05) {
       html += live
         ? `<p class="muted">Sleeper's matchup score still shows ${pts(a.official)}; it usually catches up within minutes.</p>`
         : `<p class="muted">Sleeper shows ${pts(a.official)}; his stat line here adds up to ${pts(a.pts)}. Sleeper may still be correcting a stat.</p>`;
@@ -496,7 +504,7 @@
     html += newsBlock(p);
 
     html += '<h3>Game</h3>';
-    html += `<p>${esc(gameText(p))}${p.kickoff ? ' · ' + esc(when(p.kickoff)) : ''}${gameState(p) ? ' · ' + gameState(p) : ''}</p>`;
+    html += `<p>${esc(gameText(p))}${p.kickoff ? ' · ' + esc(when(p.kickoff)) : ''}${stateWord(p) ? ' · ' + stateWord(p) : ''}</p>`;
     if (p.implied != null) {
       html += `<p>${esc(p.team)} ${p.spread > 0 ? '+' : ''}${num(p.spread)}, total ${num(p.implied * 2 + p.spread)} → implied for <b>${num(p.implied)}</b> pts</p>`;
     } else if (!gameState(p)) {
@@ -546,7 +554,11 @@
         <span class="pts">${pts(e.pts)}</span><span class="sub">Not in this week's projections</span></div></li>`;
     }
     const inj = p.injury ? `<span class="inj ${injClass(p.injury)}" title="${esc(p.injury)}">${esc(injShort(p.injury))}</span>` : '';
-    const state = e.state === 'final' ? 'Played' : e.state === 'live' ? 'Live' : startedSince(p) ? 'Started' : '';
+    // Once his game is on or over, the live fetch is fresher than the data run
+    const lvr = liveFor(e.id, side);
+    const lv = lvr && (lvr.state === 'live' || lvr.state === 'final') ? lvr : null;
+    const st = lv ? lv.state : e.state;
+    const state = st === 'final' ? 'Played' : st === 'live' ? 'Live' : startedSince(p) ? 'Started' : '';
     const sub = [
       `<span>${esc(gameText(p))}</span>`,
       state ? `<span class="played">${state}</span>` : (p.kickoff ? `<span>${esc(when(p.kickoff))}</span>` : ''),
@@ -555,13 +567,20 @@
       side === 'me' && quietInjury(p) ? `<span class="stale">${quietInjury(p) === 'never' ? 'No news' : 'No news since ' + esc(when(quietInjury(p)).split(' ')[0])}</span>` : '',
     ].join('');
     let why = side === 'me' ? e.why || '' : '';
-    if (side !== 'me' && e.state === 'live') why = `${pts(e.actual)} so far, ${Math.round(e.left * 100)}% of the game left`;
+    if (lv && lv.state === 'live') {
+      why = `${side === 'me' ? 'Playing now: ' : ''}${pts(lv.got)} so far, ${Math.round(lv.left * 100)}% of the game left`
+        + (side === 'me' ? ` (My Score ${pts(p.score)})` : '');
+    } else if (lv) {
+      why = side === 'me' ? `Played: ${pts(lv.got)} pts (My Score was ${pts(p.score)})` : '';
+    } else if (side !== 'me' && e.state === 'live') {
+      why = `${pts(e.actual)} so far, ${Math.round(e.left * 100)}% of the game left`;
+    }
     const isOpen = open.has(p.id);
     return `<li class="player ${e.new ? 'new' : ''}" data-id="${esc(p.id)}">
       <button type="button" class="row lu" aria-expanded="${isOpen}">
         ${slot}
         <span class="nm">${face(p)}${esc(p.name)}${inj}</span>
-        <span class="pts">${pts(e.pts)}</span>
+        <span class="pts">${pts(lv ? lv.pts : e.pts)}</span>
         <span class="sub">${sub}</span>
         ${why ? `<span class="why">${esc(why)}</span>` : ''}
       </button>${isOpen ? detail(p) : ''}</li>`;
@@ -711,7 +730,7 @@
     const p = index.get(item.id);
     if (!p) return '';
     const inj = p.injury ? `<span class="inj ${injClass(p.injury)}" title="${esc(p.injury)}">${esc(injShort(p.injury))}</span>` : '';
-    const state = gameState(p);
+    const state = stateWord(p);
     const sub = [
       `<span>${esc(gameText(p))}</span>`,
       state ? `<span class="played">${state}</span>` : (p.kickoff ? `<span>${esc(when(p.kickoff))}</span>` : ''),
@@ -775,7 +794,7 @@
       .concat((L.bench_flex || []).map((b) => b.id), (L.free_agents || []).map((f) => f.id));
     if (ids.some(startedId)) {
       html += `<p class="note">Games have started since this data (from ${esc(when(data.generated))}).
-        Totals and win % are as of then. Sleeper has locked those players, so any moves for them are crossed out.</p>`;
+        ${live ? 'The score card is live.' : 'Totals and win % are as of then.'} Sleeper has locked those players, so any moves for them are crossed out.</p>`;
     }
     html += verdict(L) + changesBox(L) + lateSwapTip(L);
     html += `<h2 class="section"><span class="dot me"></span>Your lineup</h2><ul class="players lineup grp-me">${L.me.starters.map((e) => lineupRow(e, 'me')).join('')}</ul>`;
@@ -939,26 +958,59 @@
     for (const r of defs || []) if (r && r.stats && (r.stats.gp || 0) > 0) defLines[String(r.player_id)] = r.stats;
     const sc = lg.scoring || {};
     const now = Date.now();
+    // A defense's points come from his own stat line, so the bracket in
+    // them matches the one taken back; everyone else's are Sleeper's
+    const gotFor = (id, m) => {
+      const p = index.get(id), line = defLines[id];
+      return p && p.pos === 'DEF' && line
+        ? Object.entries(line).reduce((n, [k, v]) => n + (typeof v === 'number' ? v * (sc[k] || 0) : 0), 0)
+        : Number(((m && m.players_points) || {})[id] || 0);
+    };
     const side = (rid) => {
       const m = (mu || []).find((x) => x.roster_id === rid);
       if (!m) return null;
       const rows = (m.starters || []).filter((id) => id && id !== '0').map((id) => {
-        const p = index.get(id), line = defLines[id];
-        // A defense's points come from his own stat line, so the bracket in
-        // them matches the one taken back
-        const got = p && p.pos === 'DEF' && line
-          ? Object.entries(line).reduce((n, [k, v]) => n + (typeof v === 'number' ? v * (sc[k] || 0) : 0), 0)
-          : Number((m.players_points || {})[id] || 0);
-        return liveRow(id, got, p ? games[p.team] : null, now, line);
+        const p = index.get(id);
+        return liveRow(id, gotFor(id, m), p ? games[p.team] : null, now, defLines[id]);
       });
-      return { rows, now: rows.reduce((n, r) => n + r.got, 0), total: rows.reduce((n, r) => n + r.pts, 0),
+      return { rows, m, now: rows.reduce((n, r) => n + r.got, 0), total: rows.reduce((n, r) => n + r.pts, 0),
         sd: Math.sqrt(rows.reduce((n, r) => n + r.sd * r.sd, 0)) };
     };
     const me = side(lg.my_rid), opp = side(lg.opp_rid);
     if (!me) throw new Error('my team is not in the matchups');
     const comb = opp ? Math.sqrt(me.sd * me.sd + opp.sd * opp.sd) : 0;
     const win = !opp ? null : comb > 0 ? BELL((me.total - opp.total) / comb) : (me.total > opp.total ? 1 : me.total < opp.total ? 0 : 0.5);
-    return { at: new Date().toISOString(), me, opp, win };
+    return { at: new Date(now).toISOString(), now, me, opp, win, games, defLines, gotFor };
+  }
+
+  // A player's live numbers on my side or theirs, from the last fetch: his
+  // row if he's a Sleeper starter now, else worked out the same way (say, a
+  // recommended starter still on the bench in Sleeper). Null if he isn't on
+  // that roster or there's no live data.
+  function liveFor(id, sideKey) {
+    const s = live && live[sideKey];
+    if (!s || !id) return null;
+    const hit = s.rows.find((r) => r.id === id);
+    if (hit) return hit;
+    const p = index.get(id);
+    if (!p || !(s.m.players || []).includes(id)) return null;
+    return liveRow(id, live.gotFor(id, s.m), live.games[p.team] || null, live.now, live.defLines[id]);
+  }
+  // Live numbers once his game is on or over (either roster in my matchup)
+  function liveOf(p) {
+    if (!p || !live) return null;
+    for (const k of ['me', 'opp']) {
+      const r = liveFor(p.id, k);
+      if (r && (r.state === 'live' || r.state === 'final')) return r;
+    }
+    return null;
+  }
+  const liveTime = () => (live ? live.at : null);
+  // "Live" / "Played" for display: live data first, else the data run's.
+  // (Locking moves still goes by the data run's times: see startedSince.)
+  function stateWord(p) {
+    const lv = liveOf(p);
+    return lv ? (lv.state === 'final' ? 'Played' : 'Live') : gameState(p);
   }
 
   // Games on now (or just over) with a starter from either side
@@ -977,7 +1029,7 @@
     liveBusy = true;
     try {
       live = await fetchLive();
-      if (view === 'lineup') renderLineup();
+      renderView();
     } catch (err) {
       if (manual) toast("Live scores didn't load (" + err.message + ').');
     } finally {
