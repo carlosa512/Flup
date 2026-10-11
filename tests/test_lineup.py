@@ -376,6 +376,29 @@ def test_live_defense_does_not_count_the_bracket_twice():
     assert lineup.bracket_points(SCORING, "pts_allow", 35) == -4
 
 
+def test_live_defense_before_sleeper_scores_him_keeps_his_projection():
+    # Kickoff time passed, ESPN shows 0-0 (still "pre"), Sleeper has no line
+    # yet: there's no shutout bonus in his 0 points to take back out
+    d = player("hou", "DEF", 12.0, parts=[["sack", 3, 1.0, 3.0], ["pts_allow", 16.0, None, 1.0]])
+    g = dict(game("pre"), opp_score=0.0)
+    e = lineup.expected(d, g, 0.0, lineup._time("2026-10-11T17:03:00Z"), scoring=SCORING)
+    assert e["state"] == "live" and e["left"] == 1.0
+    # (12 - 1) + the bracket blend for 16 allowed (4 pts at 10, 1 pt at 17)
+    assert e["pts"] == pytest.approx(11 + 4 - 3 * 6 / 7)
+
+
+def test_live_defense_takes_back_the_bracket_sleeper_counted():
+    # ESPN already shows the TD that made it 14-0; Sleeper's line still says
+    # 7 allowed (4 pts) + a 4th-down stop (1 pt) = 5
+    d = player("hou", "DEF", 12.0, parts=[["sack", 3, 1.0, 3.0], ["pts_allow", 16.0, None, 1.0]],
+               actual={"pts": 5.0, "official": 5.0,
+                       "parts": [["pts_allow_7_13", 1, 4, 4.0], ["def_4_and_stop", 1, 1, 1.0]]})
+    g = dict(game("in", period=2, clock=0), opp_score=14.0)
+    e = lineup.expected(d, g, 5.0, lineup._time(NOW), scoring=SCORING)
+    # (5 - 4) + (12 - 1) x 0.5 + the bracket blend for 14 + 16 x 0.5 = 22 allowed
+    assert e["pts"] == pytest.approx(1 + 11 * 0.5 + 1 - 1 * 5 / 7)
+
+
 def test_empty_slot_is_filled_without_pairing_an_unrelated_player():
     players = roster()
     players[6]["flag"] = "Out"                       # wr1 is Out, starting at WR
