@@ -602,7 +602,11 @@
     // During games: the live numbers from Sleeper (both lineups as set now)
     const lv = live && live.opp ? live : null;
     const win = lv ? lv.win : L.win;
-    const sofar = (s) => (lv ? `<span class="sofar">${pts(s.now)} so far</span>` : '');
+    const sofar = (s) => {
+      if (!lv) return '';
+      const left = s.rows.filter((r) => r.state === 'pre' || r.state === 'live').length;
+      return `<span class="sofar">${pts(s.now)} so far · ${left ? left + ' to play' : 'all done'}</span>`;
+    };
     return `<div class="verdict ${m.cls}">
       ${lv ? `<p class="live-head"><span class="live-dot"></span> Live from Sleeper, ${esc(when(lv.at))}</p>` : ''}
       <p class="mode-line"><b>${m.word} ${pct(win)}</b>: ${m.line}</p>
@@ -718,14 +722,14 @@
     if (bench.length) {
       const avail = bench.filter((b) => !startedId(b.id));
       if (avail.length) {
-        html += `<h2 class="section">Bench options</h2><ul class="players lineup">${avail.map((b) =>
+        html += `<h2 class="section"><span class="dot bench"></span>Bench options</h2><ul class="players lineup grp-bench">${avail.map((b) =>
           pickRow(b, b.why)).join('')}</ul>`;
       }
     }
     if (fas.length) {
       const me = data.league.teams[data.league.my_rid];
       const faab = me && me.faab_left != null ? `<span class="faab">$${esc(me.faab_left)} FAAB left</span>` : '';
-      html += `<h2 class="section">Free agents ${faab}</h2><ul class="players lineup">${fas.map((f) => {
+      html += `<h2 class="section"><span class="dot fa"></span>Free agents ${faab}</h2><ul class="players lineup grp-fa">${fas.map((f) => {
         let extra = '';
         if (f.dropped) {
           const day = new Date(f.dropped).toLocaleDateString(undefined, { weekday: 'short' });
@@ -761,12 +765,12 @@
         Totals and win % are as of then. Sleeper has locked those players, so any moves for them are crossed out.</p>`;
     }
     html += verdict(L) + changesBox(L) + lateSwapTip(L);
-    html += `<h2 class="section">Your lineup</h2><ul class="players lineup">${L.me.starters.map((e) => lineupRow(e, 'me')).join('')}</ul>`;
+    html += `<h2 class="section"><span class="dot me"></span>Your lineup</h2><ul class="players lineup grp-me">${L.me.starters.map((e) => lineupRow(e, 'me')).join('')}</ul>`;
     html += closeCalls(L);
     html += pickups(L);
     if (L.opp) {
-      html += `<details class="their" data-k="their"><summary>Their lineup, as set in Sleeper <b>${pts(L.opp.total)}</b></summary>
-        <ul class="players lineup">${L.opp.starters.map((e) => lineupRow(e, 'opp')).join('')}</ul></details>`;
+      html += `<details class="their" data-k="their"><summary><span class="dot opp"></span>Their lineup, as set in Sleeper <b>${pts(L.opp.total)}</b></summary>
+        <ul class="players lineup grp-opp">${L.opp.starters.map((e) => lineupRow(e, 'opp')).join('')}</ul></details>`;
     }
     html += '<button type="button" class="copy-btn" data-copy="lineup">Copy my matchup for Claude</button>';
     // Re-rendering (a player tapped open) keeps the open sections open

@@ -349,3 +349,21 @@ ul.adj small { display: block; color: var(--muted); font-size: .85rem; }
   .tabs button { padding: 12px 10px; min-width: 44px; font-size: 1.15rem; }
 }
 @media (prefers-reduced-motion: reduce) { .icon-btn.spin svg { animation: none; } }
+
+/* Who's who on the Lineup tab: a colored edge, slot pill and header dot
+   per group. Starters solid green, bench outlined green, free agents
+   blue, opponent purple (the same colors as Tiers). */
+.dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 7px; vertical-align: 0; }
+.dot.me { background: var(--mine-chip); }
+.dot.bench { box-shadow: inset 0 0 0 2px var(--mine-chip); }
+.dot.fa { background: var(--fa-chip); }
+.dot.opp { background: var(--opp-chip); }
+.grp-me .player { box-shadow: inset 4px 0 0 var(--mine-chip), var(--raise); }
+.grp-me .player.new { background: var(--mine-row); border-color: transparent; }
+.grp-me .slot { background: var(--mine-row); color: var(--mine-chip); }
+.grp-bench .player { box-shadow: inset 4px 0 0 color-mix(in srgb, var(--mine-chip) 45%, transparent), var(--raise); }
+.grp-bench .slot { background: none; color: var(--mine-chip); box-shadow: inset 0 0 0 1.5px var(--mine-chip); }
+.grp-fa .player { box-shadow: inset 4px 0 0 var(--fa-chip), var(--raise); }
+.grp-fa .slot { background: color-mix(in srgb, var(--fa-chip) 16%, transparent); color: var(--fa-chip); }
+.grp-opp .player { box-shadow: inset 4px 0 0 var(--opp-chip), var(--raise); }
+.their > summary .dot { flex: none; }
