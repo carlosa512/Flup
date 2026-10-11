@@ -160,3 +160,17 @@ def test_espn_stories_must_name_him_but_rotowire_lines_are_his():
                       "headline": "He was a full participant."}]}
     found, _, _ = run({"playerId=4239993": data})
     assert [x["title"] for x in found["1"]] == ["He was a full participant."]
+
+
+def test_a_source_that_is_down_is_given_up_on_quickly():
+    calls = []
+
+    def down(url):
+        calls.append(url)
+        raise FetchError("HTTP 503")
+    many = [{"id": str(i), "name": f"Player {i}", "team": "CIN", "pos": "WR"} for i in range(20)]
+    cfg = dict(CFG, beat={"CIN": [f"w{i}.bsky.social" for i in range(10)]})
+    _, detail, ok = news.collect(many, {str(i): str(i) for i in range(20)}, TEAMMATES, cfg, NOW,
+                                 fetch_json=down, fetch_text=down)
+    assert not ok
+    assert sum("espn" in u for u in calls) == 3 and sum("bsky" in u for u in calls) == 3

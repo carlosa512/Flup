@@ -31,6 +31,7 @@ BSKY_FEED = ("https://public.api.bsky.app/xrpc/app.bsky.feed.getAuthorFeed"
 BSKY_POST = "https://bsky.app/profile/{handle}/post/{rkey}"
 BEAT, AGGREGATOR = "beat reporter", "aggregator"
 TITLE_MAX = 140
+GIVE_UP = 3  # requests that fail in a row, with none working, before a source is skipped
 
 
 def _when(text):
@@ -190,6 +191,8 @@ def collect(players, espn_ids, teammates, cfg, now, fetch_json=get_json, fetch_t
         eid = espn_ids.get(p["id"])
         if not eid or p["pos"] == "DEF":
             continue
+        if asked >= GIVE_UP and not got:
+            break  # down: don't spend minutes on retries
         asked += 1
         try:
             found[p["id"]] += parse_espn(fetch_json(ESPN_NEWS.format(eid=eid)), eid, p["name"])
@@ -222,6 +225,8 @@ def collect(players, espn_ids, teammates, cfg, now, fetch_json=get_json, fetch_t
             lasts[_last(n)] = lasts.get(_last(n), 0) + 1
         on_team = [p for p in players if p.get("team") == team and p["pos"] != "DEF"]
         for handle in beat[team]:
+            if len(failed) >= GIVE_UP and not reached:
+                break  # Bluesky is down
             wanted += 1
             try:
                 posts = parse_bsky(fetch_json(BSKY_FEED.format(handle=handle)), handle)
