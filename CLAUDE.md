@@ -113,7 +113,11 @@ iPhone 13, `timezoneId: 'America/Chicago'` (the owner's local time).
 - `main` publishes the gh-pages root; `claude/**` publishes gh-pages
   `/preview/` and overwrites `dev-raw`; each keeps the other's files.
 - Scheduled runs only happen from `main`, so preview data never refreshes on
-  its own. For fresh preview data: Run workflow on the branch (the GitHub MCP
+  its own. They never fired at all until the owner re-saved update.yml from
+  their own account (2026-10-11): every earlier commit to it was by
+  "Claude <noreply@anthropic.com>", which isn't a GitHub account, and GitHub
+  runs schedules as whoever last changed them. After editing the cron
+  lines, ask the owner to re-save the file the same way. For fresh preview data: Run workflow on the branch (the GitHub MCP
   `actions_run_trigger` can do it; the owner granted the Claude app
   Actions access on 2026-10-11 after a 403).
 - The service worker serves the cached shell first, so the first open after

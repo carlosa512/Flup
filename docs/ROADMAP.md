@@ -191,6 +191,15 @@ players matched Sleeper when in sync. Found: Sleeper's matchup
 10.08 after a TD pass). Live starters now count the stat line; finished
 games count Sleeper's official points.
 
+Check 2 (2026-10-11, 3:32 PM ET, eight 1 PM games in Q4): 99 players vs
+Sleeper, every finished game exact; the 9 live differences are the
+matchup-feed lag. Live DEF exact again (HOU 3 allowed, 1-6 bracket, 13.0 =
+Sleeper). Browser live card = server (their total 156.5 both). Found:
+main's scheduled runs had never fired (every update.yml commit was by
+"Claude <noreply@anthropic.com>", no GitHub account); the owner re-saves
+the workflow from their account to fix it (to verify at check 3). Also
+fixed: lineup rows/details/Tiers now use the browser's live numbers too.
+
 ## Phase 4: news, write-ups, refresh
 - News links per player from RSS/public feeds (ESPN, Pro Football Talk,
   beat writers' Bluesky RSS, etc.): headline, source, date, link only;
