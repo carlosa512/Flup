@@ -118,8 +118,11 @@ def fetch_market(lid, week):
     market, problems = {"trending": {}, "dropped": {}}, []
     try:
         for row in sleeper.trending_adds():
-            if row.get("player_id"):
-                market["trending"][str(row["player_id"])] = row.get("count") or 0
+            try:
+                if row.get("player_id"):
+                    market["trending"][str(row["player_id"])] = int(row.get("count") or 0)
+            except (TypeError, ValueError):
+                continue
     except FetchError as err:
         problems.append(f"trending adds: {err}")
     for leg in (week - 1, week):
@@ -134,7 +137,10 @@ def fetch_market(lid, week):
             if t.get("status") != "complete":
                 continue
             when = t.get("status_updated") or t.get("created")
+            adds = t.get("adds") or {}
             for pid in (t.get("drops") or {}):
+                if pid in adds:
+                    continue  # traded to another team, not released
                 if when and when > market["dropped"].get(str(pid), 0):
                     market["dropped"][str(pid)] = when
     return market, problems

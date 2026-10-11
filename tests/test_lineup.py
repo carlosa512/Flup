@@ -455,5 +455,43 @@ def test_free_agents_already_played_rank_last_and_can_be_flagged_as_dropped():
 def test_bench_flex_options():
     r = run(roster(), BEST, market=MARKET)
     assert [b["id"] for b in r["bench_flex"]] == ["te2", "wr4", "rb4"]
-    assert r["bench_flex"][0] == {"id": "te2", "value": 7.0, "behind": "rb3", "gap": 2.0, "label": "",
+    assert r["bench_flex"][0] == {"id": "te2", "value": 7.0, "behind": "rb3", "gap": -2.0, "label": "",
                                   "why": "2.0 behind Prb3"}
+
+
+def test_bench_rows_compare_with_the_same_starter_as_close_calls():
+    # The weakest starter a bench WR could replace is the WR2 (8.0), not a FLEX RB (10.5+)
+    players = [player("qb1", "QB", 20), player("rb1", "RB", 14), player("rb2", "RB", 12),
+               player("rb3", "RB", 11), player("rb4", "RB", 10.5), player("wr1", "WR", 15),
+               player("wr2", "WR", 8.0), player("wr3", "WR", 7.5), player("te1", "TE", 11),
+               player("k1", "K", 8), player("def1", "DEF", 7)]
+    current = ["qb1", "rb1", "rb2", "wr1", "wr2", "te1", "rb3", "rb4", "k1", "def1"]
+    r = run(players, current, market=MARKET)
+    wr3 = next(b for b in r["bench_flex"] if b["id"] == "wr3")
+    assert (wr3["behind"], wr3["gap"]) == ("wr2", -0.5)
+    call = next(c for c in r["close_calls"] if c["bench"] == "wr3")
+    assert (call["start"], call["gap"]) == ("wr2", 0.5)    # same pair, same distance
+
+
+def test_empty_slot_gets_a_free_agent_to_fill_it():
+    players = [p for p in roster() if p["id"] != "k1"]   # no kicker with a game (bye)
+    fa = [player("faK", "K", 7.0, roster=None), player("faW", "WR", 6.0, roster=None)]
+    r = run(players + fa, BEST, market=MARKET)
+    top = r["free_agents"][0]
+    assert top["id"] == "faK" and top["fills"] == "K" and top["why"] == "Fills your empty K slot (+7.0)"
+
+
+def test_doubtful_players_get_no_boom_or_steady_label():
+    p = player("d", "WR", 4.0, floor=6, ceiling=16, sd=5, adj=[{"key": "injury", "pts": -6.0}], flag="Doubtful")
+    p["range"]["if_plays"] = True
+    assert lineup.label(p, RATIOS, {"boom": 1.05, "steady": 1.10}) == ""
+
+
+def test_leaned_rows_show_both_numbers():
+    players = roster()
+    strong = [player(f"o{i}", "QB", 30, roster=2) for i in range(10)]
+    fa = [player("faW", "WR", 6.0, roster=None)]
+    r = run(players + strong + fa, BEST, opp_starters=[p["id"] for p in strong], market=MARKET)
+    assert r["mode"] == "underdog"
+    why = next(f for f in r["free_agents"] if f["id"] == "faW")["why"]
+    assert why.endswith(" upside score") and " vs " in why

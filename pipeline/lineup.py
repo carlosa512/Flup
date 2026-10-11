@@ -36,7 +36,6 @@ POS_WORD = {"K": "kicker", "DEF": "defense"}
 # What the ranking number is called when it leans toward floor or ceiling
 VALUE_NAME = {"underdog": " upside score", "favored": " safe score"}
 MEASURE = {"underdog": "upside score", "favored": "safe score", "even": "My Score"}
-ON_MEASURE = {"underdog": " on upside score", "favored": " on safe score"}
 SUFFIXES = {"Jr", "Sr", "II", "III", "IV", "V"}
 CALLS_PER_STARTER = 2
 MAX_CALLS = 4
@@ -466,6 +465,8 @@ def label(p, ratios, cfg, pcts=PCTS):
     """"Boom" when his ceiling/score is well above the usual for his
     position, "Steady" when his floor/score is; "" otherwise. Ratios are
     (floor, ceiling, sd) per score point, from model.position_ratios."""
+    if (p.get("range") or {}).get("if_plays"):
+        return ""  # a Doubtful player's spread is mostly "will he play", not his style
     found, usual = outcome(p, pcts), (ratios or {}).get(p["pos"])
     if not found or not usual or p["score"] <= 0 or usual[0] <= 0 or usual[1] <= 0:
         return ""
@@ -490,41 +491,57 @@ def _dropped_recently(pid, market, now):
 
 
 def pickups(slots, entries, bench, by_id, value, mode, cfg, market, now, phase_of, pcts=PCTS):
-    """Best FLEX options on my bench, and the free agents most worth
-    starting (they beat the starter they'd replace) or grabbing."""
+    """Best options on my bench, and the free agents most worth starting
+    (they beat the starter they'd replace, or fill an empty slot) or
+    grabbing. Each player is compared with the weakest not-yet-played
+    starter in a slot he can play, the same rule as close calls; an empty
+    slot (bye, injury) counts as 0. In a leaned mode both numbers are in
+    the line, because the rows themselves show My Score."""
     ratios, labels = market.get("ratios"), market.get("labels") or {"boom": 1.05, "steady": 1.10}
     starters = [(i, by_id[e["id"]]) for i, e in enumerate(entries)
                 if e["state"] == "pre" and e["id"] in by_id]
+    empty = [slots[i] for i, e in enumerate(entries) if e["state"] == "empty"]
+    m = VALUE_NAME.get(mode, "")
 
-    def weakest(p):
+    def compare(p):
+        """(gap, starter or None, empty slot or None, text) for p vs the
+        spot he'd take; None when no unplayed slot fits him."""
+        vp = round(value(p), 1)
+        hole = next((slot for slot in empty if p["pos"] in _accepts(slot)), None)
+        if hole:
+            return vp, None, hole, f"Fills your empty {hole} slot ({_signed(vp)}{m})"
         options = [s for i, s in starters if p["pos"] in _accepts(slots[i])]
-        return min(options, key=lambda s: (value(s), s["score"]), default=None)
+        low = min(options, key=lambda s: (value(s), s["score"]), default=None)
+        if low is None:
+            return None, None, None, ""
+        vs = round(value(low), 1)
+        g = round(vp - vs, 1)
+        nums = f": {vp:.1f} vs {vs:.1f}{m}" if m else ""
+        if g > 0:
+            text = f"Start over {low['name']}" + (nums if m else f" ({_signed(g)})")
+        else:
+            text = f"{abs(g):.1f} behind {low['name']}{nums}"
+        return g, low, None, text
 
-    def gap(a, b):  # from the numbers as shown
-        return round(round(value(a), 1) - round(value(b), 1), 1)
-
-    flex = [(i, s) for i, s in starters if len(_accepts(slots[i])) > 1]
     bench_flex = []
-    if flex:
-        _, low = min(flex, key=lambda o: (value(o[1]), o[1]["score"]))
-        fits = set().union(*(_accepts(slots[i]) for i, _ in flex))
-        for b in sorted((b for b in bench if b["pos"] in fits), key=value, reverse=True)[:3]:
-            g = gap(low, b)
-            bench_flex.append({"id": b["id"], "value": round(value(b), 1), "behind": low["id"],
-                               "gap": g, "label": label(b, ratios, labels, pcts),
-                               "why": f"{g:.1f} behind {low['name']}{ON_MEASURE.get(mode, '')}"})
+    for b in sorted((b for b in bench if b["pos"] in ("RB", "WR", "TE")), key=value, reverse=True):
+        g, low, hole, text = compare(b)
+        if g is None:
+            continue
+        bench_flex.append({"id": b["id"], "value": round(value(b), 1),
+                           "behind": low["id"] if low else None, "gap": g,
+                           "label": label(b, ratios, labels, pcts), "why": text})
+        if len(bench_flex) == 3:
+            break
 
     rows = []
     for p in by_id.values():
         if p["roster"] is not None or p.get("flag") in OUT_STATUSES or not p.get("opp"):
             continue
-        state = phase_of(p)
-        can_start = state == "pre"
-        low = weakest(p) if can_start else None
-        rows.append({"p": p, "can_start": can_start, "low": low,
-                     "gap": gap(p, low) if low else None})
-    worth = sorted((r for r in rows if r["can_start"] and r["gap"] is not None and r["gap"] > 0),
-                   key=lambda r: -r["gap"])
+        can_start = phase_of(p) == "pre"
+        g, low, hole, text = compare(p) if can_start else (None, None, None, "")
+        rows.append({"p": p, "can_start": can_start, "gap": g, "low": low, "hole": hole, "text": text})
+    worth = sorted((r for r in rows if r["gap"] is not None and r["gap"] > 0), key=lambda r: -r["gap"])
     rest = sorted((r for r in rows if r not in worth and r["p"]["pos"] in ("RB", "WR", "TE")),
                   key=lambda r: (not r["can_start"], -value(r["p"]), r["p"]["name"]))
     chosen, per_pos = [], {}
@@ -539,18 +556,20 @@ def pickups(slots, entries, bench, by_id, value, mode, cfg, market, now, phase_o
 
     free_agents = []
     for r in chosen:
-        p, low = r["p"], r["low"]
+        p = r["p"]
         if not r["can_start"]:
             why = "His game has started: one to grab for later weeks"
         elif r["gap"] is not None and r["gap"] > 0:
-            why = f"Start over {low['name']} ({_signed(r['gap'])}{VALUE_NAME.get(mode, '')})"
+            why = r["text"]
         else:
             why = f"#{p['rank']} {POS_WORD.get(p['pos'], p['pos'])} this week"
-            if low is not None:
-                why += f" · {abs(r['gap']):.1f} behind {low['name']}{ON_MEASURE.get(mode, '')}"
+            if r["text"]:
+                why += f" · {r['text']}"
+        worth_it = r["gap"] is not None and r["gap"] > 0
         free_agents.append({"id": p["id"], "value": round(value(p), 1), "can_start": r["can_start"],
-                            "start_over": low["id"] if low and r["gap"] and r["gap"] > 0 else None,
-                            "gap": r["gap"], "label": label(p, ratios, labels, pcts),
+                            "start_over": r["low"]["id"] if worth_it and r["low"] else None,
+                            "fills": r["hole"], "gap": r["gap"],
+                            "label": label(p, ratios, labels, pcts),
                             "trending": (market.get("trending") or {}).get(p["id"]),
                             "dropped": _dropped_recently(p["id"], market, now), "why": why})
     return bench_flex, free_agents

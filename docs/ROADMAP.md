@@ -100,12 +100,16 @@ FLEX already has the latest games or no rearrangement can):
 `{moves [{id, to}], latest, kickoff, deadline}`, same starters, slots only;
 `deadline` is the earliest kickoff among the moved players (the app hides
 the tip after it). `bench_flex [{id, value, behind, gap, label, why}]`: my
-best 3 healthy, not-yet-played bench RB/WR/TE vs the weakest FLEX starter.
-`free_agents [{id, value, can_start, start_over, gap, label, trending,
-dropped, why}]` (settings `[lineup] free_agents`, default 5): first those
-who beat the starter they'd replace (biggest gap first, K/DEF/QB only
-then), then the best RB/WR/TE, players whose game started last; at most 2
-per position. `label` is "Boom" / "Steady" / "" (settings `[labels]`:
+best 3 healthy, not-yet-played bench RB/WR/TE. Bench players and free
+agents are compared with the weakest not-yet-played starter in a slot they
+can play (the close-call rule); an empty slot counts as 0. `gap` = his
+number minus that starter's (negative = behind); in a leaned mode `why`
+shows both numbers. `free_agents [{id, value, can_start, start_over,
+fills, gap, label, trending, dropped, why}]` (settings `[lineup]
+free_agents`, default 5): first those who fill an empty slot or beat the
+starter they'd replace (biggest gap first; K/DEF/QB only then), then the
+best RB/WR/TE, players whose game started last; at most 2 per position.
+Doubtful players get no label. Trades aren't counted as drops. `label` is "Boom" / "Steady" / "" (settings `[labels]`:
 ceiling/score or floor/score vs the position's usual from
 model.position_ratios). `trending` = Sleeper adds in all leagues over 48h;
 `dropped` = when he was dropped in this league, if within

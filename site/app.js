@@ -589,20 +589,29 @@
   function pickups(L) {
     let html = '';
     const bench = L.bench_flex || [];
+    const fas = L.free_agents || [];
     if (bench.length) {
-      html += `<h2 class="section">Bench options for FLEX</h2><ul class="players lineup">${bench.map((b) =>
+      html += `<h2 class="section">Bench options</h2><ul class="players lineup">${bench.map((b) =>
         pickRow(b, b.why)).join('')}</ul>`;
     }
-    const fas = L.free_agents || [];
     if (fas.length) {
       const me = data.league.teams[data.league.my_rid];
       const faab = me && me.faab_left != null ? `<span class="faab">$${esc(me.faab_left)} FAAB left</span>` : '';
       html += `<h2 class="section">Free agents ${faab}</h2><ul class="players lineup">${fas.map((f) => {
         let extra = '';
-        if (f.dropped) extra += `<span class="chip" title="Dropped ${esc(when(f.dropped))}">Maybe on waivers</span>`;
-        if (f.trending) extra += `<span>${bigCount(f.trending)} adds in 2 days</span>`;
+        if (f.dropped) {
+          const day = new Date(f.dropped).toLocaleDateString(undefined, { weekday: 'short' });
+          extra += `<span class="chip drop">Dropped ${esc(day)}: maybe on waivers</span>`;
+        }
+        const adds = Number(f.trending) || 0;
+        if (adds) extra += `<span>${esc(bigCount(adds))} adds in 2 days</span>`;
         return pickRow(f, f.why, extra);
       }).join('')}</ul>`;
+    }
+    // Phones can't show hover tips, so the labels are explained once in words
+    if (bench.concat(fas).some((x) => x.label)) {
+      html += `<p class="legend"><b>▲ Boom</b>: ceiling well above the usual for his position.
+        <b>◆ Steady</b>: floor well above the usual.</p>`;
     }
     return html;
   }
