@@ -460,7 +460,8 @@
   function detail(p) {
     const block = data.positions[p.pos];
     const rows = partsTable(p.parts);
-    let html = `<div class="detail">${actualBlock(p)}<h3>${p.actual ? 'My Score (before the game)' : 'My Score'}</h3>${myScore(p)}`;
+    let html = `<div class="detail">${actualBlock(p)}${p.writeup ? `<p class="writeup">${esc(p.writeup)}</p>` : ''}
+      <h3>${p.actual ? 'My Score (before the game)' : 'My Score'}</h3>${myScore(p)}`;
     if (p.parts.length) {
       html += `<details class="every"><summary>How the projection adds up</summary>
           <p>${projectionSentence(p)}</p>

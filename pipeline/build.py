@@ -7,7 +7,7 @@ import tomllib
 from datetime import datetime, timezone
 from pathlib import Path
 
-from . import consensus, espn, history, lineup, model, news, sleeper
+from . import consensus, espn, history, lineup, model, news, sleeper, writeups
 from .fetch import FetchError
 from .league import context, sanity
 from .scoring import score_line
@@ -348,6 +348,11 @@ def build(settings, week=None, league_id=None, now=None):
                              dict(settings["lineup"], floor_pct=fc["floor_pct"],
                                   ceiling_pct=fc["ceiling_pct"]),
                              now, scoring, market)
+
+    # A short write-up of each player's breakdown (the card shows it first)
+    for block in positions.values():
+        for p in block["players"]:
+            p["writeup"] = writeups.writeup(p, week)
 
     # News links: my roster, their starters, the free agents suggested
     add_news(positions, ctx, my_lineup, rows_by_pos, settings.get("news") or {}, now, sources)

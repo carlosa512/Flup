@@ -276,6 +276,7 @@ ul.players { list-style: none; margin: 0; padding: 8px 0; min-width: 0; display:
 .math td.n { text-align: right; padding-left: 8px; white-space: nowrap; }
 .math td.x { color: var(--muted); white-space: normal; }
 .detail p { margin: 4px 0; }
+.detail .writeup { margin: 12px 0 4px; font-size: .95rem; line-height: 1.45; }
 .detail .muted { color: var(--muted); font-size: .9rem; }
 .detail .warn { margin: 8px 0; }
 .score-head { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 12px; }
