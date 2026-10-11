@@ -544,3 +544,24 @@ def test_leaned_rows_show_both_numbers():
     assert r["mode"] == "underdog"
     why = next(f for f in r["free_agents"] if f["id"] == "faW")["why"]
     assert why.endswith(" upside score") and " vs " in why
+
+
+# ---------- Doubtful: flagged, never started over a healthy player ----------
+
+def test_a_doubtful_player_is_not_started_when_a_healthy_one_fits():
+    players = roster()
+    players[6].update(flag="Doubtful", injury="Doubtful")    # wr1 (15) is Doubtful
+    r = run(players, BEST)
+    assert "wr1" not in ids(r) and "te2" in ids(r)   # the next best for FLEX
+    # ...but he's the first close call, marked Doubtful, so the owner can choose him
+    call = r["close_calls"][0]
+    assert call["bench"] == "wr1" and call["doubtful"] and call["values"][1] > call["values"][0]
+    assert call["gap"] == round(call["values"][1] - call["values"][0], 1)
+    assert any("Doubtful" in t for t in call["for_start"])
+
+
+def test_a_doubtful_player_starts_when_no_one_else_can():
+    players = [p for p in roster() if p["id"] != "qb2"]
+    players[0].update(flag="Doubtful", injury="Doubtful")    # qb1, the only QB
+    r = run(players, BEST)
+    assert ids(r)[0] == "qb1"

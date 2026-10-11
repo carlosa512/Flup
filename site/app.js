@@ -130,11 +130,26 @@
     document.title = 'Week ' + data.week + ' · Flup';
   }
 
+  // A game day: a game with a starter (mine or theirs) today, Eastern
+  // time, that isn't over yet. Old data matters more then.
+  const eastern = (t) => new Date(t).toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+  function gameDay() {
+    const L = data.lineup;
+    const teams = L ? new Set([...L.me.starters, ...((L.opp || {}).starters || [])]
+      .map((e) => (index.get(e.id) || {}).team).filter(Boolean)) : null;
+    const today = eastern(Date.now());
+    return (data.games || []).some((g) => g.kickoff && eastern(g.kickoff) === today
+      && Date.now() < Date.parse(g.kickoff) + 4.5 * 3600000
+      && (!teams || teams.has(g.home) || teams.has(g.away)));
+  }
+
   function problems() {
     const out = [];
-    const stale = data.settings.stale_hours || 36;
+    const stale = gameDay() ? data.settings.stale_game_day_hours || 3 : data.settings.stale_hours || 36;
     if (hoursOld(data.generated) > stale) {
-      out.push(`This data is ${ago(data.generated).replace(' ago', '')} old. Tap refresh, or run "Update data" in GitHub Actions.`);
+      const next = nextRun();
+      out.push(`This data is ${ago(data.generated).replace(' ago', '')} old. `
+        + (next ? `Next update: ${when(next.toISOString())}. ` : '') + 'To update now: tap the data line below, then "Run it now".');
     }
     for (const s of data.sources) {
       if (!s.ok) out.push(`${s.label} didn't load: ${s.detail}`);
@@ -198,10 +213,11 @@
     const checks = checksBody();
     // Old data has its own red box above; the badge only reflects the checks
     let html = issues.map((t) => `<p class="warn">${esc(t)}</p>`).join('');
+    const line = updateLine();
     html += `<details class="health"><summary>
         <span>Data from ${esc(when(data.generated))} (${esc(ago(data.generated))})</span>
         <span class="badge ${checks.ok ? 'ok' : 'bad'}">${checks.ok ? '✓ All checks pass' : "✗ Something's off, tap to see"}</span>
-      </summary><div class="health-body">${checks.html}</div></details>`;
+      </summary><div class="health-body">${line ? `<p class="muted">${line}</p>` : ''}${checks.html}</div></details>`;
     $('#status').innerHTML = html;
   }
 
@@ -422,16 +438,50 @@
     return html;
   }
 
+  // Questionable/Doubtful, and no news about him (Sleeper's or the links
+  // here) in the last day before kickoff: his status may still change.
+  // Returns when the last news was, or null.
+  function quietInjury(p) {
+    if (!p || !/^(Questionable|Doubtful)$/.test(p.injury) || !p.kickoff || gameState(p)) return null;
+    const kick = Date.parse(p.kickoff), day = (data.settings.injury_news_hours || 24) * 3600000;
+    if (Date.now() >= kick || Date.now() < kick - day) return null;
+    const times = [p.news_at, ...(p.news || []).map((n) => n.date)].filter(Boolean).map(Date.parse);
+    if (!times.length) return 'never';
+    const last = Math.max(...times);
+    return last < kick - day ? new Date(last).toISOString() : null;
+  }
+
+  function newsBlock(p) {
+    const quiet = quietInjury(p);
+    let html = quiet ? `<p class="warn">No news about him${quiet === 'never' ? '' : ' since ' + esc(when(quiet))}. He's ${esc(p.injury)}: check the inactives (out about 90 min before kickoff).</p>` : '';
+    if (!p.news) return html;
+    if (!p.news.length) return html + '<h3>News</h3><p class="muted">Nothing in the last week.</p>';
+    const web = (u) => /^https?:\/\//.test(u || '');
+    return html + `<h3>News</h3><ul class="news">${p.news.map((n) => `<li>
+        ${web(n.url) ? `<a href="${esc(n.url)}" target="_blank" rel="noopener">${esc(n.title)}</a>` : `<b>${esc(n.title)}</b>`}
+        <span class="muted">${esc(n.source)} · ${n.tag === 'beat reporter' ? 'beat reporter' : 'aggregator'} · ${esc(ago(n.date))}${n.paywall ? ' · 🔒 paywall' : ''}</span></li>`).join('')}</ul>`;
+  }
+
+  // Claude's write-up (from /writeups) when there is one, else the template
+  function writeupBlock(p) {
+    const c = p.claude;
+    if (!c) return p.writeup ? `<p class="writeup">${esc(p.writeup)}</p>` : '';
+    const changed = c.changed ? ` · written before his status changed (${esc(c.changed.replace('->', '→'))})` : '';
+    return `<p class="writeup">${esc(c.text)}</p><p class="muted">Claude's take, ${esc(when(c.written))}${changed}</p>`;
+  }
+
   function detail(p) {
     const block = data.positions[p.pos];
     const rows = partsTable(p.parts);
-    let html = `<div class="detail">${actualBlock(p)}<h3>${p.actual ? 'My Score (before the game)' : 'My Score'}</h3>${myScore(p)}`;
+    let html = `<div class="detail">${actualBlock(p)}${writeupBlock(p)}
+      <h3>${p.actual ? 'My Score (before the game)' : 'My Score'}</h3>${myScore(p)}`;
     if (p.parts.length) {
       html += `<details class="every"><summary>How the projection adds up</summary>
           <p>${projectionSentence(p)}</p>
           <table class="math"><tbody>${rows}</tbody></table>
         </details>`;
     }
+    html += newsBlock(p);
 
     html += '<h3>Game</h3>';
     html += `<p>${esc(gameText(p))}${p.kickoff ? ' · ' + esc(when(p.kickoff)) : ''}${gameState(p) ? ' · ' + gameState(p) : ''}</p>`;
@@ -444,6 +494,7 @@
     if (p.tier != null) {
       html += `<h3>Tier</h3><p>Tier ${p.tier} of ${block.breaks.length + 1} · rank ${p.rank} at ${esc(p.pos)}</p>`;
     }
+    html += `<button type="button" class="copy-btn" data-copy="player" data-id="${esc(p.id)}">Copy for Claude</button>`;
     return html + '</div>';
   }
 
@@ -488,6 +539,7 @@
       `<span>${esc(gameText(p))}</span>`,
       state ? `<span class="played">${state}</span>` : (p.kickoff ? `<span>${esc(when(p.kickoff))}</span>` : ''),
       e.new ? '<span class="chip new">New</span>' : '',
+      side === 'me' && quietInjury(p) ? `<span class="stale">${quietInjury(p) === 'never' ? 'No news' : 'No news since ' + esc(when(quietInjury(p)).split(' ')[0])}</span>` : '',
     ].join('');
     let why = side === 'me' ? e.why || '' : '';
     if (side !== 'me' && e.state === 'live') why = `${pts(e.actual)} so far, ${Math.round(e.left * 100)}% of the game left`;
@@ -502,16 +554,22 @@
       </button>${isOpen ? detail(p) : ''}</li>`;
   }
 
-  function lineupMath(L) {
+  function lineupMath(L, liveShown) {
     const me = L.me, opp = L.opp, f = L.first;
     const diff = me.total - opp.total;
     const comb = Math.sqrt(me.sd * me.sd + opp.sd * opp.sd);
     const lean = Math.round(L.lean * 100) + '%';
-    let html = `<p>Each starter counts his expected points: My Score if his game hasn't started,
-      points so far plus My Score for the part of the game left if it's live, and his actual points once it's over.</p>`;
-    html += `<p>You <b>${pts(me.total)}</b> (give or take ${pts(me.sd)}) vs them <b>${pts(opp.total)}</b>
-      (give or take ${pts(opp.sd)}). Their lineup is counted exactly as set in Sleeper.</p>`;
-    if (comb > 0) {
+    let html = '';
+    if (liveShown) {
+      html += `<h4>The lineup advice (data from ${esc(when(data.generated))})</h4>
+        <p>Then: you ${pts(me.total)} vs them ${pts(opp.total)}, ${pct(L.win)} to win. That set the mode the lineup below uses.</p>`;
+    } else {
+      html += `<p>Each starter counts his expected points: My Score if his game hasn't started,
+        points so far plus My Score for the part of the game left if it's live, and his actual points once it's over.</p>`;
+      html += `<p>You <b>${pts(me.total)}</b> (give or take ${pts(me.sd)}) vs them <b>${pts(opp.total)}</b>
+        (give or take ${pts(opp.sd)}). Their lineup is counted exactly as set in Sleeper.</p>`;
+    }
+    if (comb > 0 && !liveShown) {
       html += `<p>Win % is the chance your total ends up higher: ${signedPts(diff)} ÷ √(${pts(me.sd)}² + ${pts(opp.sd)}²)
         = ${signedPts(diff)} ÷ ${pts(comb)} = ${(diff < 0 ? '−' : '') + Math.abs(diff / comb).toFixed(2)} on the bell curve → <b>${pct(L.win)}</b>.</p>`;
     }
@@ -525,7 +583,7 @@
         ${dog ? 'up to his ceiling, which favors boom-or-bust players' : 'down to his floor, which favors steady players'}.
         Final lineup: ${pct(L.win)}.</p>`;
       if (L.win < f.win) {
-        html += `<p>The bell curve above rates that a bit lower (${pct(L.win)} vs ${pct(f.win)}): it only sees averages and
+        html += `<p>The bell curve rates that a bit lower (${pct(L.win)} vs ${pct(f.win)}): it only sees averages and
           spread, not the ${dog ? 'long upside tail a ceiling measures' : 'protection a high floor gives'}.</p>`;
       }
     }
@@ -541,14 +599,19 @@
         <div class="totals"><div><span class="lbl">You</span><b>${pts(L.me.total)}</b></div></div></div>`;
     }
     const m = MODE[L.mode] || MODE.even;
+    // During games: the live numbers from Sleeper (both lineups as set now)
+    const lv = live && live.opp ? live : null;
+    const win = lv ? lv.win : L.win;
+    const sofar = (s) => (lv ? `<span class="sofar">${pts(s.now)} so far</span>` : '');
     return `<div class="verdict ${m.cls}">
-      <p class="mode-line"><b>${m.word} ${pct(L.win)}</b>: ${m.line}</p>
-      <div class="winbar" role="img" aria-label="${pct(L.win)} chance to win"><span style="width:${(L.win * 100).toFixed(1)}%"></span></div>
+      ${lv ? `<p class="live-head"><span class="live-dot"></span> Live from Sleeper, ${esc(when(lv.at))}</p>` : ''}
+      <p class="mode-line"><b>${m.word} ${pct(win)}</b>: ${m.line}</p>
+      <div class="winbar" role="img" aria-label="${pct(win)} chance to win"><span style="width:${(win * 100).toFixed(1)}%"></span></div>
       <div class="totals">
-        <div><span class="lbl">You</span><b>${pts(L.me.total)}</b></div>
-        <div class="them"><span class="lbl">${esc(opp ? opp.name : 'Them')}</span><b>${pts(L.opp.total)}</b></div>
+        <div><span class="lbl">You</span><b>${pts(lv ? lv.me.total : L.me.total)}</b>${sofar(lv && lv.me)}</div>
+        <div class="them"><span class="lbl">${esc(opp ? opp.name : 'Them')}</span><b>${pts(lv ? lv.opp.total : L.opp.total)}</b>${sofar(lv && lv.opp)}</div>
       </div>
-      <details class="every" data-k="math"><summary>How this is worked out</summary><div class="math-text">${lineupMath(L)}</div></details>
+      <details class="every" data-k="math"><summary>How this is worked out</summary><div class="math-text">${lv ? liveMath(lv) : ''}${lineupMath(L, !!lv)}</div></details>
     </div>`;
   }
 
@@ -602,11 +665,13 @@
       const lean = how[c.measure] ? ` (${how[c.measure].replace('halfway', Math.round(L.lean * 100) + '% of the way')})` : '';
       return `<details class="call" data-k="call-${esc(c.start)}-${esc(c.bench)}"><summary>
           <span class="call-names"><b>${esc(s.name)}</b> <span class="vs">over</span> ${esc(b.name)}</span>
-          <span class="call-gap">${pts(c.gap)} apart</span></summary>
+          <span class="call-gap">${c.doubtful ? 'Doubtful' : pts(c.gap) + ' apart'}</span></summary>
         <div class="call-body">
           ${callSide(s, 'Start', c.values[0], c.for_start, c.measure)}
           ${callSide(b, 'Or', c.values[1], c.for_bench, c.measure)}
-          <p class="muted">${pts(c.gap)} apart on ${esc(c.measure)}${lean}. A close call is anything under ${pts(L.close_call)}.</p>
+          <p class="muted">${c.doubtful
+            ? `${esc(b.name)} is Doubtful, so he isn't started for you. If he's active (inactives come out about 90 min before kickoff), he's ${pts(c.values[1] - c.values[0])} ${c.values[1] >= c.values[0] ? 'better' : 'behind'} on ${esc(c.measure)}${lean}.`
+            : `${pts(c.gap)} apart on ${esc(c.measure)}${lean}. A close call is anything under ${pts(L.close_call)}.`}</p>
         </div></details>`;
     });
     return `<h2 class="section">Close calls</h2><div class="calls">${items.join('')}</div>`;
@@ -703,12 +768,342 @@
       html += `<details class="their" data-k="their"><summary>Their lineup, as set in Sleeper <b>${pts(L.opp.total)}</b></summary>
         <ul class="players lineup">${L.opp.starters.map((e) => lineupRow(e, 'opp')).join('')}</ul></details>`;
     }
+    html += '<button type="button" class="copy-btn" data-copy="lineup">Copy my matchup for Claude</button>';
     // Re-rendering (a player tapped open) keeps the open sections open
     const kept = [...document.querySelectorAll('#lineup details[data-k]')].filter((d) => d.open).map((d) => d.dataset.k);
     $('#lineup').innerHTML = html;
     for (const k of kept) {
       const d = document.querySelector(`#lineup details[data-k="${k}"]`);
       if (d) d.open = true;
+    }
+  }
+
+  // ---------- when the data updates itself ----------
+
+  function cronMatches(spec, v) {
+    return spec.split(',').some((part) => {
+      const [range, stepText] = part.split('/');
+      const step = stepText ? Number(stepText) : 1;
+      let lo, hi;
+      if (range === '*') { lo = 0; hi = 99; } else if (range.includes('-')) { [lo, hi] = range.split('-').map(Number); } else { lo = Number(range); hi = stepText ? 99 : lo; }
+      return v >= lo && v <= hi && (v - lo) % step === 0;
+    });
+  }
+  // The next scheduled run (cron times are UTC), or null
+  function nextRun() {
+    const r = data.refresh;
+    if (!r || !r.scheduled || !(r.crons || []).length) return null;
+    const crons = r.crons.map((c) => c.trim().split(/\s+/)).filter((f) => f.length === 5);
+    const start = Math.floor(Date.now() / 60000) * 60000;
+    for (let i = 1; i <= 8 * 24 * 60; i++) {
+      const d = new Date(start + i * 60000);
+      const v = [d.getUTCMinutes(), d.getUTCHours(), d.getUTCDate(), d.getUTCMonth() + 1, d.getUTCDay()];
+      if (crons.some((f) => f.every((spec, k) => cronMatches(spec, v[k])))) return d;
+    }
+    return null;
+  }
+  function runLink() {
+    const r = data.refresh || {};
+    return r.repo ? `https://github.com/${r.repo}/actions/workflows/update.yml` : null;
+  }
+  function updateLine() {
+    const next = nextRun(), link = runLink();
+    const when_ = next ? `Next update: ${esc(when(next.toISOString()))} (GitHub runs can start up to 30 min late).`
+      : (data.refresh && !data.refresh.scheduled ? 'This preview only updates when a run is started by hand.' : '');
+    return `${when_}${link ? ` <a href="${esc(link)}" target="_blank" rel="noopener">Run it now</a> (Run workflow, branch main).` : ''}`;
+  }
+
+  // ---------- live scores in the browser (Sleeper and ESPN both allow it) ----------
+  // The same math as pipeline/lineup.py: a live starter counts his points so
+  // far plus My Score x the share of his game left; win % from the totals.
+
+  let live = null;  // {at, me, opp, win}
+  const BELL = (z) => {  // standard normal CDF (Abramowitz-Stegun 7.1.26)
+    const t = 1 / (1 + 0.3275911 * Math.abs(z) / Math.SQRT2);
+    const e = 1 - (((((1.061405429 * t - 1.453152027) * t) + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t * Math.exp(-z * z / 2);
+    return z >= 0 ? (1 + e) / 2 : (1 - e) / 2;
+  };
+  const healthyScore = (p) => p.score - (p.adj || []).filter((a) => a.key === 'injury').reduce((n, a) => n + a.pts, 0);
+  function fullSd(p) {
+    const r = p.range;
+    if (!r) return 0;
+    let sd = Math.abs(r.sd);
+    if (r.if_plays) {
+      const h = healthyScore(p), q = h > 0 ? Math.max(0, Math.min(1, p.score / h)) : 0;
+      sd = Math.sqrt(q * sd * sd + q * (1 - q) * h * h);
+    }
+    return sd;
+  }
+  function phaseOf(g, now) {
+    if (!g) return ['unknown', 1];
+    if (/POSTPONED|CANCELED/.test(g.status || '')) return ['none', 0];
+    if (g.completed || g.state === 'post') return ['final', 0];
+    const kick = Date.parse(g.kickoff);
+    if (g.state !== 'in' && (isNaN(kick) || now < kick)) return ['pre', 1];
+    if (g.state !== 'in' || !(g.period >= 1)) return ['live', 1];
+    if (g.period > 4) return ['live', 0];
+    return ['live', Math.max(0, Math.min(1, ((4 - g.period) * 900 + (g.clock || 0)) / 3600))];
+  }
+  function smoothBracket(x) {
+    const t = data.league.def_brackets || [];
+    if (!t.length) return 0;
+    if (x <= t[0][0]) return t[0][1];
+    if (x >= t[t.length - 1][0]) return t[t.length - 1][1];
+    for (let i = 1; i < t.length; i++) {
+      const [x0, y0] = t[i - 1], [x1, y1] = t[i];
+      if (x <= x1) return x1 === x0 ? y0 : y0 + (y1 - y0) * (x - x0) / (x1 - x0);
+    }
+    return 0;
+  }
+  // Points for the bracket x (points allowed) falls in, as Sleeper scores it
+  function bracketPoints(x) {
+    for (const [k, v] of Object.entries(data.league.scoring || {})) {
+      const m = k.match(/^pts_allow_(\d+)(?:_(\d+)|(p))?$/);
+      if (!m) continue;
+      const lo = Number(m[1]);
+      if (m[3] ? x >= lo : m[2] ? x >= lo && x <= Number(m[2]) : x === lo) return v;
+    }
+    return 0;
+  }
+  function liveDef(p, g, got, rest, left, line) {
+    let allowedProj = null, bracketProj = 0;
+    for (const [stat, value, , pts_] of p.parts || []) {
+      if (stat === 'pts_allow' || stat.startsWith('pts_allow_')) { bracketProj += pts_; if (stat === 'pts_allow') allowedProj = value; }
+    }
+    const restNo = rest - bracketProj;
+    const allowedNow = g ? (g.home === p.team ? g.score_away : g.score_home) : null;
+    // The bracket inside his points so far: from his own stat line, else
+    // (no line) the one for the score now if he has points at all
+    const sc = data.league.scoring || {};
+    const counted = line
+      ? Object.entries(line).filter(([k]) => k.startsWith('pts_allow_')).reduce((n, [k, v]) => n + v * (sc[k] || 0), 0)
+      : got && allowedNow != null ? bracketPoints(allowedNow) : 0;
+    if (allowedNow == null || allowedProj == null) return got + restNo * left;
+    return got - counted + restNo * left + smoothBracket(allowedNow + allowedProj * left);
+  }
+  function liveRow(id, got, g, now, defLine) {
+    const p = index.get(id);
+    if (!p) return { id, pts: got, sd: 0, state: 'unknown', got, left: 0 };
+    // No ESPN game for his team: points this week mean he has played
+    const [state, left] = g ? phaseOf(g, now) : (got ? ['final', 0] : ['pre', 1]);
+    if (state === 'final') return { id, pts: got, sd: 0, state, got, left: 0 };
+    if (state === 'none') return { id, pts: 0, sd: 0, state, got: 0, left: 0 };
+    if (state === 'pre' || state === 'unknown') return { id, pts: p.score, sd: fullSd(p), state: 'pre', got: 0, left: 1 };
+    let rest = p.score, sd = fullSd(p);
+    if (got && healthyScore(p) > p.score) { rest = healthyScore(p); sd = Math.abs((p.range || {}).sd || sd); }
+    let pts_ = got + rest * left;
+    if (p.pos === 'DEF') pts_ = liveDef(p, g, got, rest, left, defLine);
+    return { id, pts: pts_, sd: sd * Math.sqrt(left), state, got, left };
+  }
+
+  async function fetchLive() {
+    const lg = data.league;
+    const get = (url) => fetch(url, { cache: 'no-store' }).then((r) => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); });
+    const [mu, sb, defs] = await Promise.all([
+      get(`https://api.sleeper.app/v1/league/${lg.id}/matchups/${data.week}`),
+      get(`https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?seasontype=2&week=${data.week}&dates=${data.season}`),
+      get(`https://api.sleeper.app/stats/nfl/${data.season}/${data.week}?season_type=regular&position[]=DEF`).catch(() => []),
+    ]);
+    const games = {};
+    for (const ev of sb.events || []) {
+      const c = (ev.competitions || [{}])[0], st = c.status || ev.status || {}, kind = st.type || {};
+      const side = {}, score = {};
+      for (const t of c.competitors || []) {
+        const abbr = t.team && (t.team.abbreviation === 'WSH' ? 'WAS' : t.team.abbreviation);
+        side[t.homeAway] = abbr;
+        score[t.homeAway] = t.score == null ? null : Number(t.score);
+      }
+      const g = { home: side.home, away: side.away, kickoff: c.date || ev.date, status: kind.name, state: kind.state,
+        completed: !!kind.completed, period: st.period || 0, clock: typeof st.clock === 'number' ? st.clock : 0,
+        score_home: score.home, score_away: score.away };
+      games[g.home] = g; games[g.away] = g;
+    }
+    const defLines = {};
+    for (const r of defs || []) if (r && r.stats && (r.stats.gp || 0) > 0) defLines[String(r.player_id)] = r.stats;
+    const sc = lg.scoring || {};
+    const now = Date.now();
+    const side = (rid) => {
+      const m = (mu || []).find((x) => x.roster_id === rid);
+      if (!m) return null;
+      const rows = (m.starters || []).filter((id) => id && id !== '0').map((id) => {
+        const p = index.get(id), line = defLines[id];
+        // A defense's points come from his own stat line, so the bracket in
+        // them matches the one taken back
+        const got = p && p.pos === 'DEF' && line
+          ? Object.entries(line).reduce((n, [k, v]) => n + (typeof v === 'number' ? v * (sc[k] || 0) : 0), 0)
+          : Number((m.players_points || {})[id] || 0);
+        return liveRow(id, got, p ? games[p.team] : null, now, line);
+      });
+      return { rows, now: rows.reduce((n, r) => n + r.got, 0), total: rows.reduce((n, r) => n + r.pts, 0),
+        sd: Math.sqrt(rows.reduce((n, r) => n + r.sd * r.sd, 0)) };
+    };
+    const me = side(lg.my_rid), opp = side(lg.opp_rid);
+    if (!me) throw new Error('my team is not in the matchups');
+    const comb = opp ? Math.sqrt(me.sd * me.sd + opp.sd * opp.sd) : 0;
+    const win = !opp ? null : comb > 0 ? BELL((me.total - opp.total) / comb) : (me.total > opp.total ? 1 : me.total < opp.total ? 0 : 0.5);
+    return { at: new Date().toISOString(), me, opp, win };
+  }
+
+  // Games on now (or just over) with a starter from either side
+  function gamesOn() {
+    const L = data.lineup;
+    if (!L) return false;
+    const teams = new Set([...L.me.starters, ...((L.opp || {}).starters || [])].map((e) => (index.get(e.id) || {}).team).filter(Boolean));
+    const now = Date.now();
+    return (data.games || []).some((g) => (teams.has(g.home) || teams.has(g.away))
+      && now >= Date.parse(g.kickoff) && now < Date.parse(g.kickoff) + 4.5 * 3600000);
+  }
+
+  let liveBusy = false;
+  async function refreshLive(manual) {
+    if (!data || !data.lineup || liveBusy || (!manual && !gamesOn())) return;
+    liveBusy = true;
+    try {
+      live = await fetchLive();
+      if (view === 'lineup') renderLineup();
+    } catch (err) {
+      if (manual) toast("Live scores didn't load (" + err.message + ').');
+    } finally {
+      liveBusy = false;
+    }
+  }
+
+  function liveMath(lv) {
+    const name = (id) => (index.get(id) || {}).name || 'Unknown player';
+    const word = { final: 'final', none: 'no game' };
+    const rowsOf = (s) => s.rows.map((r) => `<li>${esc(name(r.id))}: ${
+      r.state === 'live' ? `<b>${pts(r.got)}</b> so far, ${Math.round(r.left * 100)}% of the game left → ${pts(r.pts)}`
+        : r.state === 'pre' ? `${pts(r.pts)} (not started)` : `<b>${pts(r.got)}</b> (${word[r.state] || r.state})`}</li>`).join('');
+    const opp = data.league.teams[data.league.opp_rid];
+    const diff = lv.me.total - lv.opp.total, comb = Math.sqrt(lv.me.sd ** 2 + lv.opp.sd ** 2);
+    let html = `<p><b>Live:</b> both lineups as set in Sleeper right now. Each starter counts his points so far
+      plus My Score for the part of his game left; one who hasn't started counts My Score. Points so far are
+      Sleeper's matchup points, which can trail a play by a few minutes. Updates every 2 minutes.</p>
+      <p>You <b>${pts(lv.me.total)}</b> (give or take ${pts(lv.me.sd)}) vs them <b>${pts(lv.opp.total)}</b> (give or take ${pts(lv.opp.sd)})`;
+    html += comb > 0 ? `: ${signedPts(diff)} ÷ ${pts(comb)} = ${(diff < 0 ? '−' : '') + Math.abs(diff / comb).toFixed(2)} on the bell curve → <b>${pct(lv.win)}</b>.</p>` : '.</p>';
+    html += `<details class="every" data-k="liveplayers"><summary>Player by player</summary>
+      <h4>You</h4><ul class="live-rows">${rowsOf(lv.me)}</ul>
+      <h4>${esc(opp ? opp.name : 'Them')}</h4><ul class="live-rows">${rowsOf(lv.opp)}</ul></details>`;
+    return html;
+  }
+
+  // ---------- Copy for Claude: a ready-to-paste prompt with every input ----------
+
+  const SCORING_WORDS = [['pass_td', 'pass TD'], ['pass_yd', 'per pass yd'], ['pass_int', 'INT'],
+    ['rush_td', 'rush TD'], ['rush_yd', 'per rush yd'], ['rec', 'per catch'], ['bonus_rec_te', 'TE bonus per catch'],
+    ['rec_td', 'rec TD'], ['rec_yd', 'per rec yd'], ['fum', 'fumble'], ['fum_lost', 'fumble lost (extra)'],
+    ['kr_yd', 'per kick return yd'], ['pr_yd', 'per punt return yd']];
+  const plain = (n) => (n < 0 ? '-' : '') + Math.abs(n).toFixed(1);
+  const sgn = (n) => (n >= 0 ? '+' : '-') + Math.abs(n).toFixed(1);
+
+  function promptHeader() {
+    const lg = data.league, L = data.lineup, sc = lg.scoring || {};
+    const me = lg.teams[lg.my_rid] || {}, opp = lg.teams[lg.opp_rid];
+    let zone = '';
+    try { zone = Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch (e) { /* ignore */ }
+    const lines = [`Fantasy football, ${lg.name}, ${data.season} week ${data.week}. Data from ${when(data.generated)}`
+      + (zone ? ` (times are ${zone})` : '') + '.',
+      'Scoring (from Sleeper): ' + SCORING_WORDS.filter(([k]) => sc[k]).map(([k, w]) => `${w} ${num(sc[k])}`).join(', ') + '.'];
+    if (L && L.opp && opp) {
+      lines.push(`My team: ${me.name} (${me.wins}-${me.losses}) vs ${opp.name} (${opp.wins}-${opp.losses}). `
+        + `Projected ${pts(L.me.total)} (sd ${pts(L.me.sd)}) vs ${pts(L.opp.total)} (sd ${pts(L.opp.sd)}): `
+        + `win chance ${pct(L.win)}, so the dashboard is in "${(MODE[L.mode] || MODE.even).word}" mode `
+        + `(players ranked ${L.mode === 'underdog' ? 'toward their ceiling' : L.mode === 'favored' ? 'toward their floor' : 'by My Score'}).`);
+    }
+    const b = data.settings.blend || {}, fc = data.settings.floor_ceiling || {};
+    const share = (x) => Math.round(100 * x / ((b.projection || 0) + (b.consensus || 0) || 1));
+    lines.push(`My Score = ${share(b.projection)}% Sleeper projection (rescored in my scoring) + ${share(b.consensus)}% FantasyPros consensus rank turned into points, `
+      + `plus small capped adjustments. Floor/ceiling = ${fc.floor_pct}th/${fc.ceiling_pct}th percentile of his weekly scores, scaled to this week.`);
+    return lines.join('\n');
+  }
+
+  function roleOf(p) {
+    const L = data.lineup;
+    if (L) {
+      const mine = L.me.starters.find((e) => e.id === p.id);
+      if (mine) return `my starter at ${mine.slot}`;
+      const theirs = L.opp && L.opp.starters.find((e) => e.id === p.id);
+      if (theirs) return `opponent's starter at ${theirs.slot}`;
+    }
+    const o = owner(p);
+    return o.kind === 'mine' ? 'on my bench' : o.kind === 'fa' ? 'free agent' : o.kind === 'opp' ? "on opponent's bench" : `on ${o.team}`;
+  }
+
+  function playerText(p, withNews) {
+    const out = [];
+    const inj = p.injury ? `, ${p.injury}${p.injury_detail ? ' (' + p.injury_detail + ')' : ''}` : '';
+    out.push(`${p.name} (${p.pos}, ${gameText(p)}${p.kickoff ? ', ' + when(p.kickoff) : ''}${inj}): ${roleOf(p)}.`);
+    if (p.note) { out.push(`  ${p.note}.`); return out.join('\n'); }
+    const r = p.range;
+    out.push(`  My Score ${plain(p.score)}` + (r ? ` (floor ${plain(r.floor)}, ceiling ${plain(r.ceiling)}${r.if_plays ? ', if he plays' : ''})` : '')
+      + (p.tier != null ? `, tier ${p.tier}, rank ${p.rank} at ${p.pos}` : '') + '.');
+    out.push(`  Sleeper projection ${plain(p.proj)}` + (p.cons ? `; experts ${p.pos}${p.cons.rank}${p.cons.pts != null ? ' (about ' + plain(p.cons.pts) + ')' : ''}` : '')
+      + ` -> ${plain(p.base)} (${p.blend}).`);
+    if (p.adj && p.adj.length) out.push('  Adjustments: ' + p.adj.map((a) => `${a.label} ${sgn(a.pts)} (${a.why})`).join('; ') + '.');
+    if (p.implied != null) out.push(`  Vegas: ${p.team} ${p.spread > 0 ? '+' : ''}${num(p.spread)}, implied ${num(p.implied)} pts.`);
+    if (p.actual) out.push(`  ${gameState(p) === 'Live' ? 'So far' : 'Scored'}: ${plain(realPts(p))} pts.`);
+    if (withNews && p.news && p.news.length) {
+      out.push('  News:');
+      for (const n of p.news) out.push(`  - ${n.title} (${n.source}, ${n.tag}, ${new Date(n.date).toLocaleDateString()}) ${n.url}`);
+    }
+    return out.join('\n');
+  }
+
+  function playerPrompt(p) {
+    const L = data.lineup;
+    const calls = ((L && L.close_calls) || []).filter((c) => c.start === p.id || c.bench === p.id);
+    const extra = calls.map((c) => `Close call (${c.measure}): ${nameOf(c.start)} ${plain(c.values[0])} starting vs ${nameOf(c.bench)} ${plain(c.values[1])} on the bench.`);
+    const others = calls.map((c) => index.get(c.start === p.id ? c.bench : c.start)).filter(Boolean);
+    return [promptHeader(), '', playerText(p, true), ...others.map((o) => playerText(o, true)), ...extra, '',
+      `Should I ${roleOf(p).startsWith('my starter') ? 'keep starting' : 'start or pick up'} ${p.name} this week? `
+      + 'Answer in 3-4 sentences using these numbers and anything you know about him; say what would change your mind.'].join('\n');
+  }
+
+  function lineupPrompt() {
+    const L = data.lineup;
+    const parts = [promptHeader(), '', 'MY LINEUP (as the dashboard recommends):'];
+    for (const e of L.me.starters) {
+      const p = index.get(e.id);
+      parts.push(p ? playerText(p, true) : `${e.slot}: empty`);
+    }
+    if (L.changes.length) {
+      parts.push('', 'Changes from my current Sleeper lineup: ' + L.changes.map((c) =>
+        (c.in ? `start ${nameOf(c.in)}` : '') + (c.in && c.out ? ' for ' : '') + (c.out ? `bench ${nameOf(c.out)}` : '')).join('; ') + '.');
+    }
+    if ((L.close_calls || []).length) {
+      parts.push('', 'Close calls: ' + L.close_calls.map((c) => `${nameOf(c.start)} ${plain(c.values[0])} vs ${nameOf(c.bench)} ${plain(c.values[1])} (${c.measure})`).join('; ') + '.');
+    }
+    const bench = (L.bench_flex || []).map((b) => index.get(b.id)).filter(Boolean);
+    if (bench.length) parts.push('', 'BENCH OPTIONS:', ...bench.map((p) => playerText(p, false)));
+    const fas = (L.free_agents || []).map((f) => index.get(f.id)).filter(Boolean);
+    if (fas.length) parts.push('', `FREE AGENTS (instant adds; $${(data.league.teams[data.league.my_rid] || {}).faab_left} FAAB left):`, ...fas.map((p) => playerText(p, false)));
+    if (L.opp) {
+      parts.push('', "THEIR LINEUP (as set in Sleeper): " + L.opp.starters.map((e) => {
+        const p = index.get(e.id);
+        return `${e.slot} ${p ? p.name : 'empty'} ${plain(e.pts)}`;
+      }).join('; ') + '.');
+    }
+    parts.push('', 'Review my lineup. Is anything worth changing (starts, FLEX, a free agent)? '
+      + 'Keep it short: the moves, one line each on why, using these numbers and anything you know.');
+    return parts.join('\n');
+  }
+
+  async function copyText(text) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch (e) {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.setAttribute('readonly', '');
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      let ok = false;
+      try { ok = document.execCommand('copy'); } catch (e2) { /* ignore */ }
+      ta.remove();
+      return ok;
     }
   }
 
@@ -737,6 +1132,12 @@
     if (t.dataset.view) { view = t.dataset.view; if (data) renderView(); window.scrollTo(0, 0); return; }
     if (t.dataset.pos) { ui.pos = t.dataset.pos; saveUi(); renderTabs(); renderTiers(); return; }
     if (t.dataset.filter) { ui.filter = t.dataset.filter; saveUi(); renderTabs(); renderTiers(); return; }
+    if (t.dataset.copy) {
+      const p = t.dataset.copy === 'player' ? index.get(t.dataset.id) : null;
+      const text = p ? playerPrompt(p) : lineupPrompt();
+      copyText(text).then((ok) => toast(ok ? 'Copied. Paste it into the Claude app.' : "Couldn't copy on this device."));
+      return;
+    }
     if (t.classList.contains('row')) {
       const id = t.closest('.player').dataset.id;
       if (open.has(id)) open.delete(id); else open.add(id);
@@ -767,8 +1168,14 @@
       const changed = !data || fresh.generated !== data.generated;
       data = fresh;
       write(DATA_KEY, fresh);
-      if (changed) render();
-      if (manual) toast(changed ? 'New data loaded' : 'Up to date: data from ' + when(fresh.generated));
+      if (changed) { live = null; render(); }
+      if (gamesOn()) {
+        await refreshLive(manual);
+        if (manual && live) toast('Live scores updated' + (changed ? ', and new data loaded' : ''));
+      } else if (manual) {
+        const next = nextRun();
+        toast(changed ? 'New data loaded' : 'Up to date: data from ' + when(fresh.generated) + (next ? '. Next update ' + when(next.toISOString()) : ''));
+      }
     } catch (err) {
       if (data) {
         if (manual) toast("Couldn't reach the site. Showing saved data.");
@@ -792,6 +1199,8 @@
   }
 
   $('#refresh-btn').addEventListener('click', () => refresh(true));
+  // While games with our starters are on: live scores every 2 minutes
+  setInterval(() => { if (document.visibilityState === 'visible') refreshLive(false); }, 120000);
   // Kickoffs pass while the page is open: redraw the lineup when one does
   let startedCount = -1;
   setInterval(() => {
@@ -800,7 +1209,9 @@
     if (n !== startedCount) { startedCount = n; renderLineup(); }
   }, 60000);
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible' && data && hoursOld(data.generated) > 0.5) refresh(false);
+    if (document.visibilityState !== 'visible' || !data) return;
+    if (hoursOld(data.generated) > 0.5) refresh(false);
+    else refreshLive(false);
   });
 
   data = read(DATA_KEY);

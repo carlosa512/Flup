@@ -106,10 +106,11 @@ cap = 4.0
 
 # Share of the score taken off by injury status. Questionable comes off the
 # projection's part only (the experts' ranks already account for injuries).
-# Doubtful and Out are also flagged on the card.
+# Doubtful and Out are also flagged on the card. Doubtful is flagged only
+# (owner, 2026-10-11): no points off; it was 0.60.
 [adjust.injury]
 questionable = 0.08
-doubtful = 0.60
+doubtful = 0.0
 out = 1.00
 
 # Floor and ceiling come from each player's weekly scores in your scoring
@@ -142,3 +143,52 @@ steady = 1.10             # floor/score at least 10% above usual: "Steady"
 [stale]
 # The page warns when the data is older than this
 data_hours = 36
+# ...or older than this on a game day (a game today, Eastern time)
+game_day_hours = 3
+# A Questionable/Doubtful player whose latest Sleeper news is older than
+# this before kickoff gets "no injury news since ..." (shown in the last day)
+injury_news_hours = 24
+
+[news]
+# Links per player: headline, source, date and link only, newest first.
+# For my roster, the opponent's starters and suggested free agents.
+max_links = 3
+days = 7
+# A beat writer with no posts in this many days is listed as inactive
+inactive_days = 14
+# Links to these sites get a lock (subscription needed)
+paywalled = ["nytimes.com/athletic", "theathletic.com", "4for4.com",
+             "sharpfootballanalysis.com", "fantasylife.com"]
+
+[news.beat]
+# Bluesky beat writers per team (Sleeper abbreviations). Drafted 2026-10-11
+# from Bluesky bios: UNVERIFIED, fix any that are wrong. None found for
+# ATL, DAL, LAC, TEN.
+ARI = ["darrenurban.bsky.social"]                              # Cardinals.com
+BAL = ["giana-jade.bsky.social"]                               # Baltimore Banner
+BUF = ["joebuscaglia.bsky.social"]                             # The Athletic
+CAR = ["mikekayefootball.bsky.social"]                         # ESPN
+CHI = ["seanhammond.bsky.social", "kfishbain.bsky.social"]     # Tribune, The Athletic
+CIN = ["bbaby41.bsky.social", "laurelpfahler.bsky.social"]     # ESPN, Dayton Daily News
+CLE = ["ashleybastock42.bsky.social"]                          # cleveland.com
+DEN = ["parkerjgabriel.bsky.social"]                           # Denver Post
+DET = ["davebirkett.bsky.social", "coltonpouncy.bsky.social"]  # Free Press, The Athletic
+GB = ["tspoon62.bsky.social"]                                  # Milwaukee Journal Sentinel
+HOU = ["aaronwilsonnfl.bsky.social"]                           # KPRC 2
+IND = ["joelaerickson.bsky.social", "jakearthurnfl.bsky.social"]  # IndyStar, Roundtable
+JAX = ["demetrius.bsky.social"]                                # Florida Times-Union
+KC = ["jessenewell.bsky.social", "bynatetaylor.bsky.social"]   # The Athletic, ESPN
+LV = ["paulhgutierrez.bsky.social"]                            # Raiders.com
+LAR = ["adamgrosbard.bsky.social", "nateatkins.bsky.social"]   # LA Daily News, The Athletic
+MIA = ["ml-j.bsky.social"]                                     # ESPN
+MIN = ["bengoessling.bsky.social", "kevinseifert.bsky.social"] # Star Tribune, ESPN
+NE = ["christopherprice.bsky.social", "mikereiss.bsky.social"] # Boston Globe, ESPN
+NO = ["nickunderhill.bsky.social"]                             # NewOrleans.Football
+NYG = ["evanbarnes.bsky.social"]                               # Newsday
+NYJ = ["antwanstaley.bsky.social"]                             # NY Daily News
+PHI = ["jeff-neiburg.bsky.social", "timmcmanus42.bsky.social"] # Inquirer, ESPN
+PIT = ["mikedefabo.bsky.social", "bepryor.bsky.social"]        # The Athletic, ESPN
+SF = ["mattbarrows.bsky.social", "mattmaiocco.bsky.social"]    # The Athletic, NBC Sports BA
+SEA = ["johnpboyle.bsky.social"]                               # Seahawks.com
+TB = ["jennalaine.bsky.social"]                                # ESPN
+WAS = ["tashanreed.bsky.social"]                               # Washington Post

@@ -26,7 +26,7 @@ handed over.
   (points allowed to the position, shrunk early in the season), QB habits
   (penalty for picks above league rate, bonus for low-INT runners), return
   men (bump + return yards the projection lacks), injury (Questionable 8%
-  off the projection's part, Doubtful 60%, Out 100%, flagged).
+  off the projection's part, Doubtful flagged only (was 60%), Out 100%).
 - Floor/ceiling (25th/90th percentile) from each player's weekly scores in
   league scoring (this season + last 12 games of last season), scaled to
   this week's score, shrunk toward the position's typical spread; backup-role
@@ -74,15 +74,17 @@ Phase 3 decisions (owner, 2026-10-10/11):
    counts 0).
 7. Live games: points so far + My Score x share of the game left (quarter
    and clock from ESPN); sd x sqrt(share left). Finished: actual points.
-8. Doubtful stays 60% off. Never start Out/IR. No FAAB bid suggestions;
+8. Doubtful: flagged only, no points off (owner, 2026-10-11; was 60%
+   off). Never start Out/IR. No FAAB bid suggestions;
    show Sleeper's trending-adds count instead.
 9. Keep the lean even when it lowers the bell-curve win % a little; the
    math box says so (owner, after piece 2).
 
 ## Open questions for the owner
-- Doubtful: spec says "flag"; currently flagged AND 60% off
-  (`[adjust.injury] doubtful`). Owner hasn't confirmed.
-- `always_break_gap` = 1.5 for tiers (1.0 splits TE/DEF tops more).
+None. Settled 2026-10-11: Doubtful is flagged only (settings
+`[adjust.injury] doubtful = 0`; the card warns "likely sits", the write-up
+leads with it); `always_break_gap` stays 1.5 (1.0 would split the top
+TE/DEF tiers over 1-point gaps, smaller than a week-to-week swing).
 
 ## What the data already has (site/data/latest.json, version 3)
 
@@ -142,9 +144,10 @@ waiver_clear_days + 1 day (shown as "Maybe on waivers").
 
 Modeling notes (from the Phase 3 review):
 - A Doubtful player's floor/ceiling are percentiles of "plays with chance
-  q, else 0": floor 0 at 60% off; ceiling = the 75th percentile of his
-  if-he-plays range (a bell curve through floor/healthy/ceiling). Once he
-  scores in a live game, the discount is dropped.
+  q, else 0", with q = My Score / healthy score. Doubtful now takes nothing
+  off, so q = 1 and it's just his range. (At the old 60% off, his floor was
+  0 and his ceiling the 75th percentile of his if-he-plays range.) Once he
+  scores in a live game, any discount is dropped.
 - A live DEF: points so far minus the bracket for the current score, plus
   the rest of his projection without its bracket part, plus the bracket
   blend for the points he's expected to allow by the end. Verified
@@ -204,6 +207,51 @@ games count Sleeper's official points.
 - Refresh button: live Sleeper fetch in the browser if CORS allows
   (unverified), else show the next scheduled run and link to "Run workflow".
 - Staleness warnings, e.g. injury news older than 24h before kickoff.
+
+Phase 4 decisions (owner, 2026-10-11):
+1. News: ESPN per-player news (public API, matched by ESPN ID from the
+   DynastyProcess ID map) + Pro Football Talk RSS + one beat writer per
+   team on Bluesky (Claude drafts the list, marked unverified; owner fixes).
+   FantasyPros only if a public feed works. Feeds are tested on GitHub's
+   runners first (tools/snapshot.py news probe -> dev-snapshots `news/`).
+2. News for my roster, the opponent's starters and suggested free agents;
+   at most 3 links, last 7 days, behind the tap.
+3. Template write-ups made in Python, 2-4 sentences, shown first in a
+   player's details (not on the main card), for every player.
+4. "Copy for Claude": one button in each player's details, one at the
+   bottom of Lineup (the whole matchup).
+5. `/writeups` command pushes one data file straight to `main` (no PR);
+   live in about 2 minutes.
+6. Refresh: all three. Button re-downloads the newest data and shows the
+   next run; extra Sunday runs during games (~every 30 min); live Sleeper
+   points in the browser if CORS allows it.
+7. Staleness: banner when data is old (>3 h on game day); "no injury news
+   since ..." on a Questionable/Doubtful starter with no Sleeper news in
+   the 24 h before kickoff (`news_updated` comes with projection rows).
+
+Plan: 1 feed test -> 2 news links + staleness -> 3 template write-ups ->
+4 Copy for Claude -> 5 /writeups command -> 6 refresh.
+
+Status (2026-10-11): all six built on `claude/phase-4-news`, waiting for
+the owner to try the preview. Feed test results: ESPN per-player, PFT and
+RotoBaller RSS and Bluesky work; FantasyPros has no public feed (skipped,
+RotoBaller instead); beat writers found for 28 teams (none for ATL, DAL,
+LAC, TEN), unverified. Reviewed 2026-10-11 (code review + real-data
+checks): fixed name matching (punctuation, possessives, a teammate's first
+name), RotoWire notes collapsing into one, non-web links, write-ups losing
+the My Score sentence, the browser's DEF fallback and missing-ESPN team,
+"no news" for players who never had any; phone width checked with every
+card open. Doubtful players keep their full My Score but are only started
+when no healthy player fits the slot (owner, 2026-10-11); a benched one
+who'd otherwise start shows first in close calls, marked "Doubtful".
+
+New data (no version bump, all additions): players get `news_at`
+(Sleeper's latest news time), `writeup` (template), `news [{title, source,
+tag, date, url, paywall?}]` (my roster, their starters, suggested free
+agents), `claude {text, written, changed?}` (from inputs/writeups.json).
+`league.def_brackets` [[midpoint, pts]] (zeros included) for the live DEF
+math in the browser; `refresh {crons, repo, scheduled}` for "next update";
+`settings.stale_game_day_hours`, `settings.injury_news_hours`.
 
 ## Phase 5: polish
 - Week 17 flag: players on teams that may rest starters (clinched teams).

@@ -5,7 +5,7 @@ Returns the total and every piece of it, so the site can show the math:
 """
 
 
-def _bracket_table(scoring, prefix):
+def bracket_table(scoring, prefix):
     """Settings like pts_allow_7_13 or pts_allow_35p -> sorted
     (bracket midpoint, points) pairs."""
     table = []
@@ -52,7 +52,7 @@ def bracket_points(scoring, prefix, x):
 def smooth_bracket_points(scoring, prefix, x):
     """Expected bracket points for an expected x: a blend between bracket
     midpoints (the same blend the projections use)."""
-    return _interpolate(_bracket_table(scoring, prefix), x)
+    return _interpolate(bracket_table(scoring, prefix), x)
 
 
 def _interpolate(table, x):
@@ -90,7 +90,7 @@ def score_line(stats, position, scoring, smooth_def_brackets=False):
     if position == "DEF" and smooth_def_brackets:
         for prefix in ("pts_allow", "yds_allow"):
             avg = stats.get(prefix)
-            table = _bracket_table(scoring, prefix)
+            table = bracket_table(scoring, prefix)
             if isinstance(avg, (int, float)) and table:
                 smoothed.add(prefix)
                 pts = _interpolate(table, avg)

@@ -351,3 +351,11 @@ def test_real_zero_snaps_still_count_as_backup_games():
     rows = [stat_row("9", "WR", "DET", "GB", off_snp=0, tm_off_snp=60, kr=2, kr_yd=40)]
     h = history.build([("2026", 1, rows)], {"kr_yd": 0.05}, "2026")
     assert h["games"]["9"][0]["snap_share"] == 0
+
+
+def test_doubtful_is_flagged_not_discounted():
+    # Owner, 2026-10-11: flag Doubtful players, don't take points off
+    assert SETTINGS["adjust"]["injury"]["doubtful"] == 0
+    out = model.my_score(player(injury="Doubtful", injury_detail="Knee"), {}, None, ctx())
+    assert out["score"] == out["base"] == 10.0
+    assert out["flag"] == "Doubtful" and all(a["key"] != "injury" for a in out["adj"])
