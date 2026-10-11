@@ -251,6 +251,11 @@ ul.players { list-style: none; margin: 0; padding: 8px 0; min-width: 0; display:
 .inj { font-size: .75rem; font-weight: 700; margin-left: 6px; padding: 1px 6px; border-radius: 6px; border: 1.5px solid currentColor; vertical-align: 1px; }
 .inj.q { color: var(--q); }
 .inj.out { color: var(--out); }
+.stale { font-size: .75rem; font-weight: 700; color: var(--q); border: 1px solid currentColor; border-radius: 6px; padding: 0 6px; }
+.news { list-style: none; margin: 0; padding: 0; }
+.news li { margin: 0 0 10px; }
+.news a { color: var(--ink); font-weight: 600; text-decoration: underline; text-decoration-color: var(--line); text-underline-offset: 3px; }
+.news .muted { display: block; margin-top: 2px; }
 .played { font-size: .75rem; font-weight: 700; color: var(--muted); border: 1px solid var(--line); border-radius: 6px; padding: 0 6px; }
 .chip {
   font-size: .78rem; font-weight: 700; padding: 3px 9px; border-radius: 999px;

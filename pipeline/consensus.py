@@ -74,10 +74,31 @@ def _current(kickoffs, games, dates=()):
     return inside >= 0.5 * len(kickoffs)
 
 
+_id_rows = None
+
+
+def id_rows():
+    """DynastyProcess's player ID map (one download per run)."""
+    global _id_rows
+    if _id_rows is None:
+        _id_rows = list(csv.DictReader(io.StringIO(get_text(IDS_URL))))
+    return _id_rows
+
+
+def espn_ids():
+    """sleeper id -> ESPN id (for ESPN's player news)."""
+    out = {}
+    for r in id_rows():
+        sid, eid = (r.get("sleeper_id") or "").strip(), (r.get("espn_id") or "").strip()
+        if sid and sid != "NA" and eid and eid != "NA":
+            out[sid] = eid
+    return out
+
+
 def from_dynastyprocess(index, games, dates=()):
     """sleeper id -> consensus entry, plus a note about the file."""
     ids = {}
-    for r in csv.DictReader(io.StringIO(get_text(IDS_URL))):
+    for r in id_rows():
         sid = (r.get("sleeper_id") or "").strip()
         if r.get("fantasypros_id") and sid and sid != "NA":
             ids[r["fantasypros_id"]] = sid

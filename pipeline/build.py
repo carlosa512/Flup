@@ -7,7 +7,7 @@ import tomllib
 from datetime import datetime, timezone
 from pathlib import Path
 
-from . import consensus, espn, history, lineup, model, sleeper
+from . import consensus, espn, history, lineup, model, news, sleeper
 from .fetch import FetchError
 from .league import context, sanity
 from .scoring import score_line
@@ -60,6 +60,8 @@ def player_rows(rows, pos, scoring, ctx, games, smooth, cons):
             "implied": game.get("implied"), "spread": game.get("spread"),
             "injury": info.get("injury_status") or "",
             "injury_detail": info.get("injury_body_part") or info.get("injury_notes") or "",
+            # Sleeper's latest news about him (for "no injury news since ...")
+            "news_at": iso(info["news_updated"] / 1000) if info.get("news_updated") else None,
             "proj": proj, "parts": parts, "roster": rid,
         })
         raw[pid] = stats
@@ -93,6 +95,32 @@ def attach_actuals(positions, lines, official):
             pts, parts = found
             p["actual"] = {"pts": round(pts, 2), "parts": parts,
                            "official": official.get(p["id"])}
+
+
+def add_news(positions, ctx, my_lineup, rows_by_pos, cfg, now, sources):
+    """Attach `news` (newest links) to the players worth reading about."""
+    by_id = {p["id"]: p for block in positions.values() for p in block["players"]}
+    want = [pid for pid, p in by_id.items() if p["roster"] is not None and p["roster"] == ctx["my_rid"]]
+    opp = ctx["lineups"].get(ctx["opp_rid"]) or {}
+    want += [pid for pid in opp.get("starters") or [] if pid in by_id]
+    want += [fa["id"] for fa in (my_lineup or {}).get("free_agents") or []]
+    players = [by_id[pid] for pid in dict.fromkeys(want) if pid in by_id]
+    teammates = {}
+    for rows in rows_by_pos.values():
+        for r in rows:
+            info = r.get("player") or {}
+            teammates.setdefault(r.get("team") or info.get("team"), []).append(
+                f"{info.get('first_name', '')} {info.get('last_name', '')}".strip())
+    try:
+        ids = consensus.espn_ids()
+    except FetchError:
+        ids = {}
+    found, detail, ok = news.collect(players, ids, teammates, cfg,
+                                     datetime.fromisoformat(now.replace("Z", "+00:00")))
+    for pid, links in found.items():
+        by_id[pid]["news"] = links
+    sources.append({"id": "news", "label": "News links (ESPN, PFT, RotoBaller, Bluesky)",
+                    "ok": ok, "fetched": now, "detail": detail})
 
 
 def fetch_history(season, week, scoring):
@@ -321,6 +349,9 @@ def build(settings, week=None, league_id=None, now=None):
                                   ceiling_pct=fc["ceiling_pct"]),
                              now, scoring, market)
 
+    # News links: my roster, their starters, the free agents suggested
+    add_news(positions, ctx, my_lineup, rows_by_pos, settings.get("news") or {}, now, sources)
+
     # Prove the scoring engine on every finished week
     weeks = []
     for past in range(1, week):
@@ -348,7 +379,9 @@ def build(settings, week=None, league_id=None, now=None):
         "checks": {"settings": sanity(lg, settings["league"]["expect"]), "scoring": weeks},
         "settings": {"tiers": tier_cfg, "positions": settings["positions"],
                      "blend": settings["blend"], "floor_ceiling": fc,
-                     "stale_hours": settings.get("stale", {}).get("data_hours", 36)},
+                     "stale_hours": settings.get("stale", {}).get("data_hours", 36),
+                     "stale_game_day_hours": settings.get("stale", {}).get("game_day_hours", 3),
+                     "injury_news_hours": settings.get("stale", {}).get("injury_news_hours", 24)},
         "positions": positions,
         "lineup": my_lineup,
         "games": game_list,

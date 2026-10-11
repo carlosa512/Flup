@@ -130,9 +130,22 @@
     document.title = 'Week ' + data.week + ' · Flup';
   }
 
+  // A game day: a game with a starter (mine or theirs) today, Eastern
+  // time, that isn't over yet. Old data matters more then.
+  const eastern = (t) => new Date(t).toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+  function gameDay() {
+    const L = data.lineup;
+    const teams = L ? new Set([...L.me.starters, ...((L.opp || {}).starters || [])]
+      .map((e) => (index.get(e.id) || {}).team).filter(Boolean)) : null;
+    const today = eastern(Date.now());
+    return (data.games || []).some((g) => g.kickoff && eastern(g.kickoff) === today
+      && Date.now() < Date.parse(g.kickoff) + 4.5 * 3600000
+      && (!teams || teams.has(g.home) || teams.has(g.away)));
+  }
+
   function problems() {
     const out = [];
-    const stale = data.settings.stale_hours || 36;
+    const stale = gameDay() ? data.settings.stale_game_day_hours || 3 : data.settings.stale_hours || 36;
     if (hoursOld(data.generated) > stale) {
       out.push(`This data is ${ago(data.generated).replace(' ago', '')} old. Tap refresh, or run "Update data" in GitHub Actions.`);
     }
@@ -422,6 +435,28 @@
     return html;
   }
 
+  // Questionable/Doubtful, and no news about him (Sleeper's or the links
+  // here) in the last day before kickoff: his status may still change.
+  // Returns when the last news was, or null.
+  function quietInjury(p) {
+    if (!p || !/^(Questionable|Doubtful)$/.test(p.injury) || !p.kickoff || gameState(p)) return null;
+    const kick = Date.parse(p.kickoff), day = (data.settings.injury_news_hours || 24) * 3600000;
+    if (Date.now() >= kick || Date.now() < kick - day) return null;
+    const times = [p.news_at, ...(p.news || []).map((n) => n.date)].filter(Boolean).map(Date.parse);
+    const last = times.length ? Math.max(...times) : null;
+    return last && last < kick - day ? new Date(last).toISOString() : null;
+  }
+
+  function newsBlock(p) {
+    const quiet = quietInjury(p);
+    let html = quiet ? `<p class="warn">No news about him since ${esc(when(quiet))}. He's ${esc(p.injury)}: check the inactives (out about 90 min before kickoff).</p>` : '';
+    if (!p.news) return html;
+    if (!p.news.length) return html + '<h3>News</h3><p class="muted">Nothing in the last week.</p>';
+    return html + `<h3>News</h3><ul class="news">${p.news.map((n) => `<li>
+        <a href="${esc(n.url)}" target="_blank" rel="noopener">${esc(n.title)}</a>
+        <span class="muted">${esc(n.source)} · ${n.tag === 'beat reporter' ? 'beat reporter' : 'aggregator'} · ${esc(ago(n.date))}${n.paywall ? ' · 🔒 paywall' : ''}</span></li>`).join('')}</ul>`;
+  }
+
   function detail(p) {
     const block = data.positions[p.pos];
     const rows = partsTable(p.parts);
@@ -432,6 +467,7 @@
           <table class="math"><tbody>${rows}</tbody></table>
         </details>`;
     }
+    html += newsBlock(p);
 
     html += '<h3>Game</h3>';
     html += `<p>${esc(gameText(p))}${p.kickoff ? ' · ' + esc(when(p.kickoff)) : ''}${gameState(p) ? ' · ' + gameState(p) : ''}</p>`;
@@ -488,6 +524,7 @@
       `<span>${esc(gameText(p))}</span>`,
       state ? `<span class="played">${state}</span>` : (p.kickoff ? `<span>${esc(when(p.kickoff))}</span>` : ''),
       e.new ? '<span class="chip new">New</span>' : '',
+      side === 'me' && quietInjury(p) ? `<span class="stale">No news since ${esc(when(quietInjury(p)).split(' ')[0])}</span>` : '',
     ].join('');
     let why = side === 'me' ? e.why || '' : '';
     if (side !== 'me' && e.state === 'live') why = `${pts(e.actual)} so far, ${Math.round(e.left * 100)}% of the game left`;
