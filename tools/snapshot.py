@@ -100,6 +100,7 @@ def main():
         print(f"ESPN parse problem: {err}")
 
     news_probe(save, out, lid, season, week)
+    phase5_probe(save, out, season)
 
     (out / "index.json").write_text(json.dumps(
         {"season": season, "week": week, "taken_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
@@ -231,6 +232,53 @@ def news_probe(save, out, lid, season, week):
     (out / "news/cors.json").write_text(json.dumps(checks, indent=2))
     for c in checks:
         print(f"CORS {c['status']} allow={c.get('allow_origin')}  {c['url']}")
+
+
+# ---------- Phase 5 probe: player headshots and NFL standings ----------
+
+def image_check(url):
+    """Status, type and size of an image, and whether it's hotlink-safe
+    (answers with a Referer from the site, too)."""
+    out = {"url": url}
+    for label, headers in (("plain", {}), ("from_site", {"Referer": ORIGIN + "/Flup/"})):
+        req = Request(url, headers={"User-Agent": "Mozilla/5.0 flup-snapshot", **headers})
+        try:
+            with urlopen(req, timeout=30) as resp:
+                body = resp.read()
+                out[label] = {"status": resp.status, "type": resp.headers.get("Content-Type"),
+                              "bytes": len(body), "cache": resp.headers.get("Cache-Control")}
+        except HTTPError as err:
+            out[label] = {"status": err.code}
+        except (URLError, TimeoutError) as err:
+            out[label] = {"status": 0, "error": str(err)}
+    return out
+
+
+def phase5_probe(save, out, season):
+    try:
+        rosters = json.loads((out / "sleeper/rosters.json").read_text())
+        players = json.loads(gzip.decompress((out / "sleeper/players_nfl.json.gz").read_bytes()))
+    except (OSError, ValueError) as err:
+        print(f"Phase 5 probe skipped: {err}")
+        return
+    mine = next((r for r in rosters if r.get("roster_id") == 12), rosters[0])
+    ids = [p for p in mine.get("players") or [] if p in players][:3]
+    espn = [players[p].get("espn_id") for p in ids if players[p].get("espn_id")][:2]
+    urls = [f"https://sleepercdn.com/content/nfl/players/thumb/{pid}.jpg" for pid in ids]
+    urls += [f"https://sleepercdn.com/content/nfl/players/{ids[0]}.jpg" if ids else "",
+             "https://sleepercdn.com/content/nfl/players/thumb/0.jpg",          # a missing one
+             "https://sleepercdn.com/images/team_logos/nfl/hou.png",
+             "https://sleepercdn.com/images/team_logos/nfl/was.png"]
+    urls += [f"https://a.espncdn.com/i/headshots/nfl/players/full/{e}.png" for e in espn]
+    checks = [image_check(u) for u in urls if u]
+    (out / "phase5").mkdir(exist_ok=True)
+    (out / "phase5/images.json").write_text(json.dumps(checks, indent=1))
+    for c in checks:
+        print("IMG", c.get("plain"), c.get("from_site", {}).get("status"), c["url"])
+    # Standings with clinch marks: this season now, and last season's final
+    for yr in (season, str(int(season) - 1)):
+        save(f"phase5/standings_{yr}.json",
+             f"https://site.api.espn.com/apis/v2/sports/football/nfl/standings?season={yr}")
 
 
 if __name__ == "__main__":

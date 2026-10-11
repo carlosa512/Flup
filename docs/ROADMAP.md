@@ -253,6 +253,22 @@ agents), `claude {text, written, changed?}` (from inputs/writeups.json).
 math in the browser; `refresh {crons, repo, scheduled}` for "next update";
 `settings.stale_game_day_hours`, `settings.injury_news_hours`.
 
-## Phase 5: polish
-- Week 17 flag: players on teams that may rest starters (clinched teams).
-- Anything left over from the owner's feedback.
+## Phase 5: polish (building on `claude/phase-5-polish`)
+Phase 4 merged as PR #6 on 2026-10-11.
+
+Decisions (owner, 2026-10-11) and status, all built, waiting for the owner
+to try the preview:
+1. Week 17 rest flag: players on a team that has clinched the #1 seed
+   (ESPN standings clincher "*"), flag only, shown in weeks 16-17
+   (settings `[rest]`). Card warning, "May rest" chip, Copy for Claude line.
+   Tested on last season's real final standings (tests/fixtures).
+2. Data runs during Thursday and Monday night games, and Saturdays in
+   December/early January (fantasy playoffs), every 30 min.
+3. Live card: "so far · N to play" under each total.
+4. Lineup tab colors by group (owner's ask): starters solid green, bench
+   outlined green, free agents blue, opponent purple (edge, slot pill,
+   section-header dot).
+5. Small circle headshots before names (owner's nice-to-have): Sleeper's
+   image server (`sleepercdn.com/content/nfl/players/thumb/<id>.jpg`, team
+   logos `images/team_logos/nfl/<team>.png` for DEF), no key, a grey
+   silhouette while loading or when there's no photo.

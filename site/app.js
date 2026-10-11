@@ -94,6 +94,17 @@
     if (p.roster === lg.opp_rid) return { cls: 'opp', label: 'Opponent', kind: 'opp', team };
     return { cls: '', label: team, kind: 'owned', team };
   }
+  // A small headshot (a team logo for a defense) from Sleeper's image
+  // server. A grey silhouette (the CSS background) shows while it loads and
+  // stays if there's no photo: a failed one swaps to a see-through pixel.
+  const BLANK = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+  function face(p) {
+    const src = p.pos === 'DEF'
+      ? `https://sleepercdn.com/images/team_logos/nfl/${encodeURIComponent((p.team || '').toLowerCase())}.png`
+      : `https://sleepercdn.com/content/nfl/players/thumb/${encodeURIComponent(p.id)}.jpg`;
+    return `<img class="face${p.pos === 'DEF' ? ' logo' : ''}" src="${src}" alt="" loading="lazy" decoding="async"
+      onerror="this.onerror=null;this.src='${BLANK}'">`;
+  }
   function injClass(s) {
     if (!s) return '';
     return /^(questionable)$/i.test(s) ? 'q' : 'out';
@@ -267,7 +278,7 @@
     return `<li class="player ${o.kind === 'mine' || o.kind === 'opp' ? o.kind : ''}" data-id="${esc(p.id)}">
       <button type="button" class="row" aria-expanded="${isOpen}">
         <span class="rk">${p.rank}</span>
-        <span class="nm">${esc(p.name)}${inj}</span>
+        <span class="nm">${face(p)}${esc(p.name)}${inj}</span>
         ${scoreCell(p)}
         <span class="sub">${sub}</span>
       </button>${isOpen ? detail(p) : ''}</li>`;
@@ -423,6 +434,7 @@
     if (r) html += `<span>${r.if_plays ? 'If he plays: ' : ''}Floor ${pts(r.floor)} · Ceiling ${pts(r.ceiling)}</span>`;
     html += '</div>';
     if (p.flag === 'Doubtful') html += '<p class="warn">Doubtful: likely sits. Have a backup ready.</p>';
+    if (p.rest) html += `<p class="warn">${esc(p.rest)}</p>`;
     const c = p.cons;
     let start = p.proj > 0 ? `Projection ${pts(p.proj)}` : 'No projection';
     if (c && c.pts != null) start += ` · Experts ${esc(p.pos)}${c.rank} (${pts(c.pts)})`;
@@ -539,6 +551,7 @@
       `<span>${esc(gameText(p))}</span>`,
       state ? `<span class="played">${state}</span>` : (p.kickoff ? `<span>${esc(when(p.kickoff))}</span>` : ''),
       e.new ? '<span class="chip new">New</span>' : '',
+      p.rest ? '<span class="stale">May rest</span>' : '',
       side === 'me' && quietInjury(p) ? `<span class="stale">${quietInjury(p) === 'never' ? 'No news' : 'No news since ' + esc(when(quietInjury(p)).split(' ')[0])}</span>` : '',
     ].join('');
     let why = side === 'me' ? e.why || '' : '';
@@ -547,7 +560,7 @@
     return `<li class="player ${e.new ? 'new' : ''}" data-id="${esc(p.id)}">
       <button type="button" class="row lu" aria-expanded="${isOpen}">
         ${slot}
-        <span class="nm">${esc(p.name)}${inj}</span>
+        <span class="nm">${face(p)}${esc(p.name)}${inj}</span>
         <span class="pts">${pts(e.pts)}</span>
         <span class="sub">${sub}</span>
         ${why ? `<span class="why">${esc(why)}</span>` : ''}
@@ -602,7 +615,11 @@
     // During games: the live numbers from Sleeper (both lineups as set now)
     const lv = live && live.opp ? live : null;
     const win = lv ? lv.win : L.win;
-    const sofar = (s) => (lv ? `<span class="sofar">${pts(s.now)} so far</span>` : '');
+    const sofar = (s) => {
+      if (!lv) return '';
+      const left = s.rows.filter((r) => r.state === 'pre' || r.state === 'live').length;
+      return `<span class="sofar">${pts(s.now)} so far · ${left ? left + ' to play' : 'all done'}</span>`;
+    };
     return `<div class="verdict ${m.cls}">
       ${lv ? `<p class="live-head"><span class="live-dot"></span> Live from Sleeper, ${esc(when(lv.at))}</p>` : ''}
       <p class="mode-line"><b>${m.word} ${pct(win)}</b>: ${m.line}</p>
@@ -698,13 +715,13 @@
     const sub = [
       `<span>${esc(gameText(p))}</span>`,
       state ? `<span class="played">${state}</span>` : (p.kickoff ? `<span>${esc(when(p.kickoff))}</span>` : ''),
-      labelChip(item.label), extra || '',
+      labelChip(item.label), p.rest ? '<span class="stale">May rest</span>' : '', extra || '',
     ].join('');
     const isOpen = open.has(p.id);
     return `<li class="player" data-id="${esc(p.id)}">
       <button type="button" class="row lu" aria-expanded="${isOpen}">
         <span class="slot">${esc(p.pos)}</span>
-        <span class="nm">${esc(p.name)}${inj}</span>
+        <span class="nm">${face(p)}${esc(p.name)}${inj}</span>
         ${scoreCell(p)}
         <span class="sub">${sub}</span>
         <span class="why">${esc(why)}</span>
@@ -718,14 +735,14 @@
     if (bench.length) {
       const avail = bench.filter((b) => !startedId(b.id));
       if (avail.length) {
-        html += `<h2 class="section">Bench options</h2><ul class="players lineup">${avail.map((b) =>
+        html += `<h2 class="section"><span class="dot bench"></span>Bench options</h2><ul class="players lineup grp-bench">${avail.map((b) =>
           pickRow(b, b.why)).join('')}</ul>`;
       }
     }
     if (fas.length) {
       const me = data.league.teams[data.league.my_rid];
       const faab = me && me.faab_left != null ? `<span class="faab">$${esc(me.faab_left)} FAAB left</span>` : '';
-      html += `<h2 class="section">Free agents ${faab}</h2><ul class="players lineup">${fas.map((f) => {
+      html += `<h2 class="section"><span class="dot fa"></span>Free agents ${faab}</h2><ul class="players lineup grp-fa">${fas.map((f) => {
         let extra = '';
         if (f.dropped) {
           const day = new Date(f.dropped).toLocaleDateString(undefined, { weekday: 'short' });
@@ -761,12 +778,12 @@
         Totals and win % are as of then. Sleeper has locked those players, so any moves for them are crossed out.</p>`;
     }
     html += verdict(L) + changesBox(L) + lateSwapTip(L);
-    html += `<h2 class="section">Your lineup</h2><ul class="players lineup">${L.me.starters.map((e) => lineupRow(e, 'me')).join('')}</ul>`;
+    html += `<h2 class="section"><span class="dot me"></span>Your lineup</h2><ul class="players lineup grp-me">${L.me.starters.map((e) => lineupRow(e, 'me')).join('')}</ul>`;
     html += closeCalls(L);
     html += pickups(L);
     if (L.opp) {
-      html += `<details class="their" data-k="their"><summary>Their lineup, as set in Sleeper <b>${pts(L.opp.total)}</b></summary>
-        <ul class="players lineup">${L.opp.starters.map((e) => lineupRow(e, 'opp')).join('')}</ul></details>`;
+      html += `<details class="their" data-k="their"><summary><span class="dot opp"></span>Their lineup, as set in Sleeper <b>${pts(L.opp.total)}</b></summary>
+        <ul class="players lineup grp-opp">${L.opp.starters.map((e) => lineupRow(e, 'opp')).join('')}</ul></details>`;
     }
     html += '<button type="button" class="copy-btn" data-copy="lineup">Copy my matchup for Claude</button>';
     // Re-rendering (a player tapped open) keeps the open sections open
@@ -1040,6 +1057,7 @@
     out.push(`  Sleeper projection ${plain(p.proj)}` + (p.cons ? `; experts ${p.pos}${p.cons.rank}${p.cons.pts != null ? ' (about ' + plain(p.cons.pts) + ')' : ''}` : '')
       + ` -> ${plain(p.base)} (${p.blend}).`);
     if (p.adj && p.adj.length) out.push('  Adjustments: ' + p.adj.map((a) => `${a.label} ${sgn(a.pts)} (${a.why})`).join('; ') + '.');
+    if (p.rest) out.push(`  ${p.rest}`);
     if (p.implied != null) out.push(`  Vegas: ${p.team} ${p.spread > 0 ? '+' : ''}${num(p.spread)}, implied ${num(p.implied)} pts.`);
     if (p.actual) out.push(`  ${gameState(p) === 'Live' ? 'So far' : 'Scored'}: ${plain(realPts(p))} pts.`);
     if (withNews && p.news && p.news.length) {
