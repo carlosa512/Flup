@@ -205,6 +205,30 @@ games count Sleeper's official points.
   (unverified), else show the next scheduled run and link to "Run workflow".
 - Staleness warnings, e.g. injury news older than 24h before kickoff.
 
+Phase 4 decisions (owner, 2026-10-11):
+1. News: ESPN per-player news (public API, matched by ESPN ID from the
+   DynastyProcess ID map) + Pro Football Talk RSS + one beat writer per
+   team on Bluesky (Claude drafts the list, marked unverified; owner fixes).
+   FantasyPros only if a public feed works. Feeds are tested on GitHub's
+   runners first (tools/snapshot.py news probe -> dev-snapshots `news/`).
+2. News for my roster, the opponent's starters and suggested free agents;
+   at most 3 links, last 7 days, behind the tap.
+3. Template write-ups made in Python, 2-4 sentences, shown first in a
+   player's details (not on the main card), for every player.
+4. "Copy for Claude": one button in each player's details, one at the
+   bottom of Lineup (the whole matchup).
+5. `/writeups` command pushes one data file straight to `main` (no PR);
+   live in about 2 minutes.
+6. Refresh: all three. Button re-downloads the newest data and shows the
+   next run; extra Sunday runs during games (~every 30 min); live Sleeper
+   points in the browser if CORS allows it.
+7. Staleness: banner when data is old (>3 h on game day); "no injury news
+   since ..." on a Questionable/Doubtful starter with no Sleeper news in
+   the 24 h before kickoff (`news_updated` comes with projection rows).
+
+Plan: 1 feed test -> 2 news links + staleness -> 3 template write-ups ->
+4 Copy for Claude -> 5 /writeups command -> 6 refresh.
+
 ## Phase 5: polish
 - Week 17 flag: players on teams that may rest starters (clinched teams).
 - Anything left over from the owner's feedback.
