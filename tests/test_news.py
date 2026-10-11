@@ -81,10 +81,10 @@ def run(responses=None, cfg=CFG, players=PLAYERS):
 
 
 def test_espn_rotowire_lines_link_to_the_player_page():
-    items = news.parse_espn(ESPN, "4239993")
+    items = news.parse_espn(ESPN, "4239993", "Tee Higgins")
     assert items[0]["source"] == "RotoWire (ESPN)"
     assert items[0]["url"] == "https://www.espn.com/nfl/player/_/id/4239993"
-    assert items[1]["source"] == "ESPN" and items[1]["url"].startswith("https://www.espn.com/fantasy/")
+    assert len(items) == 2  # the Swift story doesn't name him
 
 
 def test_each_player_gets_his_newest_links_naming_him_first():
@@ -141,3 +141,22 @@ def test_names_last_is_a_capitalized_whole_word():
     assert news.names_last("Love throws a TD", "Love")
     assert not news.names_last("love this matchup", "Love")
     assert not news.names_last("Lovell was limited", "Love")
+
+
+def test_a_last_name_after_someone_elses_first_name_is_someone_else():
+    # Seen 2026-10-11: Lions beat posts about DT Tyleik Williams
+    assert not news.names_last("Tyleik Williams back at Lions practice today.", "Williams", "Jameson")
+    assert news.names_last("Need more from Jameson Williams", "Williams", "Jameson")
+    assert news.names_last("Lions WR Williams (hamstring) is fine.", "Williams", "Jameson")
+    assert news.names_last("Expect Lions' Williams to start", "Williams", "Jameson")
+    assert news.names_last("Good news. Williams was full.", "Williams", "Jameson")
+
+
+def test_espn_stories_must_name_him_but_rotowire_lines_are_his():
+    found, _, _ = run({"playerId=4239993": ESPN})
+    titles = [x["title"] for x in found["1"]]
+    assert len(titles) == 1 and titles[0].startswith("Higgins")  # the Swift story isn't about him
+    data = {"feed": [{"type": "Rotowire", "published": "2026-10-10T20:00:00Z",
+                      "headline": "He was a full participant."}]}
+    found, _, _ = run({"playerId=4239993": data})
+    assert [x["title"] for x in found["1"]] == ["He was a full participant."]

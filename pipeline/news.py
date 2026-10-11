@@ -58,7 +58,7 @@ def _iso(dt):
 
 # ---------- parsing each source ----------
 
-def parse_espn(data, eid):
+def parse_espn(data, eid, name):
     out = []
     for a in (data or {}).get("feed") or []:
         when = _when(a.get("published") or a.get("lastModified"))
@@ -70,7 +70,8 @@ def parse_espn(data, eid):
                         "date": when, "url": ESPN_PLAYER.format(eid=eid)})
             continue
         url = ((a.get("links") or {}).get("web") or {}).get("href")
-        if url:
+        if url and (names_full(title, name) or names_last(title, _last(name), _first(name))):
+            # ESPN files league-wide stories under each player they mention
             out.append({"title": _short(title), "source": "ESPN", "tag": AGGREGATOR,
                         "date": when, "url": url})
     return out
@@ -121,9 +122,26 @@ def names_full(text, name):
     return f" {norm_name(name)} " in f" {norm_name(text)} "
 
 
-def names_last(text, last):
-    """Capitalized last name as a whole word ("Love", not "love")."""
-    return bool(last) and re.search(rf"(?<![\w']){re.escape(last)}(?![\w'])", text or "") is not None
+def names_last(text, last, first=""):
+    """Capitalized last name as a whole word ("Love", not "love"), and not
+    right after someone else's first name ("Tyleik Williams" isn't Jameson).
+    A position, team possessive or sentence start before it is fine."""
+    if not last:
+        return False
+    text = text or ""
+    for m in re.finditer(rf"(?<![\w']){re.escape(last)}(?![\w'])", text):
+        before = re.search(r"(\S+)\s+$", text[:m.start()])
+        word = before.group(1).strip("#(\"“") if before else ""
+        other_first = (word[:1].isupper() and not word.isupper()
+                       and not re.search(r"['’]s?$", word) and not word.endswith((".", ":", "!", "?"))
+                       and norm_name(word) != norm_name(first))
+        if not other_first:
+            return True
+    return False
+
+
+def _first(name):
+    return (name or "").split()[0] if name else ""
 
 
 def _last(name):
@@ -148,8 +166,8 @@ def pick(items, name, cfg, now):
             continue
         seen |= keys
         fresh.append(it)
-    last = _last(name)
-    ranked = sorted(fresh, key=lambda x: (not (names_full(x["title"], name) or names_last(x["title"], last)),
+    last, first = _last(name), _first(name)
+    ranked = sorted(fresh, key=lambda x: (not (names_full(x["title"], name) or names_last(x["title"], last, first)),
                                           -x["date"].timestamp()))
     chosen = sorted(ranked[:cfg.get("max_links", 3)], key=lambda x: x["date"], reverse=True)
     walls = cfg.get("paywalled") or []
@@ -174,7 +192,7 @@ def collect(players, espn_ids, teammates, cfg, now, fetch_json=get_json, fetch_t
             continue
         asked += 1
         try:
-            found[p["id"]] += parse_espn(fetch_json(ESPN_NEWS.format(eid=eid)), eid)
+            found[p["id"]] += parse_espn(fetch_json(ESPN_NEWS.format(eid=eid)), eid, p["name"])
             got += 1
         except FetchError:
             pass
@@ -218,7 +236,8 @@ def collect(players, espn_ids, teammates, cfg, now, fetch_json=get_json, fetch_t
                 last = _last(p["name"])
                 unique = lasts.get(last, 0) <= 1
                 for it in posts:
-                    if names_full(it["text"], p["name"]) or (unique and names_last(it["text"], last)):
+                    if names_full(it["text"], p["name"]) or \
+                            (unique and names_last(it["text"], last, _first(p["name"]))):
                         found[p["id"]].append({k: v for k, v in it.items() if k != "text"})
     if wanted and not failed:
         notes.append(f"Bluesky {reached} beat writers")
