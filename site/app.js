@@ -446,17 +446,19 @@
     const kick = Date.parse(p.kickoff), day = (data.settings.injury_news_hours || 24) * 3600000;
     if (Date.now() >= kick || Date.now() < kick - day) return null;
     const times = [p.news_at, ...(p.news || []).map((n) => n.date)].filter(Boolean).map(Date.parse);
-    const last = times.length ? Math.max(...times) : null;
-    return last && last < kick - day ? new Date(last).toISOString() : null;
+    if (!times.length) return 'never';
+    const last = Math.max(...times);
+    return last < kick - day ? new Date(last).toISOString() : null;
   }
 
   function newsBlock(p) {
     const quiet = quietInjury(p);
-    let html = quiet ? `<p class="warn">No news about him since ${esc(when(quiet))}. He's ${esc(p.injury)}: check the inactives (out about 90 min before kickoff).</p>` : '';
+    let html = quiet ? `<p class="warn">No news about him${quiet === 'never' ? '' : ' since ' + esc(when(quiet))}. He's ${esc(p.injury)}: check the inactives (out about 90 min before kickoff).</p>` : '';
     if (!p.news) return html;
     if (!p.news.length) return html + '<h3>News</h3><p class="muted">Nothing in the last week.</p>';
+    const web = (u) => /^https?:\/\//.test(u || '');
     return html + `<h3>News</h3><ul class="news">${p.news.map((n) => `<li>
-        <a href="${esc(n.url)}" target="_blank" rel="noopener">${esc(n.title)}</a>
+        ${web(n.url) ? `<a href="${esc(n.url)}" target="_blank" rel="noopener">${esc(n.title)}</a>` : `<b>${esc(n.title)}</b>`}
         <span class="muted">${esc(n.source)} · ${n.tag === 'beat reporter' ? 'beat reporter' : 'aggregator'} · ${esc(ago(n.date))}${n.paywall ? ' · 🔒 paywall' : ''}</span></li>`).join('')}</ul>`;
   }
 
@@ -537,7 +539,7 @@
       `<span>${esc(gameText(p))}</span>`,
       state ? `<span class="played">${state}</span>` : (p.kickoff ? `<span>${esc(when(p.kickoff))}</span>` : ''),
       e.new ? '<span class="chip new">New</span>' : '',
-      side === 'me' && quietInjury(p) ? `<span class="stale">No news since ${esc(when(quietInjury(p)).split(' ')[0])}</span>` : '',
+      side === 'me' && quietInjury(p) ? `<span class="stale">${quietInjury(p) === 'never' ? 'No news' : 'No news since ' + esc(when(quietInjury(p)).split(' ')[0])}</span>` : '',
     ].join('');
     let why = side === 'me' ? e.why || '' : '';
     if (side !== 'me' && e.state === 'live') why = `${pts(e.actual)} so far, ${Math.round(e.left * 100)}% of the game left`;
@@ -851,32 +853,44 @@
     }
     return 0;
   }
-  function liveDef(p, g, got, rest, left, counted) {
+  // Points for the bracket x (points allowed) falls in, as Sleeper scores it
+  function bracketPoints(x) {
+    for (const [k, v] of Object.entries(data.league.scoring || {})) {
+      const m = k.match(/^pts_allow_(\d+)(?:_(\d+)|(p))?$/);
+      if (!m) continue;
+      const lo = Number(m[1]);
+      if (m[3] ? x >= lo : m[2] ? x >= lo && x <= Number(m[2]) : x === lo) return v;
+    }
+    return 0;
+  }
+  function liveDef(p, g, got, rest, left, line) {
     let allowedProj = null, bracketProj = 0;
     for (const [stat, value, , pts_] of p.parts || []) {
       if (stat === 'pts_allow' || stat.startsWith('pts_allow_')) { bracketProj += pts_; if (stat === 'pts_allow') allowedProj = value; }
     }
     const restNo = rest - bracketProj;
     const allowedNow = g ? (g.home === p.team ? g.score_away : g.score_home) : null;
+    // The bracket inside his points so far: from his own stat line, else
+    // (no line) the one for the score now if he has points at all
+    const sc = data.league.scoring || {};
+    const counted = line
+      ? Object.entries(line).filter(([k]) => k.startsWith('pts_allow_')).reduce((n, [k, v]) => n + v * (sc[k] || 0), 0)
+      : got && allowedNow != null ? bracketPoints(allowedNow) : 0;
     if (allowedNow == null || allowedProj == null) return got + restNo * left;
     return got - counted + restNo * left + smoothBracket(allowedNow + allowedProj * left);
   }
   function liveRow(id, got, g, now, defLine) {
     const p = index.get(id);
     if (!p) return { id, pts: got, sd: 0, state: 'unknown', got, left: 0 };
-    const [state, left] = phaseOf(g, now);
+    // No ESPN game for his team: points this week mean he has played
+    const [state, left] = g ? phaseOf(g, now) : (got ? ['final', 0] : ['pre', 1]);
     if (state === 'final') return { id, pts: got, sd: 0, state, got, left: 0 };
     if (state === 'none') return { id, pts: 0, sd: 0, state, got: 0, left: 0 };
     if (state === 'pre' || state === 'unknown') return { id, pts: p.score, sd: fullSd(p), state: 'pre', got: 0, left: 1 };
     let rest = p.score, sd = fullSd(p);
     if (got && healthyScore(p) > p.score) { rest = healthyScore(p); sd = Math.abs((p.range || {}).sd || sd); }
     let pts_ = got + rest * left;
-    if (p.pos === 'DEF') {
-      // The bracket Sleeper counted is read from his own stat line
-      const sc = data.league.scoring || {};
-      const counted = defLine ? Object.entries(defLine).filter(([k]) => k.startsWith('pts_allow_')).reduce((n, [k, v]) => n + v * (sc[k] || 0), 0) : 0;
-      pts_ = liveDef(p, g, got, rest, left, counted);
-    }
+    if (p.pos === 'DEF') pts_ = liveDef(p, g, got, rest, left, defLine);
     return { id, pts: pts_, sd: sd * Math.sqrt(left), state, got, left };
   }
 
@@ -994,8 +1008,10 @@
         + `win chance ${pct(L.win)}, so the dashboard is in "${(MODE[L.mode] || MODE.even).word}" mode `
         + `(players ranked ${L.mode === 'underdog' ? 'toward their ceiling' : L.mode === 'favored' ? 'toward their floor' : 'by My Score'}).`);
     }
-    lines.push('My Score = 60% Sleeper projection (rescored in my scoring) + 40% FantasyPros consensus rank turned into points, '
-      + 'plus small capped adjustments. Floor/ceiling = 25th/90th percentile of his weekly scores, scaled to this week.');
+    const b = data.settings.blend || {}, fc = data.settings.floor_ceiling || {};
+    const share = (x) => Math.round(100 * x / ((b.projection || 0) + (b.consensus || 0) || 1));
+    lines.push(`My Score = ${share(b.projection)}% Sleeper projection (rescored in my scoring) + ${share(b.consensus)}% FantasyPros consensus rank turned into points, `
+      + `plus small capped adjustments. Floor/ceiling = ${fc.floor_pct}th/${fc.ceiling_pct}th percentile of his weekly scores, scaled to this week.`);
     return lines.join('\n');
   }
 

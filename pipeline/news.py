@@ -53,6 +53,12 @@ def _short(text):
     return text if len(text) <= TITLE_MAX else text[:TITLE_MAX - 1].rstrip() + "…"
 
 
+def _web(url):
+    """Only real web links (a feed could carry javascript: or data: ones)."""
+    url = (url or "").strip()
+    return url if url.startswith(("https://", "http://")) else None
+
+
 def _iso(dt):
     return dt.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
@@ -70,7 +76,7 @@ def parse_espn(data, eid, name):
             out.append({"title": _short(title), "source": "RotoWire (ESPN)", "tag": AGGREGATOR,
                         "date": when, "url": ESPN_PLAYER.format(eid=eid)})
             continue
-        url = ((a.get("links") or {}).get("web") or {}).get("href")
+        url = _web(((a.get("links") or {}).get("web") or {}).get("href"))
         if url and (names_full(title, name) or names_last(title, _last(name), _first(name))):
             # ESPN files league-wide stories under each player they mention
             out.append({"title": _short(title), "source": "ESPN", "tag": AGGREGATOR,
@@ -85,10 +91,10 @@ def parse_rss(text, source):
         raise FetchError(f"{source}'s feed isn't valid RSS")
     out = []
     for it in root.iter("item"):
-        title, url, when = it.findtext("title"), it.findtext("link"), _when(it.findtext("pubDate"))
+        title, url, when = it.findtext("title"), _web(it.findtext("link")), _when(it.findtext("pubDate"))
         if title and url and when:
             out.append({"title": _short(title.strip()), "source": source, "tag": AGGREGATOR,
-                        "date": when, "url": url.strip()})
+                        "date": when, "url": url})
     return out
 
 
@@ -108,6 +114,8 @@ def parse_bsky(data, handle):
         if not when or not (text or post.get("embed")):
             continue
         ext = (post.get("embed") or {}).get("external") or {}
+        if not _web(ext.get("uri")):
+            ext = {}
         rkey = (post.get("uri") or "").rsplit("/", 1)[-1]
         out.append({"title": _short(ext.get("title") or text), "text": text + " " + (ext.get("title") or ""),
                     "source": (post.get("author") or {}).get("displayName") or handle,
@@ -118,19 +126,32 @@ def parse_bsky(data, handle):
 
 # ---------- who a headline is about ----------
 
+def _words(text):
+    """Lowercase words without punctuation or a possessive 's:
+    "Josh Allen's," -> "josh allen"."""
+    t = norm_name(re.sub(r"['’]s\b", "", text or ""))
+    return " ".join(re.sub(r"[^a-z0-9 ]", " ", t).split())
+
+
 def names_full(text, name):
     """Does the text name him in full (any case, punctuation ignored)?"""
-    return f" {norm_name(name)} " in f" {norm_name(text)} "
+    return f" {_words(name)} " in f" {_words(text)} "
 
 
-def names_last(text, last, first=""):
+def names_last(text, last, first="", team=()):
     """Capitalized last name as a whole word ("Love", not "love"), and not
     right after someone else's first name ("Tyleik Williams" isn't Jameson).
-    A position, team possessive or sentence start before it is fine."""
+    A position, team possessive or sentence start before it is fine. team:
+    his teammates' full names, so a teammate whose first name this is
+    ("Chase Brown" when he's Ja'Marr Chase) doesn't count."""
     if not last:
         return False
-    text = text or ""
+    text = re.sub(r"['’]s\b", "", text or "")  # possessive: "Allen's" -> "Allen"
+    others = {_words(n) for n in team}
     for m in re.finditer(rf"(?<![\w']){re.escape(last)}(?![\w'])", text):
+        after = re.match(r"\s+([A-Z][\w'’.-]*)", text[m.end():])
+        if after and _words(f"{last} {after.group(1)}") in others:
+            continue
         before = re.search(r"(\S+)\s+$", text[:m.start()])
         word = before.group(1).strip("#(\"“") if before else ""
         other_first = (word[:1].isupper() and not word.isupper()
@@ -162,7 +183,8 @@ def pick(items, name, cfg, now):
     since = now - timedelta(days=cfg.get("days", 7))
     seen, fresh = set(), []
     for it in sorted(items, key=lambda x: x["date"], reverse=True):
-        keys = {it["url"], norm_name(it["title"])}
+        # RotoWire notes all link to his ESPN page: tell them apart by text
+        keys = {_words(it["title"])} | ({it["url"]} if it["source"] != "RotoWire (ESPN)" else set())
         if not since <= it["date"] <= now + timedelta(hours=1) or keys & seen:
             continue
         seen |= keys
@@ -242,7 +264,7 @@ def collect(players, espn_ids, teammates, cfg, now, fetch_json=get_json, fetch_t
                 unique = lasts.get(last, 0) <= 1
                 for it in posts:
                     if names_full(it["text"], p["name"]) or \
-                            (unique and names_last(it["text"], last, _first(p["name"]))):
+                            (unique and names_last(it["text"], last, _first(p["name"]), teammates.get(team, ()))):
                         found[p["id"]].append({k: v for k, v in it.items() if k != "text"})
     if wanted and not failed:
         notes.append(f"Bluesky {reached} beat writers")

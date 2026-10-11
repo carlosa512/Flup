@@ -100,8 +100,10 @@ def writeup(p, week=0):
                               f"Most of the move comes from {what}.",
                               f"Start with {what}."))
         rest = adj[1:]
-    sentences += experts
+    sentences += experts[:1]
+    optional = experts[1:]  # "My Score keeps 60%..., so it starts at X"
 
+    sentences += optional
     named = [a for a in rest if abs(a["pts"]) >= BIG]
     small = round(sum(a["pts"] for a in rest if abs(a["pts"]) < BIG), 1)
     tail = f", plus {_signed(small)} from small tweaks" if small else ""
@@ -116,14 +118,17 @@ def writeup(p, week=0):
         sentences.append(pick("none", f"No adjustments, so My Score is {_n(score)}.",
                               f"Nothing else moves him: My Score {_n(score)}."))
 
+    # At most 4: drop the "starts at" sentence before the one with My Score
+    while len(sentences) > 4 and optional:
+        sentences.remove(optional.pop())
     r = p.get("range")
-    if r:
+    if r and len(sentences) < 4:
         lo, hi = _n(r["floor"]), _n(r["ceiling"])
         sentences.append(f"If he plays: floor {lo}, ceiling {hi}." if r.get("if_plays") else
                          pick("range", f"Floor {lo}, ceiling {hi}.",
                               f"A quiet week is about {lo}, a big one {hi}.",
                               f"Range: {lo} to {hi}."))
-    return " ".join(sentences[:4])  # the range goes first if there are too many
+    return " ".join(sentences)
 
 
 # ---------- Claude's write-ups ----------

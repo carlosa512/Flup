@@ -174,3 +174,37 @@ def test_a_source_that_is_down_is_given_up_on_quickly():
                                  fetch_json=down, fetch_text=down)
     assert not ok
     assert sum("espn" in u for u in calls) == 3 and sum("bsky" in u for u in calls) == 3
+
+
+# ---------- from the Phase 4 review ----------
+
+def test_names_survive_punctuation_and_possessives():
+    assert news.names_full("Josh Allen's ankle injury", "Josh Allen")
+    assert news.names_full("Bijan Robinson, Falcons agree", "Bijan Robinson")
+    assert news.names_full("Fantasy: Bijan Robinson?", "Bijan Robinson")
+    assert news.names_last("Allen's ankle is fine", "Allen", "Josh")
+    assert not news.names_full("Joshua Allenby signs", "Josh Allen")
+
+
+def test_a_teammates_first_name_is_not_this_players_last_name():
+    team = {"Ja'Marr Chase", "Chase Brown"}
+    assert not news.names_last("Chase Brown runs for 120 yards", "Chase", "Ja'Marr", team)
+    assert news.names_last("Chase caught 9 balls", "Chase", "Ja'Marr", team)
+
+
+def test_several_rotowire_notes_on_one_player_page_all_count():
+    data = {"feed": [{"type": "Rotowire", "published": f"2026-10-{d}T20:00:00Z",
+                      "headline": f"Higgins practice note {d}."} for d in ("07", "08", "09", "10")]}
+    found, _, _ = run({"playerId=4239993": data})
+    assert [x["title"] for x in found["1"]] == ["Higgins practice note 10.", "Higgins practice note 09.",
+                                                "Higgins practice note 08."]
+
+
+def test_only_web_links_are_kept():
+    bad = {"feed": [bsky_post("Higgins update", "2026-10-10T18:00:00Z",
+                              link=("javascript:alert(1)", "Higgins is fine"))]}
+    found, _, _ = run({"laurelpfahler": bad})
+    assert all(x["url"].startswith("https://") for x in found["1"])
+    rss = PFT.replace("https://www.nbcsports.com/nfl/profootballtalk/rumor-mill/news/tee-higgins-expected",
+                      "data:text/html,hi")
+    assert all(not x["url"].startswith("data:") for x in news.parse_rss(rss, "PFT"))

@@ -28,7 +28,7 @@ Find each player in `positions[POS].players` by `id`.
 
 For each one, read his whole entry: `score` (My Score), `proj` (Sleeper's
 projection in this league's scoring), `cons` (expert rank and its points),
-`base` (the 60/40 blend), every `adj` (label, pts, why), `range` (floor,
+`base` (projection and expert points blended; `blend` says how), every `adj` (label, pts, why), `range` (floor,
 ceiling), `injury`, `implied`/`spread`, `news` (headlines), and `writeup`
 (the template version, to improve on). Then write:
 

@@ -124,3 +124,11 @@ def test_doubtful_leads_the_writeup():
     first = sentences(writeup(p, 5))[0]
     assert first == "He's Doubtful (Knee): My Score assumes he plays, so have a backup ready."
     assert 2 <= len(sentences(writeup(p, 5))) <= 4
+
+
+def test_the_cut_to_four_sentences_keeps_my_score():
+    p = dict(HIGGINS, flag="Doubtful", injury="Doubtful", cons={"rank": 90, "pts": 3.0},
+             adj=[{"key": "matchup", "label": "Good matchup", "pts": 3.0, "why": "MIA allows a lot"}],
+             score=15.0)
+    text = writeup(p, 5)
+    assert len(sentences(text)) == 4 and sentences(text)[-1] == "My Score: 15.0.", text
