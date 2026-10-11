@@ -2,12 +2,14 @@
 
 import argparse
 import json
+import os
+import re
 import sys
 import tomllib
 from datetime import datetime, timezone
 from pathlib import Path
 
-from . import consensus, espn, history, lineup, model, news, sleeper, writeups
+from . import consensus, espn, history, lineup, model, news, scoring as scoring_mod, sleeper, writeups
 from .fetch import FetchError
 from .league import context, sanity
 from .scoring import score_line
@@ -26,6 +28,16 @@ RELEVANT_MEAN = {"QB": 12, "RB": 7, "WR": 7, "TE": 5, "K": 6, "DEF": 5}
 def iso(ts=None):
     dt = datetime.now(timezone.utc) if ts is None else datetime.fromtimestamp(ts, timezone.utc)
     return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def workflow_crons(path=ROOT / ".github" / "workflows" / "update.yml"):
+    """The scheduled run times (cron, UTC) from the workflow, so the site can
+    say when the next update is."""
+    try:
+        text = Path(path).read_text(encoding="utf-8")
+    except OSError:
+        return []
+    return re.findall(r"""^\s*-\s*cron:\s*["']([^"']+)["']""", text, re.M)
 
 
 def load_settings(path=ROOT / "settings.toml"):
@@ -391,7 +403,13 @@ def build(settings, week=None, league_id=None, now=None):
             "my_rid": ctx["my_rid"], "opp_rid": ctx["opp_rid"],
             "roster_positions": lg.get("roster_positions") or [],
             "scoring": {k: v for k, v in sorted(scoring.items()) if v},
+            # Points-allowed brackets (midpoint, points), zeros included, for
+            # the live defense math in the browser
+            "def_brackets": scoring_mod.bracket_table(scoring, "pts_allow"),
         },
+        # When the data updates itself (main only) and where to run it by hand
+        "refresh": {"crons": workflow_crons(), "repo": os.environ.get("GITHUB_REPOSITORY"),
+                    "scheduled": os.environ.get("GITHUB_REF_NAME", "main") == "main"},
         "sources": sources,
         "checks": {"settings": sanity(lg, settings["league"]["expect"]), "scoring": weeks},
         "settings": {"tiers": tier_cfg, "positions": settings["positions"],

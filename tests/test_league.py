@@ -95,3 +95,18 @@ def test_actual_lines_score_only_players_who_played():
     assert p1["actual"]["pts"] == 11.5 and p1["actual"]["official"] == 11.5
     assert [part[0] for part in p1["actual"]["parts"]] == ["rec_yd", "rec"]
     assert "actual" not in p2
+
+
+def test_schedule_is_read_from_the_workflow(tmp_path):
+    from pipeline import build
+    wf = tmp_path / "update.yml"
+    wf.write_text('on:\n  schedule:\n    - cron: "7 13,14 * * 3"    # Wednesday\n'
+                  "    - cron: '*/30 17-23 * * 0'\n  workflow_dispatch:\n")
+    assert build.workflow_crons(wf) == ["7 13,14 * * 3", "*/30 17-23 * * 0"]
+    assert build.workflow_crons(tmp_path / "missing.yml") == []
+
+
+def test_def_bracket_table_keeps_zero_brackets():
+    from pipeline.scoring import bracket_table
+    sc = {"pts_allow_0": 10, "pts_allow_14_20": 1, "pts_allow_21_27": 0, "pts_allow_35p": -4, "rec": 0.5}
+    assert bracket_table(sc, "pts_allow") == [(0, 10), (17.0, 1), (24.0, 0), (40.0, -4)]

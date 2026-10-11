@@ -147,7 +147,9 @@
     const out = [];
     const stale = gameDay() ? data.settings.stale_game_day_hours || 3 : data.settings.stale_hours || 36;
     if (hoursOld(data.generated) > stale) {
-      out.push(`This data is ${ago(data.generated).replace(' ago', '')} old. Tap refresh, or run "Update data" in GitHub Actions.`);
+      const next = nextRun();
+      out.push(`This data is ${ago(data.generated).replace(' ago', '')} old. `
+        + (next ? `Next update: ${when(next.toISOString())}. ` : '') + 'To update now: tap the data line below, then "Run it now".');
     }
     for (const s of data.sources) {
       if (!s.ok) out.push(`${s.label} didn't load: ${s.detail}`);
@@ -211,10 +213,11 @@
     const checks = checksBody();
     // Old data has its own red box above; the badge only reflects the checks
     let html = issues.map((t) => `<p class="warn">${esc(t)}</p>`).join('');
+    const line = updateLine();
     html += `<details class="health"><summary>
         <span>Data from ${esc(when(data.generated))} (${esc(ago(data.generated))})</span>
         <span class="badge ${checks.ok ? 'ok' : 'bad'}">${checks.ok ? '✓ All checks pass' : "✗ Something's off, tap to see"}</span>
-      </summary><div class="health-body">${checks.html}</div></details>`;
+      </summary><div class="health-body">${line ? `<p class="muted">${line}</p>` : ''}${checks.html}</div></details>`;
     $('#status').innerHTML = html;
   }
 
@@ -742,7 +745,7 @@
       html += `<p class="note">Games have started since this data (from ${esc(when(data.generated))}).
         Totals and win % are as of then. Sleeper has locked those players, so any moves for them are crossed out.</p>`;
     }
-    html += verdict(L) + changesBox(L) + lateSwapTip(L);
+    html += liveCard() + verdict(L) + changesBox(L) + lateSwapTip(L);
     html += `<h2 class="section">Your lineup</h2><ul class="players lineup">${L.me.starters.map((e) => lineupRow(e, 'me')).join('')}</ul>`;
     html += closeCalls(L);
     html += pickups(L);
@@ -758,6 +761,203 @@
       const d = document.querySelector(`#lineup details[data-k="${k}"]`);
       if (d) d.open = true;
     }
+  }
+
+  // ---------- when the data updates itself ----------
+
+  function cronMatches(spec, v) {
+    return spec.split(',').some((part) => {
+      const [range, stepText] = part.split('/');
+      const step = stepText ? Number(stepText) : 1;
+      let lo, hi;
+      if (range === '*') { lo = 0; hi = 99; } else if (range.includes('-')) { [lo, hi] = range.split('-').map(Number); } else { lo = Number(range); hi = stepText ? 99 : lo; }
+      return v >= lo && v <= hi && (v - lo) % step === 0;
+    });
+  }
+  // The next scheduled run (cron times are UTC), or null
+  function nextRun() {
+    const r = data.refresh;
+    if (!r || !r.scheduled || !(r.crons || []).length) return null;
+    const crons = r.crons.map((c) => c.trim().split(/\s+/)).filter((f) => f.length === 5);
+    const start = Math.floor(Date.now() / 60000) * 60000;
+    for (let i = 1; i <= 8 * 24 * 60; i++) {
+      const d = new Date(start + i * 60000);
+      const v = [d.getUTCMinutes(), d.getUTCHours(), d.getUTCDate(), d.getUTCMonth() + 1, d.getUTCDay()];
+      if (crons.some((f) => f.every((spec, k) => cronMatches(spec, v[k])))) return d;
+    }
+    return null;
+  }
+  function runLink() {
+    const r = data.refresh || {};
+    return r.repo ? `https://github.com/${r.repo}/actions/workflows/update.yml` : null;
+  }
+  function updateLine() {
+    const next = nextRun(), link = runLink();
+    const when_ = next ? `Next update: ${esc(when(next.toISOString()))} (GitHub runs can start up to 30 min late).`
+      : (data.refresh && !data.refresh.scheduled ? 'This preview only updates when a run is started by hand.' : '');
+    return `${when_}${link ? ` <a href="${esc(link)}" target="_blank" rel="noopener">Run it now</a> (Run workflow, branch main).` : ''}`;
+  }
+
+  // ---------- live scores in the browser (Sleeper and ESPN both allow it) ----------
+  // The same math as pipeline/lineup.py: a live starter counts his points so
+  // far plus My Score x the share of his game left; win % from the totals.
+
+  let live = null;  // {at, me, opp, win}
+  const BELL = (z) => {  // standard normal CDF (Abramowitz-Stegun 7.1.26)
+    const t = 1 / (1 + 0.3275911 * Math.abs(z) / Math.SQRT2);
+    const e = 1 - (((((1.061405429 * t - 1.453152027) * t) + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t * Math.exp(-z * z / 2);
+    return z >= 0 ? (1 + e) / 2 : (1 - e) / 2;
+  };
+  const healthyScore = (p) => p.score - (p.adj || []).filter((a) => a.key === 'injury').reduce((n, a) => n + a.pts, 0);
+  function fullSd(p) {
+    const r = p.range;
+    if (!r) return 0;
+    let sd = Math.abs(r.sd);
+    if (r.if_plays) {
+      const h = healthyScore(p), q = h > 0 ? Math.max(0, Math.min(1, p.score / h)) : 0;
+      sd = Math.sqrt(q * sd * sd + q * (1 - q) * h * h);
+    }
+    return sd;
+  }
+  function phaseOf(g, now) {
+    if (!g) return ['unknown', 1];
+    if (/POSTPONED|CANCELED/.test(g.status || '')) return ['none', 0];
+    if (g.completed || g.state === 'post') return ['final', 0];
+    const kick = Date.parse(g.kickoff);
+    if (g.state !== 'in' && (isNaN(kick) || now < kick)) return ['pre', 1];
+    if (g.state !== 'in' || !(g.period >= 1)) return ['live', 1];
+    if (g.period > 4) return ['live', 0];
+    return ['live', Math.max(0, Math.min(1, ((4 - g.period) * 900 + (g.clock || 0)) / 3600))];
+  }
+  function smoothBracket(x) {
+    const t = data.league.def_brackets || [];
+    if (!t.length) return 0;
+    if (x <= t[0][0]) return t[0][1];
+    if (x >= t[t.length - 1][0]) return t[t.length - 1][1];
+    for (let i = 1; i < t.length; i++) {
+      const [x0, y0] = t[i - 1], [x1, y1] = t[i];
+      if (x <= x1) return x1 === x0 ? y0 : y0 + (y1 - y0) * (x - x0) / (x1 - x0);
+    }
+    return 0;
+  }
+  function liveDef(p, g, got, rest, left, counted) {
+    let allowedProj = null, bracketProj = 0;
+    for (const [stat, value, , pts_] of p.parts || []) {
+      if (stat === 'pts_allow' || stat.startsWith('pts_allow_')) { bracketProj += pts_; if (stat === 'pts_allow') allowedProj = value; }
+    }
+    const restNo = rest - bracketProj;
+    const allowedNow = g ? (g.home === p.team ? g.score_away : g.score_home) : null;
+    if (allowedNow == null || allowedProj == null) return got + restNo * left;
+    return got - counted + restNo * left + smoothBracket(allowedNow + allowedProj * left);
+  }
+  function liveRow(id, got, g, now, defLine) {
+    const p = index.get(id);
+    if (!p) return { id, pts: got, sd: 0, state: 'unknown', got, left: 0 };
+    const [state, left] = phaseOf(g, now);
+    if (state === 'final') return { id, pts: got, sd: 0, state, got, left: 0 };
+    if (state === 'none') return { id, pts: 0, sd: 0, state, got: 0, left: 0 };
+    if (state === 'pre' || state === 'unknown') return { id, pts: p.score, sd: fullSd(p), state: 'pre', got: 0, left: 1 };
+    let rest = p.score, sd = fullSd(p);
+    if (got && healthyScore(p) > p.score) { rest = healthyScore(p); sd = Math.abs((p.range || {}).sd || sd); }
+    let pts_ = got + rest * left;
+    if (p.pos === 'DEF') {
+      // The bracket Sleeper counted is read from his own stat line
+      const sc = data.league.scoring || {};
+      const counted = defLine ? Object.entries(defLine).filter(([k]) => k.startsWith('pts_allow_')).reduce((n, [k, v]) => n + v * (sc[k] || 0), 0) : 0;
+      pts_ = liveDef(p, g, got, rest, left, counted);
+    }
+    return { id, pts: pts_, sd: sd * Math.sqrt(left), state, got, left };
+  }
+
+  async function fetchLive() {
+    const lg = data.league;
+    const get = (url) => fetch(url, { cache: 'no-store' }).then((r) => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); });
+    const [mu, sb, defs] = await Promise.all([
+      get(`https://api.sleeper.app/v1/league/${lg.id}/matchups/${data.week}`),
+      get(`https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?seasontype=2&week=${data.week}&dates=${data.season}`),
+      get(`https://api.sleeper.app/stats/nfl/${data.season}/${data.week}?season_type=regular&position[]=DEF`).catch(() => []),
+    ]);
+    const games = {};
+    for (const ev of sb.events || []) {
+      const c = (ev.competitions || [{}])[0], st = c.status || ev.status || {}, kind = st.type || {};
+      const side = {}, score = {};
+      for (const t of c.competitors || []) {
+        const abbr = t.team && (t.team.abbreviation === 'WSH' ? 'WAS' : t.team.abbreviation);
+        side[t.homeAway] = abbr;
+        score[t.homeAway] = t.score == null ? null : Number(t.score);
+      }
+      const g = { home: side.home, away: side.away, kickoff: c.date || ev.date, status: kind.name, state: kind.state,
+        completed: !!kind.completed, period: st.period || 0, clock: typeof st.clock === 'number' ? st.clock : 0,
+        score_home: score.home, score_away: score.away };
+      games[g.home] = g; games[g.away] = g;
+    }
+    const defLines = {};
+    for (const r of defs || []) if (r && r.stats && (r.stats.gp || 0) > 0) defLines[String(r.player_id)] = r.stats;
+    const sc = lg.scoring || {};
+    const now = Date.now();
+    const side = (rid) => {
+      const m = (mu || []).find((x) => x.roster_id === rid);
+      if (!m) return null;
+      const rows = (m.starters || []).filter((id) => id && id !== '0').map((id) => {
+        const p = index.get(id), line = defLines[id];
+        // A defense's points come from his own stat line, so the bracket in
+        // them matches the one taken back
+        const got = p && p.pos === 'DEF' && line
+          ? Object.entries(line).reduce((n, [k, v]) => n + (typeof v === 'number' ? v * (sc[k] || 0) : 0), 0)
+          : Number((m.players_points || {})[id] || 0);
+        return liveRow(id, got, p ? games[p.team] : null, now, line);
+      });
+      return { rows, now: rows.reduce((n, r) => n + r.got, 0), total: rows.reduce((n, r) => n + r.pts, 0),
+        sd: Math.sqrt(rows.reduce((n, r) => n + r.sd * r.sd, 0)) };
+    };
+    const me = side(lg.my_rid), opp = side(lg.opp_rid);
+    if (!me) throw new Error('my team is not in the matchups');
+    const comb = opp ? Math.sqrt(me.sd * me.sd + opp.sd * opp.sd) : 0;
+    const win = !opp ? null : comb > 0 ? BELL((me.total - opp.total) / comb) : (me.total > opp.total ? 1 : me.total < opp.total ? 0 : 0.5);
+    return { at: new Date().toISOString(), me, opp, win };
+  }
+
+  // Games on now (or just over) with a starter from either side
+  function gamesOn() {
+    const L = data.lineup;
+    if (!L) return false;
+    const teams = new Set([...L.me.starters, ...((L.opp || {}).starters || [])].map((e) => (index.get(e.id) || {}).team).filter(Boolean));
+    const now = Date.now();
+    return (data.games || []).some((g) => (teams.has(g.home) || teams.has(g.away))
+      && now >= Date.parse(g.kickoff) && now < Date.parse(g.kickoff) + 4.5 * 3600000);
+  }
+
+  let liveBusy = false;
+  async function refreshLive(manual) {
+    if (!data || !data.lineup || liveBusy || (!manual && !gamesOn())) return;
+    liveBusy = true;
+    try {
+      live = await fetchLive();
+      if (view === 'lineup') renderLineup();
+    } catch (err) {
+      if (manual) toast("Live scores didn't load (" + err.message + ').');
+    } finally {
+      liveBusy = false;
+    }
+  }
+
+  function liveCard() {
+    if (!live) return '';
+    const name = (id) => (index.get(id) || {}).name || 'Unknown player';
+    const word = { final: 'final', live: 'live', pre: 'not started', none: 'no game', unknown: '' };
+    const rowsOf = (s) => s.rows.map((r) => `<li>${esc(name(r.id))}: ${
+      r.state === 'live' ? `<b>${pts(r.got)}</b> so far, ${Math.round(r.left * 100)}% of the game left → ${pts(r.pts)}`
+        : r.state === 'pre' ? `${pts(r.pts)} (${word.pre})` : `<b>${pts(r.got)}</b> (${word[r.state] || r.state})`}</li>`).join('');
+    const opp = data.league.teams[data.league.opp_rid];
+    return `<div class="live-card">
+      <p class="live-head"><span class="live-dot"></span> Live from Sleeper, ${esc(when(live.at))}${live.win != null ? ` · <b>${pct(live.win)}</b> to win` : ''}</p>
+      <p class="live-line">You <b>${pts(live.me.now)}</b> now → ${pts(live.me.total)}</p>
+      ${live.opp ? `<p class="live-line">${esc(opp ? opp.name : 'Them')} <b>${pts(live.opp.now)}</b> now → ${pts(live.opp.total)}</p>` : ''}
+      <details class="every" data-k="live"><summary>Player by player</summary>
+        <p class="muted">Your and their lineups as set in Sleeper right now. Points so far are Sleeper's matchup points (they can trail a play by a few minutes); "→" is points so far plus My Score for the rest of the game.</p>
+        <h3>You</h3><ul class="live-rows">${rowsOf(live.me)}</ul>
+        ${live.opp ? `<h3>${esc(opp ? opp.name : 'Them')}</h3><ul class="live-rows">${rowsOf(live.opp)}</ul>` : ''}
+      </details></div>`;
   }
 
   // ---------- Copy for Claude: a ready-to-paste prompt with every input ----------
@@ -939,8 +1139,14 @@
       const changed = !data || fresh.generated !== data.generated;
       data = fresh;
       write(DATA_KEY, fresh);
-      if (changed) render();
-      if (manual) toast(changed ? 'New data loaded' : 'Up to date: data from ' + when(fresh.generated));
+      if (changed) { live = null; render(); }
+      if (gamesOn()) {
+        await refreshLive(manual);
+        if (manual && live) toast('Live scores updated' + (changed ? ', and new data loaded' : ''));
+      } else if (manual) {
+        const next = nextRun();
+        toast(changed ? 'New data loaded' : 'Up to date: data from ' + when(fresh.generated) + (next ? '. Next update ' + when(next.toISOString()) : ''));
+      }
     } catch (err) {
       if (data) {
         if (manual) toast("Couldn't reach the site. Showing saved data.");
@@ -964,6 +1170,8 @@
   }
 
   $('#refresh-btn').addEventListener('click', () => refresh(true));
+  // While games with our starters are on: live scores every 2 minutes
+  setInterval(() => { if (document.visibilityState === 'visible') refreshLive(false); }, 120000);
   // Kickoffs pass while the page is open: redraw the lineup when one does
   let startedCount = -1;
   setInterval(() => {
@@ -972,7 +1180,9 @@
     if (n !== startedCount) { startedCount = n; renderLineup(); }
   }, 60000);
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible' && data && hoursOld(data.generated) > 0.5) refresh(false);
+    if (document.visibilityState !== 'visible' || !data) return;
+    if (hoursOld(data.generated) > 0.5) refresh(false);
+    else refreshLive(false);
   });
 
   data = read(DATA_KEY);
