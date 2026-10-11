@@ -17,6 +17,7 @@ from .validate import rescore_check
 ROOT = Path(__file__).resolve().parent.parent
 COMPANY_NAMES = {"rotowire": "RotoWire"}
 UPLOADS = ROOT / "inputs" / "consensus"
+CLAUDE_WRITEUPS = ROOT / "inputs" / "writeups.json"
 # Average weekly points a player needs before his spread of outcomes helps
 # set the position's typical floor/ceiling (keeps deep backups out of it)
 RELEVANT_MEAN = {"QB": 12, "RB": 7, "WR": 7, "TE": 5, "K": 6, "DEF": 5}
@@ -353,6 +354,17 @@ def build(settings, week=None, league_id=None, now=None):
     for block in positions.values():
         for p in block["players"]:
             p["writeup"] = writeups.writeup(p, week)
+    # ...and Claude's, from the /writeups command, shown over the template
+    if CLAUDE_WRITEUPS.exists():
+        try:
+            file = json.loads(CLAUDE_WRITEUPS.read_text(encoding="utf-8"))
+            n = writeups.attach_claude(positions, file, season, week)
+            sources.append({"id": "writeups", "label": "Claude write-ups (/writeups)", "ok": True,
+                            "fetched": now, "detail": f"{n} players, written {file.get('written')}" if n
+                            else f"the file is for week {file.get('week')}; run /writeups for week {week}"})
+        except (ValueError, AttributeError) as err:
+            sources.append({"id": "writeups", "label": "Claude write-ups (/writeups)", "ok": False,
+                            "fetched": now, "detail": f"inputs/writeups.json didn't read: {err}"})
 
     # News links: my roster, their starters, the free agents suggested
     add_news(positions, ctx, my_lineup, rows_by_pos, settings.get("news") or {}, now, sources)

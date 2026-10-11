@@ -83,3 +83,37 @@ def test_out_and_no_game():
     assert writeup(out) == "He's listed Out (Groin), so he counts 0 this week."
     bye = dict(GOFF, note="No game this week", adj=[], range=None)
     assert writeup(bye) == "No game this week."
+
+
+# ---------- Claude's write-ups (inputs/writeups.json from /writeups) ----------
+
+from pipeline.writeups import attach_claude  # noqa: E402
+
+
+def positions():
+    return {"WR": {"players": [dict(HIGGINS)], "breaks": []}, "QB": {"players": [dict(GOFF)], "breaks": []}}
+
+
+def test_claude_writeups_attach_for_this_week():
+    pos = positions()
+    file = {"season": "2026", "week": 5, "written": "2026-10-10T21:14:00Z",
+            "players": {"6801": {"text": "Start him.", "status": "Questionable"},
+                        "999": {"text": "Not in the data.", "status": ""}}}
+    n = attach_claude(pos, file, "2026", 5)
+    assert n == 1
+    assert pos["WR"]["players"][0]["claude"] == {"text": "Start him.", "written": "2026-10-10T21:14:00Z"}
+    assert "claude" not in pos["QB"]["players"][0]
+
+
+def test_claude_writeups_from_another_week_are_ignored():
+    pos = positions()
+    file = {"season": "2026", "week": 4, "written": "x", "players": {"6801": {"text": "Old.", "status": ""}}}
+    assert attach_claude(pos, file, "2026", 5) == 0 and "claude" not in pos["WR"]["players"][0]
+
+
+def test_a_status_change_since_writing_is_flagged():
+    pos = positions()
+    pos["WR"]["players"][0]["injury"] = "Out"
+    file = {"season": "2026", "week": 5, "written": "w", "players": {"6801": {"text": "Start him.", "status": "Questionable"}}}
+    attach_claude(pos, file, "2026", 5)
+    assert pos["WR"]["players"][0]["claude"]["changed"] == "Questionable -> Out"

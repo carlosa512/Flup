@@ -457,10 +457,18 @@
         <span class="muted">${esc(n.source)} · ${n.tag === 'beat reporter' ? 'beat reporter' : 'aggregator'} · ${esc(ago(n.date))}${n.paywall ? ' · 🔒 paywall' : ''}</span></li>`).join('')}</ul>`;
   }
 
+  // Claude's write-up (from /writeups) when there is one, else the template
+  function writeupBlock(p) {
+    const c = p.claude;
+    if (!c) return p.writeup ? `<p class="writeup">${esc(p.writeup)}</p>` : '';
+    const changed = c.changed ? ` · written before his status changed (${esc(c.changed.replace('->', '→'))})` : '';
+    return `<p class="writeup">${esc(c.text)}</p><p class="muted">Claude's take, ${esc(when(c.written))}${changed}</p>`;
+  }
+
   function detail(p) {
     const block = data.positions[p.pos];
     const rows = partsTable(p.parts);
-    let html = `<div class="detail">${actualBlock(p)}${p.writeup ? `<p class="writeup">${esc(p.writeup)}</p>` : ''}
+    let html = `<div class="detail">${actualBlock(p)}${writeupBlock(p)}
       <h3>${p.actual ? 'My Score (before the game)' : 'My Score'}</h3>${myScore(p)}`;
     if (p.parts.length) {
       html += `<details class="every"><summary>How the projection adds up</summary>

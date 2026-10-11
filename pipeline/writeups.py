@@ -121,3 +121,29 @@ def writeup(p, week=0):
                               f"A quiet week is about {lo}, a big one {hi}.",
                               f"Range: {lo} to {hi}."))
     return " ".join(sentences[:4])  # the range goes first if there are too many
+
+
+# ---------- Claude's write-ups ----------
+# The /writeups command (.claude/commands/writeups.md) writes
+# inputs/writeups.json: {"season", "week", "written", "players":
+# {id: {"text", "status"}}}, status = his injury status when written.
+
+def attach_claude(positions, file, season, week):
+    """Give players Claude's write-up for this week; the site shows it over
+    the template. Flags a status change since it was written. Returns how
+    many were attached."""
+    if not file or str(file.get("season")) != str(season) or file.get("week") != week:
+        return 0
+    entries = file.get("players") or {}
+    n = 0
+    for block in positions.values():
+        for p in block["players"]:
+            e = entries.get(p["id"])
+            if not e or not e.get("text"):
+                continue
+            p["claude"] = {"text": e["text"], "written": file.get("written")}
+            then, now = e.get("status") or "", p.get("injury") or ""
+            if then != now:
+                p["claude"]["changed"] = f"{then or 'healthy'} -> {now or 'healthy'}"
+            n += 1
+    return n
