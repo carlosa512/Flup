@@ -241,8 +241,9 @@ checks): fixed name matching (punctuation, possessives, a teammate's first
 name), RotoWire notes collapsing into one, non-web links, write-ups losing
 the My Score sentence, the browser's DEF fallback and missing-ESPN team,
 "no news" for players who never had any; phone width checked with every
-card open. Open: should the lineup avoid starting a Doubtful player now
-that he takes nothing off (asked the owner)?
+card open. Doubtful players keep their full My Score but are only started
+when no healthy player fits the slot (owner, 2026-10-11); a benched one
+who'd otherwise start shows first in close calls, marked "Doubtful".
 
 New data (no version bump, all additions): players get `news_at`
 (Sleeper's latest news time), `writeup` (template), `news [{title, source,

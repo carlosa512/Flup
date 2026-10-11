@@ -3,7 +3,8 @@
 1. Each starter's expected points and spread (sd) for the week: a finished
    game is his actual points (sd 0); a live game is points so far plus My
    Score x the share of the game left; a game not started is My Score.
-2. Best lineup by My Score from healthy players whose game hasn't started.
+2. Best lineup by My Score from healthy players whose game hasn't started
+   (a Doubtful player only when no healthy one fits his slot).
    A player whose game has started is locked: a starter stays in his slot,
    a bench player can't come in.
 3. Win % = Phi((my total - their total) / sqrt(my variance + theirs)),
@@ -220,10 +221,16 @@ def lean_value(mode, lean, pcts=PCTS):
 
 # ---------- picking ----------
 
+def _doubtful(p):
+    return p.get("flag") == "Doubtful"
+
+
 def pick(slots, open_slots, pool, value):
     """Best players for the open slots. The most specific slot is filled
-    first (QB before FLEX), which is exact for QB/RB/WR/TE/K/DEF + FLEX."""
-    ranked = sorted(pool, key=lambda p: (-value(p), -p["score"], p["name"]))
+    first (QB before FLEX), which is exact for QB/RB/WR/TE/K/DEF + FLEX.
+    A Doubtful player only starts if no healthy player fits the slot (he
+    keeps his full My Score; the owner chose to flag, not discount)."""
+    ranked = sorted(pool, key=lambda p: (_doubtful(p), -value(p), -p["score"], p["name"]))
     chosen, taken = {}, set()
     for i in sorted(open_slots, key=lambda i: (len(_accepts(slots[i])), i)):
         for p in ranked:
@@ -396,12 +403,17 @@ def close_calls(slots, entries, bench, value, mode, gap, by_id, pcts=PCTS):
         i, s = min(options, key=lambda o: (value(o[1]), o[1]["score"], o[0]))
         values = [round(value(s), 1), round(value(b), 1)]
         margin = max(0.0, round(values[0] - values[1], 1))
-        if margin < gap:
+        # A Doubtful player benched only because he's Doubtful: shown first,
+        # with how much better he'd be if he plays
+        doubtful = _doubtful(b) and values[1] > values[0] - gap
+        if margin < gap or doubtful:
             calls.append({"slot": slots[i], "start": s["id"], "bench": b["id"],
-                          "gap": margin, "measure": MEASURE[mode], "values": values,
+                          "gap": round(abs(values[1] - values[0]), 1) if doubtful else margin,
+                          "measure": MEASURE[mode], "values": values,
                           "for_start": case_for(s, b, mode, pcts),
-                          "for_bench": case_for(b, s, mode, pcts)})
-    calls.sort(key=lambda c: (c["gap"], c["start"], c["bench"]))
+                          "for_bench": case_for(b, s, mode, pcts),
+                          **({"doubtful": True} if doubtful else {})})
+    calls.sort(key=lambda c: (not c.get("doubtful"), c["gap"], c["start"], c["bench"]))
     kept, per = [], {}
     for c in calls:
         if per.get(c["start"], 0) < CALLS_PER_STARTER and len(kept) < MAX_CALLS:

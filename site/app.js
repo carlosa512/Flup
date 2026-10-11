@@ -665,11 +665,13 @@
       const lean = how[c.measure] ? ` (${how[c.measure].replace('halfway', Math.round(L.lean * 100) + '% of the way')})` : '';
       return `<details class="call" data-k="call-${esc(c.start)}-${esc(c.bench)}"><summary>
           <span class="call-names"><b>${esc(s.name)}</b> <span class="vs">over</span> ${esc(b.name)}</span>
-          <span class="call-gap">${pts(c.gap)} apart</span></summary>
+          <span class="call-gap">${c.doubtful ? 'Doubtful' : pts(c.gap) + ' apart'}</span></summary>
         <div class="call-body">
           ${callSide(s, 'Start', c.values[0], c.for_start, c.measure)}
           ${callSide(b, 'Or', c.values[1], c.for_bench, c.measure)}
-          <p class="muted">${pts(c.gap)} apart on ${esc(c.measure)}${lean}. A close call is anything under ${pts(L.close_call)}.</p>
+          <p class="muted">${c.doubtful
+            ? `${esc(b.name)} is Doubtful, so he isn't started for you. If he's active (inactives come out about 90 min before kickoff), he's ${pts(c.values[1] - c.values[0])} ${c.values[1] >= c.values[0] ? 'better' : 'behind'} on ${esc(c.measure)}${lean}.`
+            : `${pts(c.gap)} apart on ${esc(c.measure)}${lean}. A close call is anything under ${pts(L.close_call)}.`}</p>
         </div></details>`;
     });
     return `<h2 class="section">Close calls</h2><div class="calls">${items.join('')}</div>`;
