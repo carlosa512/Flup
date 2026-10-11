@@ -155,6 +155,11 @@ def expected(p, game, actual, now, pcts=PCTS, scoring=None):
     if state == "final":
         return {"state": state, "pts": got, "sd": 0.0, "actual": got, "left": 0.0}
     if state == "live":
+        line = p.get("actual")
+        if line:
+            # Sleeper's matchup points can lag its stats by a play or two;
+            # the stat line (scored here, it matches Sleeper) is fresher
+            got = line["pts"]
         rest = score
         if got and _healthy(p) > score:
             # He's scoring, so he's playing: no "might not play" discount

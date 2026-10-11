@@ -399,6 +399,32 @@ def test_live_defense_takes_back_the_bracket_sleeper_counted():
     assert e["pts"] == pytest.approx(1 + 11 * 0.5 + 1 - 1 * 5 / 7)
 
 
+# Seen 2026-10-11 (PHI-JAX, Q2): Sleeper's stats had a TD that its matchup
+# points didn't yet (Hurts 10.08 vs 1.6; JAX DEF 2.0 vs 5.0)
+
+def test_live_player_counts_the_fresher_stat_line():
+    p = player("qb", "QB", 20.0, actual={"pts": 10.08, "official": 1.6, "parts": []})
+    e = lineup.expected(p, game("in", period=3, clock=900), 1.6, lineup._time(NOW))
+    assert e["actual"] == 10.08 and e["pts"] == pytest.approx(10.08 + 20 * 0.5)
+
+
+def test_finished_player_counts_sleepers_official_points():
+    p = player("qb", "QB", 20.0, actual={"pts": 10.08, "official": 9.9, "parts": []})
+    e = lineup.expected(p, game("post"), 9.9, lineup._time(NOW))
+    assert e["actual"] == 9.9 and e["pts"] == 9.9
+
+
+def test_live_defense_while_sleepers_matchup_points_lag():
+    d = player("jax", "DEF", 12.0, parts=[["sack", 3, 1.0, 3.0], ["pts_allow", 16.0, None, 1.0]],
+               actual={"pts": 2.0, "official": 5.0,
+                       "parts": [["def_4_and_stop", 1, 1, 1.0], ["pts_allow_14_20", 1, 1, 1.0]]})
+    g = dict(game("in", period=2, clock=0), opp_score=14.0)
+    e = lineup.expected(d, g, 5.0, lineup._time(NOW), scoring=SCORING)
+    # (2 - 1) + (12 - 1) x 0.5 + the bracket blend for 22 allowed
+    assert e["actual"] == 2.0
+    assert e["pts"] == pytest.approx(1 + 11 * 0.5 + 1 - 1 * 5 / 7)
+
+
 def test_empty_slot_is_filled_without_pairing_an_unrelated_player():
     players = roster()
     players[6]["flag"] = "Out"                       # wr1 is Out, starting at WR
