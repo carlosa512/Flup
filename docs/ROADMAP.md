@@ -229,6 +229,20 @@ Phase 4 decisions (owner, 2026-10-11):
 Plan: 1 feed test -> 2 news links + staleness -> 3 template write-ups ->
 4 Copy for Claude -> 5 /writeups command -> 6 refresh.
 
+Status (2026-10-11): all six built on `claude/phase-4-news`, waiting for
+the owner to try the preview. Feed test results: ESPN per-player, PFT and
+RotoBaller RSS and Bluesky work; FantasyPros has no public feed (skipped,
+RotoBaller instead); beat writers found for 28 teams (none for ATL, DAL,
+LAC, TEN), unverified. Not done yet: a full multi-angle review.
+
+New data (no version bump, all additions): players get `news_at`
+(Sleeper's latest news time), `writeup` (template), `news [{title, source,
+tag, date, url, paywall?}]` (my roster, their starters, suggested free
+agents), `claude {text, written, changed?}` (from inputs/writeups.json).
+`league.def_brackets` [[midpoint, pts]] (zeros included) for the live DEF
+math in the browser; `refresh {crons, repo, scheduled}` for "next update";
+`settings.stale_game_day_hours`, `settings.injury_news_hours`.
+
 ## Phase 5: polish
 - Week 17 flag: players on teams that may rest starters (clinched teams).
 - Anything left over from the owner's feedback.

@@ -49,13 +49,18 @@ pipeline/            Python 3.11+, standard library only; `python3 -m pipeline`
   model.py           My Score: blend, capped adjustments, injury, floor/ceiling
   tiers.py           local-gap tiers; league.py rosters + settings check
   lineup.py          best lineup, game phase (pre/live/final), win %, mode
+  news.py            news links per player (ESPN, PFT, RotoBaller, Bluesky beat)
+  writeups.py        template write-ups; attaches Claude's (inputs/writeups.json)
   validate.py        rescores finished weeks vs Sleeper's official points
 site/                static app, no build step: index.html app.js app.css sw.js
 settings.toml        every weight/cap/threshold (the owner edits this)
 inputs/consensus/    optional FantasyPros CSV uploads (weekNN_pos.csv)
+inputs/writeups.json Claude's write-ups from /writeups (pushed straight to main)
+.claude/commands/    writeups.md: the owner's /writeups command
 tests/               pytest; test_real_snapshot.py runs only with FLUP_REPLAY
 .github/workflows/   update.yml (scheduled data runs + deploy), snapshot.yml (dev)
-tools/               snapshot.py (dev raw capture), make_icons.py
+tools/               snapshot.py (dev raw capture + news/CORS probe), make_icons.py,
+                     check_writeups.py (/writeups must pass it before pushing)
 ```
 
 Data format: `site/data/latest.json`, `"version": 3` (field list in
@@ -97,8 +102,9 @@ iPhone 13, `timezoneId: 'America/Chicago'` (the owner's local time).
 
 ## Deploy and schedule
 
-- update.yml runs on schedule (Wed ~9 AM, Fri ~6 PM, Sun ~11:45 AM and
-  ~3:15 PM Eastern; each listed for EDT and EST in UTC), by "Run workflow",
+- update.yml runs on schedule (Wed ~9 AM, Fri ~6 PM, Sun ~11:45 AM, then
+  every 30 min from ~1 PM to 12:30 AM Eastern; listed for EDT and EST in
+  UTC), by "Run workflow",
   and on pushes to `main` or `claude/**` that touch pipeline/, site/,
   tests/, inputs/, settings.toml, requirements*.txt or update.yml
   (docs-only pushes don't run it). Tests run first; a failed run publishes
@@ -143,6 +149,16 @@ iPhone 13, `timezoneId: 'America/Chicago'` (the owner's local time).
   endpoint by a few minutes, so live starters count the stat line (scored
   here); finals count `players_points`. A live DEF's line carries the
   pts_allow_* flag for the score so far (checked 2026-10-11).
+- Sleeper and ESPN send `Access-Control-Allow-Origin: *` (checked
+  2026-10-11), so the app fetches live matchup points, the scoreboard and
+  DEF stat lines in the browser. Sleeper's matchups are CDN-cached 60 s
+  (stale up to 5 min more); its stats endpoint only 4 s.
+- News: ESPN's per-player feed is `apis/fantasy/v2/games/ffl/news/players
+  ?playerId=<espn_id>` (ESPN IDs from DynastyProcess db_playerids.csv);
+  it also files league-wide stories under each player, so stories must
+  name him. RotoWire items there have no link. FantasyPros has no public
+  news feed (robots.txt blocks /xml/), so it isn't used. Bluesky public
+  API needs no key; beat writers are listed in settings.toml [news.beat].
 - Sleeper transactions (`/v1/league/<id>/transactions/<week>`): types
   free_agent / waiver / trade, status complete / failed, times in ms. A
   trade lists each traded player in both `adds` and `drops`, so it is not
