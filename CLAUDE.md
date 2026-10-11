@@ -107,7 +107,8 @@ iPhone 13, `timezoneId: 'America/Chicago'` (the owner's local time).
   `/preview/` and overwrites `dev-raw`; each keeps the other's files.
 - Scheduled runs only happen from `main`, so preview data never refreshes on
   its own. For fresh preview data: Run workflow on the branch (the GitHub MCP
-  `actions_run_trigger` can do it).
+  `actions_run_trigger` can do it; the owner granted the Claude app
+  Actions access on 2026-10-11 after a 403).
 - The service worker serves the cached shell first, so the first open after
   a deploy shows the previous app once. GitHub Pages also caches files for
   ~10 minutes, so right after a deploy the owner may need to wait a few
@@ -138,6 +139,10 @@ iPhone 13, `timezoneId: 'America/Chicago'` (the owner's local time).
   actual points are in this week's Sleeper matchups (`players_points`).
 - Kickers have a team snap count but no player snap count; snap share is
   only computed when the player's own count exists (real zeros are kept).
+- Live games: Sleeper's matchup `players_points` can trail its stats
+  endpoint by a few minutes, so live starters count the stat line (scored
+  here); finals count `players_points`. A live DEF's line carries the
+  pts_allow_* flag for the score so far (checked 2026-10-11).
 - Sleeper transactions (`/v1/league/<id>/transactions/<week>`): types
   free_agent / waiver / trade, status complete / failed, times in ms. A
   trade lists each traded player in both `adds` and `drops`, so it is not

@@ -147,9 +147,10 @@ Modeling notes (from the Phase 3 review):
   scores in a live game, the discount is dropped.
 - A live DEF: points so far minus the bracket for the current score, plus
   the rest of his projection without its bracket part, plus the bracket
-  blend for the points he's expected to allow by the end. Assumes Sleeper's
-  live DEF points include the current points-allowed bracket: verify on a
-  real Sunday capture (piece 4).
+  blend for the points he's expected to allow by the end. Verified
+  2026-10-11: Sleeper's live DEF line carries the bracket flag for the
+  score so far, and its points include it. The bracket taken back is read
+  from that line (none before Sleeper posts one).
 - The mode is decided on the whole percent shown, so "35%" is never called
   "under 35%"; a close call's gap is the difference of the two numbers as
   shown.
@@ -179,6 +180,13 @@ overwritten by the next run), replay it and check:
    correction can lag), "Started" marks in the app at the right times.
 Good times (Eastern): ~10:45 AM if there's a London game, ~2:30 PM (1 PM
 games live), ~5:30 PM (1 PM final, late games live).
+
+Check 1 (2026-10-11, 10:45 AM, JAX-PHI Q2; captures on branch
+`dev-raw-live`): ESPN parse, share left and live DEF brackets right; 23/23
+players matched Sleeper when in sync. Found: Sleeper's matchup
+`players_points` can trail its stats feed by up to ~5 min (Hurts 1.6 vs
+10.08 after a TD pass). Live starters now count the stat line; finished
+games count Sleeper's official points.
 
 ## Phase 4: news, write-ups, refresh
 - News links per player from RSS/public feeds (ESPN, Pro Football Talk,
