@@ -103,8 +103,9 @@ iPhone 13, `timezoneId: 'America/Chicago'` (the owner's local time).
 ## Deploy and schedule
 
 - update.yml runs on schedule (Wed ~9 AM, Fri ~6 PM, Sun ~11:45 AM, then
-  every 30 min from ~1 PM to 12:30 AM Eastern; listed for EDT and EST in
-  UTC), by "Run workflow",
+  every 30 min from ~1 PM to 12:30 AM Eastern; Thu and Mon nights from
+  ~6 PM; Saturdays in Dec/Jan; listed for EDT and EST in UTC), by "Run
+  workflow",
   and on pushes to `main` or `claude/**` that touch pipeline/, site/,
   tests/, inputs/, settings.toml, requirements*.txt or update.yml
   (docs-only pushes don't run it). Tests run first; a failed run publishes
@@ -159,6 +160,15 @@ iPhone 13, `timezoneId: 'America/Chicago'` (the owner's local time).
   name him. RotoWire items there have no link. FantasyPros has no public
   news feed (robots.txt blocks /xml/), so it isn't used. Bluesky public
   API needs no key; beat writers are listed in settings.toml [news.beat].
+- Images: Sleeper's CDN serves headshots at
+  `sleepercdn.com/content/nfl/players/thumb/<player_id>.jpg` (a default
+  silhouette for unknown ids, not a 404) and team logos at
+  `sleepercdn.com/images/team_logos/nfl/<team lowercase>.png`; both load
+  with the site as Referer, cached a month. Not an official API: same grey
+  area as ESPN.
+- ESPN standings (`apis/v2/sports/football/nfl/standings?season=YYYY`):
+  stat `clincher` is "*" (#1 seed), "z" (division), "y" (wild card), "x"
+  (playoff spot), "e" (eliminated); `playoffSeed` too.
 - Sleeper transactions (`/v1/league/<id>/transactions/<week>`): types
   free_agent / waiver / trade, status complete / failed, times in ms. A
   trade lists each traded player in both `adds` and `drops`, so it is not
