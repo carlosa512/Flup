@@ -109,7 +109,9 @@ iPhone 13, `timezoneId: 'America/Chicago'` (the owner's local time).
   its own. For fresh preview data: Run workflow on the branch (the GitHub MCP
   `actions_run_trigger` can do it).
 - The service worker serves the cached shell first, so the first open after
-  a deploy shows the previous app once.
+  a deploy shows the previous app once. GitHub Pages also caches files for
+  ~10 minutes, so right after a deploy the owner may need to wait a few
+  minutes, close the app fully and open it twice.
 
 ## Gotchas already learned (don't relearn them)
 
