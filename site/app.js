@@ -7,7 +7,7 @@
   // Keyed by path so the main site and /preview/ don't share saved data
   const DATA_KEY = 'flup:data:' + location.pathname;
   const UI_KEY = 'flup:ui:' + location.pathname;
-  const DATA_VERSION = 2;  // the data format this app reads
+  const DATA_VERSION = 3;  // the data format this app reads
   const FILTERS = [['all', 'All'], ['mine', 'My team'], ['fa', 'Free agents'], ['matchup', 'My matchup']];
   const EMPTY = {
     all: 'No projections at this position yet.',
@@ -33,6 +33,8 @@
 
   let data = null;
   let ui = Object.assign({ pos: 'QB', filter: 'all' }, read(UI_KEY) || {});
+  let view = 'lineup';  // the app always opens on the lineup
+  let index = new Map();  // player id -> player
   const open = new Set();
 
   // ---------- small helpers ----------
@@ -221,6 +223,14 @@
     return kind === ui.filter;
   }
 
+  // Once he has played (or while he plays) the big number is his real
+  // score, with My Score small underneath; before that, My Score
+  function scoreCell(p) {
+    const a = gameState(p) && p.actual;
+    if (!a) return `<span class="pts">${pts(p.score)}</span>`;
+    return `<span class="pts real">${pts(a.official != null ? a.official : a.pts)}<small>My Score ${pts(p.score)}</small></span>`;
+  }
+
   function playerRow(p) {
     const o = owner(p);
     const inj = p.injury ? `<span class="inj ${injClass(p.injury)}" title="${esc(p.injury)}">${esc(injShort(p.injury))}</span>` : '';
@@ -235,7 +245,7 @@
       <button type="button" class="row" aria-expanded="${isOpen}">
         <span class="rk">${p.rank}</span>
         <span class="nm">${esc(p.name)}${inj}</span>
-        <span class="pts">${pts(p.score)}</span>
+        ${scoreCell(p)}
         <span class="sub">${sub}</span>
       </button>${isOpen ? detail(p) : ''}</li>`;
   }
@@ -255,15 +265,18 @@
       }
     }
     let html = '';
+    let shown = null;
     for (const [tier, players] of groups) {
       const b = breaks[tier];
-      const gap = b ? `<p class="tier-gap">▼ ${pts(b.gap)} pt drop from tier ${tier - 1} (${b.ratio}× the nearby gaps)</p>` : '';
-      html += `<div class="tier">${gap}<div class="tier-num" aria-label="Tier ${tier}">${tier}</div>
+      // A filter can hide whole tiers; the drop only reads right right under the tier it's from
+      const gap = b && shown === tier - 1 ? `<p class="tier-gap">▼ ${pts(b.gap)} pt drop from tier ${tier - 1} (${b.ratio}× the nearby gaps)</p>` : '';
+      html += `${gap}<div class="tier"><div class="tier-num" aria-label="Tier ${tier}">${tier}</div>
         <ul class="players">${players.map(playerRow).join('')}</ul></div>`;
+      shown = tier;
     }
     if (below.length) {
       const cut = data.settings.positions[ui.pos];
-      html += `<p class="below">Below the top ${cut} (not tiered)</p><ul class="players">${below.map(playerRow).join('')}</ul>`;
+      html += `<p class="below">Below the top ${cut} (not tiered)</p><div class="tier flat"><ul class="players">${below.map(playerRow).join('')}</ul></div>`;
     }
     $('#tiers').innerHTML = html || `<p class="empty">${EMPTY[ui.filter]}</p>`;
   }
@@ -294,12 +307,14 @@
     return [...out.values()];
   }
 
-  function phrase(s) {
+  // real: counts from an actual game (whole numbers), not a projection
+  function phrase(s, real) {
     const name = SHORT[s.stat] || statName(s.stat).toLowerCase();
     const delta = (s.points >= 0 ? '+' : '−') + Math.abs(s.points).toFixed(1);
     if (s.stat === 'pts_allow') return `about ${Math.round(s.value)} ${name} (${delta})`;
-    if (/_td$|int$/.test(s.stat)) return `${name} (${delta})`;  // "0.4 TDs" reads oddly
-    const amount = /_yd$/.test(s.stat) ? String(Math.round(s.value)) : s.value.toFixed(1);
+    if (real && /^pts_allow_/.test(s.stat)) return `${name.replace(/^allowed/, 'allowing')} (${delta})`;
+    if (/_td$|int$/.test(s.stat)) return real ? `${num(s.value)} ${name} (${delta})` : `${name} (${delta})`;  // "0.4 TDs" reads oddly
+    const amount = /_yd$/.test(s.stat) || (real && Number.isInteger(s.value)) ? String(Math.round(s.value)) : s.value.toFixed(1);
     return `${amount} ${name} (${delta})`;
   }
 
@@ -309,21 +324,53 @@
 
   // One plain sentence: the 2-3 stats that make up most of the projection,
   // plus the biggest penalty if it costs a point or more.
-  function projectionSentence(p) {
-    const all = merged(p.parts);
+  // "mostly from X, Y and Z, minus W": the 2-3 stats that make up most of
+  // the total, plus the biggest penalty if it costs a point or more
+  function partsPhrase(parts, total, real) {
+    const all = merged(parts);
     const gains = all.filter((s) => s.points > 0).sort((a, b) => b.points - a.points);
     const picks = [];
     let covered = 0;
     for (const s of gains) {
-      if (picks.length === 3 || (picks.length >= 2 && covered >= 0.7 * p.proj)) break;
+      if (picks.length === 3 || (picks.length >= 2 && covered >= 0.7 * total)) break;
       picks.push(s);
       covered += s.points;
     }
     const penalty = all.filter((s) => s.points <= -1).sort((a, b) => a.points - b.points)[0];
-    let text = `Sleeper projects <b>${pts(p.proj)}</b> in your scoring`;
-    if (picks.length) text += ', mostly from ' + andList(picks.map(phrase));
-    if (penalty) text += ', minus ' + phrase(penalty);
-    return text + '.';
+    let text = '';
+    if (picks.length) text += ', mostly from ' + andList(picks.map((x) => phrase(x, real)));
+    if (penalty) text += ', minus ' + phrase(penalty, real);
+    return text;
+  }
+
+  function projectionSentence(p) {
+    return `Sleeper projects <b>${pts(p.proj)}</b> in your scoring${partsPhrase(p.parts, p.proj)}.`;
+  }
+
+  function partsTable(parts, real) {
+    return parts.map(([stat, value, weight, points]) => {
+      const calc = weight == null ? `${num(value)} → bracket blend` : real && /^pts_allow_/.test(stat) ? 'bracket' : `${num(value)} × ${num(weight)}`;
+      return `<tr><td>${esc(statName(stat))}</td><td class="n x">${esc(calc)}</td><td class="n">${signed(points)}</td></tr>`;
+    }).join('');
+  }
+
+  // Once he has played (or while he plays): his real points first
+  function actualBlock(p) {
+    const a = p.actual;
+    if (!a) return '';
+    const live = gameState(p) === 'Live';
+    const shown = a.official != null ? a.official : a.pts;
+    let html = `<h3>${live ? 'So far' : 'Scored'}</h3>
+      <div class="score-head"><b class="big">${pts(shown)}</b><span>My Score was ${pts(p.score)} (${signedPts(shown - p.score)})</span></div>`;
+    if (a.parts.length) {
+      html += `<p class="muted">${live ? 'So far' : 'His points came'}${partsPhrase(a.parts, a.pts, true).replace(/^, mostly/, ' mostly') || ': nothing yet'}.</p>
+        <details class="every"><summary>How his points add up</summary>
+        <table class="math"><tbody>${partsTable(a.parts, true)}</tbody></table></details>`;
+    }
+    if (a.official != null && Math.abs(a.official - a.pts) > 0.05) {
+      html += `<p class="muted">Sleeper shows ${pts(a.official)}; his stat line here adds up to ${pts(a.pts)}. Sleeper may still be correcting a stat.</p>`;
+    }
+    return html;
   }
 
   function signedPts(n) {
@@ -367,11 +414,8 @@
 
   function detail(p) {
     const block = data.positions[p.pos];
-    const rows = p.parts.map(([stat, value, weight, points]) => {
-      const calc = weight == null ? `${num(value)} → bracket blend` : `${num(value)} × ${num(weight)}`;
-      return `<tr><td>${esc(statName(stat))}</td><td class="n x">${esc(calc)}</td><td class="n">${signed(points)}</td></tr>`;
-    }).join('');
-    let html = `<div class="detail"><h3>My Score</h3>${myScore(p)}`;
+    const rows = partsTable(p.parts);
+    let html = `<div class="detail">${actualBlock(p)}<h3>${p.actual ? 'My Score (before the game)' : 'My Score'}</h3>${myScore(p)}`;
     if (p.parts.length) {
       html += `<details class="every"><summary>How the projection adds up</summary>
           <p>${projectionSentence(p)}</p>
@@ -393,25 +437,300 @@
     return html + '</div>';
   }
 
+  // ---------- lineup ----------
+
+  const MODE = {
+    favored: { word: 'Favored', line: 'playing it safe', cls: 'fav' },
+    underdog: { word: 'Underdog', line: 'swinging for upside', cls: 'dog' },
+    even: { word: 'Close matchup', line: 'going with My Score', cls: 'even' },
+  };
+  const SLOT_SHORT = { SUPER_FLEX: 'SF', WRRB_FLEX: 'W/R', REC_FLEX: 'W/T' };
+  const SINGLE = new Set(['QB', 'RB', 'WR', 'TE', 'K', 'DEF']);
+  const pct = (x) => Math.round(x * 100) + '%';
+
+  // The data is a snapshot. Between updates, a player whose kickoff has
+  // passed is locked in Sleeper even though the data says "not started".
+  function startedSince(p) {
+    return !!(p && p.kickoff && !gameState(p) && Date.now() >= Date.parse(p.kickoff));
+  }
+  const startedId = (id) => startedSince(index.get(id));
+  const nameOf = (id) => (index.get(id) || {}).name || 'Unknown player';
+
+  function lineupRow(e, side) {
+    const multi = !SINGLE.has(e.slot);
+    const p0 = e.id ? index.get(e.id) : null;
+    const slot = multi && p0
+      ? `<span class="slot flex"><small>${esc(SLOT_SHORT[e.slot] || e.slot)}</small>${esc(p0.pos)}</span>`
+      : `<span class="slot">${esc(SLOT_SHORT[e.slot] || e.slot)}</span>`;
+    if (!e.id) {
+      const why = side === 'me' ? 'No healthy player with a game for this slot.' : 'Nobody in this slot.';
+      return `<li class="player empty-slot"><div class="row lu">${slot}<span class="nm">Empty</span>
+        <span class="pts">${pts(0)}</span><span class="sub">${why}</span></div></li>`;
+    }
+    const p = index.get(e.id);
+    if (!p) {
+      return `<li class="player"><div class="row lu">${slot}<span class="nm">Unknown player</span>
+        <span class="pts">${pts(e.pts)}</span><span class="sub">Not in this week's projections</span></div></li>`;
+    }
+    const inj = p.injury ? `<span class="inj ${injClass(p.injury)}" title="${esc(p.injury)}">${esc(injShort(p.injury))}</span>` : '';
+    const state = e.state === 'final' ? 'Played' : e.state === 'live' ? 'Live' : startedSince(p) ? 'Started' : '';
+    const sub = [
+      `<span>${esc(gameText(p))}</span>`,
+      state ? `<span class="played">${state}</span>` : (p.kickoff ? `<span>${esc(when(p.kickoff))}</span>` : ''),
+      e.new ? '<span class="chip new">New</span>' : '',
+    ].join('');
+    let why = side === 'me' ? e.why || '' : '';
+    if (side !== 'me' && e.state === 'live') why = `${pts(e.actual)} so far, ${Math.round(e.left * 100)}% of the game left`;
+    const isOpen = open.has(p.id);
+    return `<li class="player ${e.new ? 'new' : ''}" data-id="${esc(p.id)}">
+      <button type="button" class="row lu" aria-expanded="${isOpen}">
+        ${slot}
+        <span class="nm">${esc(p.name)}${inj}</span>
+        <span class="pts">${pts(e.pts)}</span>
+        <span class="sub">${sub}</span>
+        ${why ? `<span class="why">${esc(why)}</span>` : ''}
+      </button>${isOpen ? detail(p) : ''}</li>`;
+  }
+
+  function lineupMath(L) {
+    const me = L.me, opp = L.opp, f = L.first;
+    const diff = me.total - opp.total;
+    const comb = Math.sqrt(me.sd * me.sd + opp.sd * opp.sd);
+    const lean = Math.round(L.lean * 100) + '%';
+    let html = `<p>Each starter counts his expected points: My Score if his game hasn't started,
+      points so far plus My Score for the part of the game left if it's live, and his actual points once it's over.</p>`;
+    html += `<p>You <b>${pts(me.total)}</b> (give or take ${pts(me.sd)}) vs them <b>${pts(opp.total)}</b>
+      (give or take ${pts(opp.sd)}). Their lineup is counted exactly as set in Sleeper.</p>`;
+    if (comb > 0) {
+      html += `<p>Win % is the chance your total ends up higher: ${signedPts(diff)} ÷ √(${pts(me.sd)}² + ${pts(opp.sd)}²)
+        = ${signedPts(diff)} ÷ ${pts(comb)} = ${(diff < 0 ? '−' : '') + Math.abs(diff / comb).toFixed(2)} on the bell curve → <b>${pct(L.win)}</b>.</p>`;
+    }
+    if (L.mode === 'even') {
+      html += `<p>Your best lineup by My Score wins ${pct(f.win)} of the time. That's between ${pct(L.underdog)} and
+        ${pct(L.favored)}, so players are ranked by My Score as is.</p>`;
+    } else {
+      const dog = L.mode === 'underdog';
+      html += `<p>Your best lineup by My Score wins ${pct(f.win)} of the time. That's ${dog ? 'under ' + pct(L.underdog) + ': underdog' : pct(L.favored) + ' or more: favored'}.
+        So players are ranked by <b>${dog ? 'upside score' : 'safe score'}</b>: My Score moved ${lean} of the way
+        ${dog ? 'up to his ceiling, which favors boom-or-bust players' : 'down to his floor, which favors steady players'}.
+        Final lineup: ${pct(L.win)}.</p>`;
+      if (L.win < f.win) {
+        html += `<p>The bell curve above rates that a bit lower (${pct(L.win)} vs ${pct(f.win)}): it only sees averages and
+          spread, not the ${dog ? 'long upside tail a ceiling measures' : 'protection a high floor gives'}.</p>`;
+      }
+    }
+    html += `<p class="muted">This treats every player as scoring on his own. Teammates (a QB and his receivers)
+      really boom or bust together, so the true chance can be a few points higher or lower.</p>`;
+    return html;
+  }
+
+  function verdict(L) {
+    const opp = data.league.teams[data.league.opp_rid];
+    if (!L.opp || L.win == null) {
+      return `<div class="verdict"><p class="mode-line">No opponent found this week</p>
+        <div class="totals"><div><span class="lbl">You</span><b>${pts(L.me.total)}</b></div></div></div>`;
+    }
+    const m = MODE[L.mode] || MODE.even;
+    return `<div class="verdict ${m.cls}">
+      <p class="mode-line"><b>${m.word} ${pct(L.win)}</b>: ${m.line}</p>
+      <div class="winbar" role="img" aria-label="${pct(L.win)} chance to win"><span style="width:${(L.win * 100).toFixed(1)}%"></span></div>
+      <div class="totals">
+        <div><span class="lbl">You</span><b>${pts(L.me.total)}</b></div>
+        <div class="them"><span class="lbl">${esc(opp ? opp.name : 'Them')}</span><b>${pts(L.opp.total)}</b></div>
+      </div>
+      <details class="every" data-k="math"><summary>How this is worked out</summary><div class="math-text">${lineupMath(L)}</div></details>
+    </div>`;
+  }
+
+  function changesBox(L) {
+    const moves = L.moves || [];
+    if (!L.changes.length && !moves.length) return '<p class="note done">✓ Your Sleeper lineup already matches.</p>';
+    // Slides first: they open up the slot a newcomer goes into
+    const locked = (text, ids) => (ids.some(startedId)
+      ? `<s>${text}</s> <span class="gone">game started, Sleeper has locked it</span>` : text);
+    const items = moves.map((m) => locked(`Move <b>${esc(nameOf(m.id))}</b> to ${esc(m.to)}`, [m.id])).concat(L.changes.map((c) => {
+      const ids = [c.in, c.out].filter(Boolean);
+      if (c.in && c.out) return locked(`Start <b>${esc(nameOf(c.in))}</b> for ${esc(nameOf(c.out))}`, ids);
+      if (c.in) return locked(`Start <b>${esc(nameOf(c.in))}</b> in the empty ${esc(c.slot)} slot`, ids);
+      return locked(`Bench ${esc(nameOf(c.out))}: no healthy player to put in`, ids);
+    }));
+    const n = items.length;
+    return `<div class="note todo"><b>Make ${n} change${n > 1 ? 's' : ''} in Sleeper</b>
+      <ul>${items.map((t) => `<li>${t}</li>`).join('')}</ul></div>`;
+  }
+
+  function lateSwapTip(L) {
+    const t = L.late_swap;
+    // Gone once the first player it moves has kicked off (Sleeper has locked him)
+    if (!t || !t.moves.length || (t.deadline && Date.now() >= new Date(t.deadline).getTime())) return '';
+    const moves = t.moves.map((m) => `<b>${esc(nameOf(m.id))}</b> to ${esc(m.to)}`);
+    return `<div class="note tip"><b>Late-swap tip</b>
+      <p>Move ${andList(moves)}${t.deadline ? ` before ${esc(when(t.deadline))}` : ''}. Your points stay the same.
+      ${esc(nameOf(t.latest))} plays ${esc(when(t.kickoff))}, so with him in FLEX a late scratch can be swapped for any
+      RB, WR or TE who hasn't played yet, free agents included.</p></div>`;
+  }
+
+  function callSide(p, verb, value, reasons, measure) {
+    const extra = measure !== 'My Score' ? ` · ${pts(value)} ${esc(measure)}` : '';
+    const list = reasons.length
+      ? reasons.map((r) => `<li>${esc(r)}</li>`).join('')
+      : '<li class="muted">Nothing stands out</li>';
+    return `<div class="call-side"><p class="call-head">${verb} <b>${esc(p.name)}</b>
+      <span>${pts(p.score)} pts${extra}</span></p><ul>${list}</ul></div>`;
+  }
+
+  function closeCalls(L) {
+    const calls = (L.close_calls || []).filter((c) => index.get(c.start) && index.get(c.bench)
+      && !startedId(c.start) && !startedId(c.bench));
+    if (!calls.length) return '';
+    const how = {
+      'upside score': 'My Score moved halfway up to the ceiling, because you\'re the underdog',
+      'safe score': 'My Score moved halfway down to the floor, because you\'re favored',
+    };
+    const items = calls.map((c) => {
+      const s = index.get(c.start), b = index.get(c.bench);
+      const lean = how[c.measure] ? ` (${how[c.measure].replace('halfway', Math.round(L.lean * 100) + '% of the way')})` : '';
+      return `<details class="call" data-k="call-${esc(c.start)}-${esc(c.bench)}"><summary>
+          <span class="call-names"><b>${esc(s.name)}</b> <span class="vs">over</span> ${esc(b.name)}</span>
+          <span class="call-gap">${pts(c.gap)} apart</span></summary>
+        <div class="call-body">
+          ${callSide(s, 'Start', c.values[0], c.for_start, c.measure)}
+          ${callSide(b, 'Or', c.values[1], c.for_bench, c.measure)}
+          <p class="muted">${pts(c.gap)} apart on ${esc(c.measure)}${lean}. A close call is anything under ${pts(L.close_call)}.</p>
+        </div></details>`;
+    });
+    return `<h2 class="section">Close calls</h2><div class="calls">${items.join('')}</div>`;
+  }
+
+  // ---------- bench and free agents ----------
+
+  function bigCount(n) {
+    if (n >= 1e6) return (n / 1e6).toFixed(1).replace(/\.0$/, '') + 'M';
+    if (n >= 1e3) return Math.round(n / 1e3) + 'k';
+    return String(n);
+  }
+  function labelChip(l) {
+    if (l === 'Boom') return '<span class="chip label boom" title="Ceiling well above usual for his position">▲ Boom</span>';
+    if (l === 'Steady') return '<span class="chip label steady" title="Floor well above usual for his position">◆ Steady</span>';
+    return '';
+  }
+
+  function pickRow(item, why, extra) {
+    const p = index.get(item.id);
+    if (!p) return '';
+    const inj = p.injury ? `<span class="inj ${injClass(p.injury)}" title="${esc(p.injury)}">${esc(injShort(p.injury))}</span>` : '';
+    const state = gameState(p);
+    const sub = [
+      `<span>${esc(gameText(p))}</span>`,
+      state ? `<span class="played">${state}</span>` : (p.kickoff ? `<span>${esc(when(p.kickoff))}</span>` : ''),
+      labelChip(item.label), extra || '',
+    ].join('');
+    const isOpen = open.has(p.id);
+    return `<li class="player" data-id="${esc(p.id)}">
+      <button type="button" class="row lu" aria-expanded="${isOpen}">
+        <span class="slot">${esc(p.pos)}</span>
+        <span class="nm">${esc(p.name)}${inj}</span>
+        ${scoreCell(p)}
+        <span class="sub">${sub}</span>
+        <span class="why">${esc(why)}</span>
+      </button>${isOpen ? detail(p) : ''}</li>`;
+  }
+
+  function pickups(L) {
+    let html = '';
+    const bench = L.bench_flex || [];
+    const fas = L.free_agents || [];
+    if (bench.length) {
+      const avail = bench.filter((b) => !startedId(b.id));
+      if (avail.length) {
+        html += `<h2 class="section">Bench options</h2><ul class="players lineup">${avail.map((b) =>
+          pickRow(b, b.why)).join('')}</ul>`;
+      }
+    }
+    if (fas.length) {
+      const me = data.league.teams[data.league.my_rid];
+      const faab = me && me.faab_left != null ? `<span class="faab">$${esc(me.faab_left)} FAAB left</span>` : '';
+      html += `<h2 class="section">Free agents ${faab}</h2><ul class="players lineup">${fas.map((f) => {
+        let extra = '';
+        if (f.dropped) {
+          const day = new Date(f.dropped).toLocaleDateString(undefined, { weekday: 'short' });
+          extra += `<span class="chip drop">Dropped ${esc(day)}: maybe on waivers</span>`;
+        }
+        const adds = Number(f.trending) || 0;
+        if (adds) extra += `<span>${esc(bigCount(adds))} adds in 2 days</span>`;
+        return pickRow(f, startedId(f.id) ? 'His game has started: one to grab for later weeks' : f.why, extra);
+      }).join('')}</ul>`;
+    }
+    // Phones can't show hover tips, so the labels are explained once in words
+    if (bench.concat(fas).some((x) => x.label)) {
+      html += `<p class="legend"><b>▲ Boom</b>: ceiling well above the usual for his position.
+        <b>◆ Steady</b>: floor well above the usual.</p>`;
+    }
+    return html;
+  }
+
+  function renderLineup() {
+    const L = data.lineup;
+    if (!L) {
+      $('#lineup').innerHTML = '<p class="warn">Couldn\'t find your team in this league, so there\'s no lineup.</p>';
+      return;
+    }
+    let html = '';
+    if (L.times_known === false) {
+      html += '<p class="warn">ESPN didn\'t load, so game times are guessed from Sleeper: anyone with points this week counts as played. Check locked players in Sleeper.</p>';
+    }
+    const ids = L.me.starters.concat(L.opp ? L.opp.starters : []).map((e) => e.id)
+      .concat((L.bench_flex || []).map((b) => b.id), (L.free_agents || []).map((f) => f.id));
+    if (ids.some(startedId)) {
+      html += `<p class="note">Games have started since this data (from ${esc(when(data.generated))}).
+        Totals and win % are as of then. Sleeper has locked those players, so any moves for them are crossed out.</p>`;
+    }
+    html += verdict(L) + changesBox(L) + lateSwapTip(L);
+    html += `<h2 class="section">Your lineup</h2><ul class="players lineup">${L.me.starters.map((e) => lineupRow(e, 'me')).join('')}</ul>`;
+    html += closeCalls(L);
+    html += pickups(L);
+    if (L.opp) {
+      html += `<details class="their" data-k="their"><summary>Their lineup, as set in Sleeper <b>${pts(L.opp.total)}</b></summary>
+        <ul class="players lineup">${L.opp.starters.map((e) => lineupRow(e, 'opp')).join('')}</ul></details>`;
+    }
+    // Re-rendering (a player tapped open) keeps the open sections open
+    const kept = [...document.querySelectorAll('#lineup details[data-k]')].filter((d) => d.open).map((d) => d.dataset.k);
+    $('#lineup').innerHTML = html;
+    for (const k of kept) {
+      const d = document.querySelector(`#lineup details[data-k="${k}"]`);
+      if (d) d.open = true;
+    }
+  }
+
   // ---------- render ----------
+
+  function renderView() {
+    for (const b of document.querySelectorAll('[data-view]')) b.setAttribute('aria-selected', String(b.dataset.view === view));
+    $('#view-lineup').hidden = view !== 'lineup';
+    $('#view-tiers').hidden = view !== 'tiers';
+    if (view === 'lineup') renderLineup();
+    else { renderTabs(); renderTiers(); }
+  }
 
   function render() {
     if (!data) return;
+    index = new Map();
+    for (const block of Object.values(data.positions)) for (const p of block.players) index.set(p.id, p);
     renderHeader();
     renderStatus();
-    renderTabs();
-    renderTiers();
+    renderView();
   }
 
   document.addEventListener('click', (e) => {
     const t = e.target.closest('button');
     if (!t) return;
+    if (t.dataset.view) { view = t.dataset.view; if (data) renderView(); window.scrollTo(0, 0); return; }
     if (t.dataset.pos) { ui.pos = t.dataset.pos; saveUi(); renderTabs(); renderTiers(); return; }
     if (t.dataset.filter) { ui.filter = t.dataset.filter; saveUi(); renderTabs(); renderTiers(); return; }
     if (t.classList.contains('row')) {
       const id = t.closest('.player').dataset.id;
       if (open.has(id)) open.delete(id); else open.add(id);
-      renderTiers();
+      renderView();
     }
   });
 
@@ -463,6 +782,13 @@
   }
 
   $('#refresh-btn').addEventListener('click', () => refresh(true));
+  // Kickoffs pass while the page is open: redraw the lineup when one does
+  let startedCount = -1;
+  setInterval(() => {
+    if (!data || !data.lineup || view !== 'lineup' || document.visibilityState !== 'visible') return;
+    const n = [...index.values()].filter(startedSince).length;
+    if (n !== startedCount) { startedCount = n; renderLineup(); }
+  }, 60000);
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible' && data && hoursOld(data.generated) > 0.5) refresh(false);
   });

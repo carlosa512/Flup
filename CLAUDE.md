@@ -48,6 +48,7 @@ pipeline/            Python 3.11+, standard library only; `python3 -m pipeline`
   history.py         every game this + last season rescored in league scoring
   model.py           My Score: blend, capped adjustments, injury, floor/ceiling
   tiers.py           local-gap tiers; league.py rosters + settings check
+  lineup.py          best lineup, game phase (pre/live/final), win %, mode
   validate.py        rescores finished weeks vs Sleeper's official points
 site/                static app, no build step: index.html app.js app.css sw.js
 settings.toml        every weight/cap/threshold (the owner edits this)
@@ -57,7 +58,7 @@ tests/               pytest; test_real_snapshot.py runs only with FLUP_REPLAY
 tools/               snapshot.py (dev raw capture), make_icons.py
 ```
 
-Data format: `site/data/latest.json`, `"version": 2` (field list in
+Data format: `site/data/latest.json`, `"version": 3` (field list in
 docs/ROADMAP.md). It's gitignored, so generate it first (below). app.js
 refuses other versions (DATA_VERSION) and reloads itself. Bump both
 together when the shape changes.
@@ -108,7 +109,9 @@ iPhone 13, `timezoneId: 'America/Chicago'` (the owner's local time).
   its own. For fresh preview data: Run workflow on the branch (the GitHub MCP
   `actions_run_trigger` can do it).
 - The service worker serves the cached shell first, so the first open after
-  a deploy shows the previous app once.
+  a deploy shows the previous app once. GitHub Pages also caches files for
+  ~10 minutes, so right after a deploy the owner may need to wait a few
+  minutes, close the app fully and open it twice.
 
 ## Gotchas already learned (don't relearn them)
 
@@ -135,6 +138,10 @@ iPhone 13, `timezoneId: 'America/Chicago'` (the owner's local time).
   actual points are in this week's Sleeper matchups (`players_points`).
 - Kickers have a team snap count but no player snap count; snap share is
   only computed when the player's own count exists (real zeros are kept).
+- Sleeper transactions (`/v1/league/<id>/transactions/<week>`): types
+  free_agent / waiver / trade, status complete / failed, times in ms. A
+  trade lists each traded player in both `adds` and `drops`, so it is not
+  a release. Trending adds counts are across all Sleeper leagues.
 
 ## Commits
 

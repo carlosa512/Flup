@@ -7,7 +7,7 @@ import tomllib
 from datetime import datetime, timezone
 from pathlib import Path
 
-from . import consensus, espn, history, model, sleeper
+from . import consensus, espn, history, lineup, model, sleeper
 from .fetch import FetchError
 from .league import context, sanity
 from .scoring import score_line
@@ -55,6 +55,7 @@ def player_rows(rows, pos, scoring, ctx, games, smooth, cons):
             "id": pid, "name": name, "pos": pos, "team": team,
             "opp": game.get("opp") or row.get("opponent") or "",
             "home": game.get("home"), "kickoff": game.get("kickoff"),
+            "game_date": row.get("date"),  # Sleeper's (Eastern) game date: a fallback without ESPN
             "game_status": game.get("status"),
             "implied": game.get("implied"), "spread": game.get("spread"),
             "injury": info.get("injury_status") or "",
@@ -63,6 +64,35 @@ def player_rows(rows, pos, scoring, ctx, games, smooth, cons):
         })
         raw[pid] = stats
     return out, raw
+
+
+def actual_lines(rows, scoring):
+    """This week's real stat lines (live or final) in your scoring, with
+    the parts that make up each total: {player_id: (points, parts)}.
+    A game counts once gp >= 1, as in the history."""
+    out = {}
+    for r in rows:
+        pos = (r.get("player") or {}).get("position")
+        stats = r.get("stats") or {}
+        if not pos or (stats.get("gp") or 0) <= 0:
+            continue
+        out[str(r.get("player_id"))] = score_line(stats, pos, scoring)
+    return out
+
+
+def attach_actuals(positions, lines, official):
+    """Give everyone who has played (or is playing) this week his real
+    points and their breakdown. official: Sleeper's own points for
+    rostered players; the card shows Sleeper's number and says so if the
+    stat line adds up differently (a stat correction still pending)."""
+    for block in positions.values():
+        for p in block["players"]:
+            found = lines.get(p["id"])
+            if not found:
+                continue
+            pts, parts = found
+            p["actual"] = {"pts": round(pts, 2), "parts": parts,
+                           "official": official.get(p["id"])}
 
 
 def fetch_history(season, week, scoring):
@@ -109,6 +139,40 @@ def load_consensus(rows_by_pos, game_list, week):
         cons.update(mine)
         notes.insert(0, note)
     return cons, notes, problems
+
+
+def fetch_market(lid, week):
+    """Sleeper trending adds (all leagues) and this league's drops from this
+    week and last, with when each happened. Optional: lineups work without."""
+    market, problems = {"trending": {}, "dropped": {}}, []
+    try:
+        for row in sleeper.trending_adds():
+            try:
+                if row.get("player_id"):
+                    market["trending"][str(row["player_id"])] = int(row.get("count") or 0)
+            except (TypeError, ValueError):
+                continue
+    except FetchError as err:
+        problems.append(f"trending adds: {err}")
+    for leg in (week - 1, week):
+        if leg < 1:
+            continue
+        try:
+            moves = sleeper.transactions(lid, leg)
+        except FetchError as err:
+            problems.append(f"week {leg} moves: {err}")
+            continue
+        for t in moves:
+            if t.get("status") != "complete":
+                continue
+            when = t.get("status_updated") or t.get("created")
+            adds = t.get("adds") or {}
+            for pid in (t.get("drops") or {}):
+                if pid in adds:
+                    continue  # traded to another team, not released
+                if when and when > market["dropped"].get(str(pid), 0):
+                    market["dropped"][str(pid)] = when
+    return market, problems
 
 
 def build(settings, week=None, league_id=None, now=None):
@@ -230,6 +294,33 @@ def build(settings, week=None, league_id=None, now=None):
         "ok": not failed, "fetched": now, "updated": iso(newest / 1000) if newest else None,
         "detail": "; ".join(failed) if failed else f"{sum(len(p['players']) for p in positions.values())} players scored"})
 
+    # This week's real points so far (Thursday games, then Sunday as it goes)
+    try:
+        lines = actual_lines(sleeper.stats(season, week), scoring)
+        official = {pid: pts for lu in ctx["lineups"].values() for pid, pts in lu["points"].items()}
+        attach_actuals(positions, lines, official)
+        sources.append({"id": "live", "label": "This week's stats so far (Sleeper)", "ok": True,
+                        "fetched": now, "detail": f"{len(lines)} players have played or are playing"})
+    except FetchError as err:
+        sources.append({"id": "live", "label": "This week's stats so far (Sleeper)", "ok": False,
+                        "fetched": now, "detail": str(err)})
+
+    # Free-agent market: who's trending, who was just dropped (maybe on waivers)
+    market, market_problems = fetch_market(lid, week)
+    sources.append({"id": "market", "label": "Trending adds and league moves (Sleeper)",
+                    "ok": not market_problems, "fetched": now,
+                    "detail": "; ".join(market_problems) or
+                    f"{len(market['trending'])} trending players, {len(market['dropped'])} recent drops"})
+    market["clear_days"] = (lg.get("settings") or {}).get("waiver_clear_days", 1)
+    market["ratios"] = model_ctx["pos_ratios"]
+    market["labels"] = settings.get("labels", {"boom": 1.05, "steady": 1.10})
+
+    # My best lineup, both teams' totals and my win %
+    my_lineup = lineup.build(positions, ctx, lg.get("roster_positions") or [], games,
+                             dict(settings["lineup"], floor_pct=fc["floor_pct"],
+                                  ceiling_pct=fc["ceiling_pct"]),
+                             now, scoring, market)
+
     # Prove the scoring engine on every finished week
     weeks = []
     for past in range(1, week):
@@ -243,7 +334,7 @@ def build(settings, week=None, league_id=None, now=None):
             weeks.append({"week": None, "error": str(err)})
 
     return {
-        "version": 2,
+        "version": 3,
         "generated": now,
         "season": season,
         "week": week,
@@ -259,6 +350,7 @@ def build(settings, week=None, league_id=None, now=None):
                      "blend": settings["blend"], "floor_ceiling": fc,
                      "stale_hours": settings.get("stale", {}).get("data_hours", 36)},
         "positions": positions,
+        "lineup": my_lineup,
         "games": game_list,
     }
 

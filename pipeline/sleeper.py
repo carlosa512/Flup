@@ -38,6 +38,16 @@ def projections(season, week, pos):
                     f"?season_type=regular&position[]={pos}") or []
 
 
+def trending_adds(hours=48, limit=50):
+    """Players added most across all Sleeper leagues lately: [{player_id, count}]."""
+    return get_json(f"{API}/v1/players/nfl/trending/add?lookback_hours={hours}&limit={limit}") or []
+
+
+def transactions(league_id, week):
+    """This league's adds/drops/trades for one week (Sleeper calls it a leg)."""
+    return get_json(f"{API}/v1/league/{league_id}/transactions/{week}") or []
+
+
 def stats(season, week):
     """Actual stat lines for a finished week, same shape as projections."""
     query = "&".join(f"position[]={p}" for p in POSITIONS)
