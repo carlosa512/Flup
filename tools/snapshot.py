@@ -177,23 +177,46 @@ def news_probe(save, out, lid, season, week):
                  "www.rotoballer.com", "bsky.app"):
         save(f"news/robots/{host}.txt", f"https://{host}/robots.txt")
 
-    # Bluesky: find each team's beat writers by their bios, and see one
-    # account's feed both as JSON and as RSS
-    first = None
+    # Bluesky: each team's beat writers are the accounts whose bio names the
+    # team and says beat/covers/reporter. Keep up to 4 per team, with their
+    # latest posts (are they active?). Plus the "NFL beat writers" starter
+    # packs' members.
+    words = ("beat", "cover", "reporter", "insider")
+    found = {}
     for abbr, nick in TEAMS.items():
-        status, body = save(f"news/bsky_search/{abbr}.json",
-                            f"{BSKY}/app.bsky.actor.searchActors?q={nick}%20beat%20writer&limit=25")
-        if status == 200 and first is None:
+        seen = {}
+        for q in (f"{nick} beat", f"{nick} reporter"):
+            status, body = fetch(f"{BSKY}/app.bsky.actor.searchActors?q={q.replace(' ', '%20')}&limit=50")
             try:
-                actors = json.loads(body).get("actors") or []
+                actors = json.loads(body).get("actors") or [] if status == 200 else []
             except ValueError:
                 actors = []
-            first = actors[0]["handle"] if actors else None
-    save("news/bsky_starter_packs.json",
-         f"{BSKY}/app.bsky.graph.searchStarterPacks?q=NFL%20beat%20writers&limit=25")
-    if first:
-        save("news/bsky_author_feed.json", f"{BSKY}/app.bsky.feed.getAuthorFeed?actor={first}&limit=20")
-        save("news/bsky_profile.rss", f"https://bsky.app/profile/{first}/rss")
+            for a in actors:
+                bio = ((a.get("description") or "") + " " + (a.get("displayName") or "")).lower()
+                if nick.lower() in bio and any(w in bio for w in words):
+                    seen.setdefault(a["handle"], {"handle": a["handle"], "name": a.get("displayName"),
+                                                  "bio": a.get("description")})
+        found[abbr] = list(seen.values())[:4]
+        for a in found[abbr]:
+            status, body = fetch(f"{BSKY}/app.bsky.feed.getAuthorFeed?actor={a['handle']}&limit=5")
+            try:
+                posts = json.loads(body).get("feed") or [] if status == 200 else []
+            except ValueError:
+                posts = []
+            a["latest"] = [((x.get("post") or {}).get("record") or {}).get("createdAt") for x in posts]
+    (out / "news").mkdir(exist_ok=True)
+    (out / "news/bsky_beat.json").write_text(json.dumps(found, indent=1))
+    print("Bluesky beat candidates:", {k: len(v) for k, v in found.items()})
+    for uri in ("at://did:plc:pgxejfwpltr73b6amkirahwd/app.bsky.graph.starterpack/3lasn45dohl2n",
+                "at://did:plc:nbzyzqrzjx7ydz2vwxv3j7uw/app.bsky.graph.starterpack/3moleluakei24"):
+        status, body = fetch(f"{BSKY}/app.bsky.graph.getStarterPack?starterPack={uri}")
+        try:
+            lst = json.loads(body)["starterPack"]["list"]["uri"]
+        except (ValueError, KeyError, TypeError):
+            continue
+        save(f"news/bsky_pack_{uri.rsplit('/', 1)[1]}.json",
+             f"{BSKY}/app.bsky.graph.getList?list={lst}&limit=100")
+    save("news/bsky_profile.rss", "https://bsky.app/profile/davebirkett.bsky.social/rss")
 
     # Can the browser call these directly (Refresh button)?
     checks = [cors(u) for u in (
