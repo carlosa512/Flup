@@ -94,6 +94,14 @@
     if (p.roster === lg.opp_rid) return { cls: 'opp', label: 'Opponent', kind: 'opp', team };
     return { cls: '', label: team, kind: 'owned', team };
   }
+  // A small headshot (a team logo for a defense) from Sleeper's image
+  // server; one that doesn't load just disappears
+  function face(p) {
+    const src = p.pos === 'DEF'
+      ? `https://sleepercdn.com/images/team_logos/nfl/${encodeURIComponent((p.team || '').toLowerCase())}.png`
+      : `https://sleepercdn.com/content/nfl/players/thumb/${encodeURIComponent(p.id)}.jpg`;
+    return `<img class="face${p.pos === 'DEF' ? ' logo' : ''}" src="${src}" alt="" loading="lazy" decoding="async" onerror="this.remove()">`;
+  }
   function injClass(s) {
     if (!s) return '';
     return /^(questionable)$/i.test(s) ? 'q' : 'out';
@@ -267,7 +275,7 @@
     return `<li class="player ${o.kind === 'mine' || o.kind === 'opp' ? o.kind : ''}" data-id="${esc(p.id)}">
       <button type="button" class="row" aria-expanded="${isOpen}">
         <span class="rk">${p.rank}</span>
-        <span class="nm">${esc(p.name)}${inj}</span>
+        <span class="nm">${face(p)}${esc(p.name)}${inj}</span>
         ${scoreCell(p)}
         <span class="sub">${sub}</span>
       </button>${isOpen ? detail(p) : ''}</li>`;
@@ -547,7 +555,7 @@
     return `<li class="player ${e.new ? 'new' : ''}" data-id="${esc(p.id)}">
       <button type="button" class="row lu" aria-expanded="${isOpen}">
         ${slot}
-        <span class="nm">${esc(p.name)}${inj}</span>
+        <span class="nm">${face(p)}${esc(p.name)}${inj}</span>
         <span class="pts">${pts(e.pts)}</span>
         <span class="sub">${sub}</span>
         ${why ? `<span class="why">${esc(why)}</span>` : ''}
@@ -708,7 +716,7 @@
     return `<li class="player" data-id="${esc(p.id)}">
       <button type="button" class="row lu" aria-expanded="${isOpen}">
         <span class="slot">${esc(p.pos)}</span>
-        <span class="nm">${esc(p.name)}${inj}</span>
+        <span class="nm">${face(p)}${esc(p.name)}${inj}</span>
         ${scoreCell(p)}
         <span class="sub">${sub}</span>
         <span class="why">${esc(why)}</span>

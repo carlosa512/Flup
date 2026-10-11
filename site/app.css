@@ -367,3 +367,8 @@ ul.adj small { display: block; color: var(--muted); font-size: .85rem; }
 .grp-fa .slot { background: color-mix(in srgb, var(--fa-chip) 16%, transparent); color: var(--fa-chip); }
 .grp-opp .player { box-shadow: inset 4px 0 0 var(--opp-chip), var(--raise); }
 .their > summary .dot { flex: none; }
+.face {
+  width: 26px; height: 26px; border-radius: 50%; object-fit: cover; object-position: top;
+  vertical-align: -7px; margin-right: 8px; background: var(--pill);
+}
+.face.logo { object-fit: contain; padding: 2px; background: #fff; }
