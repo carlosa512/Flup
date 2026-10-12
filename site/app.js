@@ -120,7 +120,7 @@
     return '';
   }
   // A small padlock: his game is on or over, so Sleeper has locked him
-  const LOCK = '<svg class="lock" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>';
+  const LOCK = '<svg class="lock" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>';
   // "Played" / "Live" / "Started" with the lock, or the kickoff time before then
   function gameChip(p, state) {
     if (state) return `<span class="played">${LOCK}${state}</span>`;
@@ -1053,6 +1053,7 @@
     const lv = liveOf(p);
     if (lv) return lv.state === 'final' ? 'Played' : 'Live';
     const g = p && live && live.games && live.games[p.team];  // the live scoreboard has every game
+    if (g && /POSTPONED|CANCELED/.test(g.status || '')) return '';  // ESPN files these as 'post'
     if (g && (g.completed || g.state === 'post')) return 'Played';
     if (g && g.state === 'in') return 'Live';
     return gameState(p) || (p && (startedSince(p) || p.actual) ? 'Started' : '');
