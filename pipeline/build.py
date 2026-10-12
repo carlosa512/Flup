@@ -115,8 +115,9 @@ CLINCHED = {"*": "the #1 seed", "z": "its division", "y": "a wild card spot", "x
 
 def add_rest_flags(positions, standings, week, cfg):
     """Late in the season, players on teams that have clinched (settings
-    [rest] clinchers, "*" = the #1 seed) may sit: flag them, no points off.
-    Returns how many players were flagged."""
+    [rest] clinchers, "*" = the #1 seed, "z" = the division) may sit: flag
+    them, no points off. Only the #1 seed's place is surely settled; for the
+    others the flag says so. Returns how many players were flagged."""
     weeks = cfg.get("weeks") or []
     if week not in weeks:
         return 0
@@ -127,7 +128,9 @@ def add_rest_flags(positions, standings, week, cfg):
         for p in block["players"]:
             mark = (standings.get(p.get("team")) or {}).get("clincher")
             if mark and mark in (cfg.get("clinchers") or []):
-                p["rest"] = f"{p['team']} has clinched {CLINCHED.get(mark, 'a playoff spot')}: starters may rest {when}."
+                maybe = "" if mark == "*" else " if its seed is locked"
+                p["rest"] = (f"{p['team']} has clinched {CLINCHED.get(mark, 'a playoff spot')}: "
+                             f"starters may rest {when}{maybe}.")
                 n += 1
     return n
 

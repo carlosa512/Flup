@@ -153,9 +153,10 @@ injury_news_hours = 24
 # Late in the season, players on teams that have clinched may sit. They're
 # flagged on the card (no points off) in these weeks (17 = your final).
 weeks = [16, 17]
-# ESPN clinch marks that count: "*" = clinched the #1 seed (the only bye).
-# Add "z" (won the division) to flag more teams.
-clinchers = ["*"]
+# ESPN clinch marks that count: "*" = clinched the #1 seed (the only bye),
+# "z" = won the division (its seed may still be in play, so the card says
+# "if its seed is locked"). Add "y"/"x" to flag wild cards too.
+clinchers = ["*", "z"]
 
 [news]
 # Links per player: headline, source, date and link only, newest first.
