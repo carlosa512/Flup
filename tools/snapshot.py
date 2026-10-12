@@ -101,6 +101,7 @@ def main():
 
     news_probe(save, out, lid, season, week)
     phase5_probe(save, out, season)
+    beat_check(out)
 
     (out / "index.json").write_text(json.dumps(
         {"season": season, "week": week, "taken_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
@@ -283,3 +284,45 @@ def phase5_probe(save, out, season):
 
 if __name__ == "__main__":
     main()
+
+
+# ---------- Beat writers: is each Bluesky account in settings.toml
+# [news.beat] (plus candidates for teams with few or none) real and posting?
+# Own posts only (reposts don't count), over the last 14 days. ----------
+
+BEAT_CANDIDATES = [
+]
+
+
+def beat_check(out):
+    import tomllib
+    cfg = tomllib.loads((Path(__file__).resolve().parent.parent / "settings.toml").read_text())
+    beat = (cfg.get("news") or {}).get("beat") or {}
+    todo = {(t, h): "configured" for t, hs in beat.items() for h in hs}
+    for t, h in BEAT_CANDIDATES:
+        todo.setdefault((t, h), "candidate")
+    since = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(time.time() - 14 * 86400))
+    rows = []
+    for (team, handle), kind in sorted(todo.items()):
+        row = {"team": team, "handle": handle, "kind": kind}
+        status, body = fetch(f"{BSKY}/app.bsky.actor.getProfile?actor={handle}")
+        try:
+            prof = json.loads(body) if status == 200 else {}
+        except ValueError:
+            prof = {}
+        row.update(status=status, name=prof.get("displayName"), bio=prof.get("description"),
+                   posts=prof.get("postsCount"))
+        status, body = fetch(f"{BSKY}/app.bsky.feed.getAuthorFeed?actor={handle}&limit=50&filter=posts_no_replies")
+        try:
+            feed = json.loads(body).get("feed") or [] if status == 200 else []
+        except ValueError:
+            feed = []
+        own = [((x.get("post") or {}).get("record") or {}).get("createdAt") or "" for x in feed
+               if not x.get("reason") and ((x.get("post") or {}).get("author") or {}).get("handle") == handle]
+        row.update(latest=max(own, default=None), last_14_days=sum(1 for t in own if t >= since))
+        rows.append(row)
+    (out / "news").mkdir(exist_ok=True)
+    (out / "news/bsky_beat_check.json").write_text(json.dumps(rows, indent=1))
+    quiet = [f"{r['team']} {r['handle']}" for r in rows if r["kind"] == "configured" and not r["last_14_days"]]
+    print(f"Beat writers checked: {len(rows)}; configured with no posts in 14 days: {quiet}")
+
