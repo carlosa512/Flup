@@ -119,6 +119,13 @@
     if (/IN_PROGRESS|HALFTIME|END_PERIOD/.test(s)) return 'Live';
     return '';
   }
+  // A small padlock: his game is on or over, so Sleeper has locked him
+  const LOCK = '<svg class="lock" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>';
+  // "Played" / "Live" / "Started" with the lock, or the kickoff time before then
+  function gameChip(p, state) {
+    if (state) return `<span class="played">${LOCK}${state}</span>`;
+    return p.kickoff ? `<span>${esc(when(p.kickoff))}</span>` : '';
+  }
   function gameText(p) {
     if (!p.opp) return p.team;
     return p.team + (p.home === false ? ' @ ' : ' vs ') + p.opp;
@@ -274,7 +281,7 @@
     const isOpen = open.has(p.id);
     const sub = [
       `<span>${esc(gameText(p))}</span>`,
-      state ? `<span class="played">${state}</span>` : (p.kickoff ? `<span>${esc(when(p.kickoff))}</span>` : ''),
+      gameChip(p, state),
       `<span class="chip ${o.cls}" title="${esc(o.team || o.label)}">${esc(o.label)}</span>`,
     ].join('');
     return `<li class="player ${o.kind === 'mine' || o.kind === 'opp' ? o.kind : ''}" data-id="${esc(p.id)}">
@@ -532,7 +539,8 @@
   // The data is a snapshot. Between updates, a player whose kickoff has
   // passed is locked in Sleeper even though the data says "not started".
   function startedSince(p) {
-    return !!(p && p.kickoff && !gameState(p) && Date.now() >= Date.parse(p.kickoff));
+    return !!(p && p.kickoff && !gameState(p) && !/POSTPONED|CANCELED/.test(p.game_status || '')
+      && Date.now() >= Date.parse(p.kickoff));
   }
   const startedId = (id) => startedSince(index.get(id));
   const nameOf = (id) => (index.get(id) || {}).name || 'Unknown player';
@@ -562,11 +570,11 @@
     const sideNow = live && live[side];
     const benched = !!(on && sideNow && !sideNow.rows.some((r) => r.id === e.id));
     const lv = on && !benched ? lvr : null;
-    const st = lv ? lv.state : e.state;
+    const st = on ? lvr.state : e.state;  // benched or not, his game is on or over
     const state = st === 'final' ? 'Played' : st === 'live' ? 'Live' : startedSince(p) ? 'Started' : '';
     const sub = [
       `<span>${esc(gameText(p))}</span>`,
-      state ? `<span class="played">${state}</span>` : (p.kickoff ? `<span>${esc(when(p.kickoff))}</span>` : ''),
+      gameChip(p, state),
       e.new && !benched ? '<span class="chip new">New</span>' : '',
       benched ? '<span class="stale">Not in your Sleeper lineup</span>' : '',
       p.rest ? '<span class="stale">May rest</span>' : '',
@@ -665,7 +673,7 @@
     if (!L.changes.length && !moves.length) return '<p class="note done">✓ Your Sleeper lineup already matches.</p>';
     // Slides first: they open up the slot a newcomer goes into
     const locked = (text, ids) => (ids.some(startedId)
-      ? `<s>${text}</s> <span class="gone">game started, Sleeper has locked it</span>` : text);
+      ? `<s>${text}</s> <span class="gone">${LOCK}game started, Sleeper has locked it</span>` : text);
     const items = moves.map((m) => locked(`Move <b>${esc(nameOf(m.id))}</b> to ${esc(m.to)}`, [m.id])).concat(L.changes.map((c) => {
       const ids = [c.in, c.out].filter(Boolean);
       if (c.in && c.out) return locked(`Start <b>${esc(nameOf(c.in))}</b> for ${esc(nameOf(c.out))}`, ids);
@@ -742,7 +750,7 @@
     const state = stateWord(p);
     const sub = [
       `<span>${esc(gameText(p))}</span>`,
-      state ? `<span class="played">${state}</span>` : (p.kickoff ? `<span>${esc(when(p.kickoff))}</span>` : ''),
+      gameChip(p, state),
       labelChip(item.label), p.rest ? '<span class="stale">May rest</span>' : '', extra || '',
     ].join('');
     const isOpen = open.has(p.id);
@@ -756,6 +764,9 @@
       </button>${isOpen ? detail(p) : ''}</li>`;
   }
 
+  // A free agent's line once his game is on or over (the data run's line
+  // says "No game this week" for a postponed one)
+  const GONE = { Played: 'Game played', Live: 'Playing now', Started: 'Game started' };
   function pickups(L) {
     let html = '';
     const bench = L.bench_flex || [];
@@ -778,7 +789,7 @@
         }
         const adds = Number(f.trending) || 0;
         if (adds) extra += `<span>${esc(bigCount(adds))} adds in 2 days</span>`;
-        return pickRow(f, startedId(f.id) ? 'His game has started: one to grab for later weeks' : f.why, extra);
+        return pickRow(f, GONE[stateWord(index.get(f.id) || {})] || f.why, extra);
       }).join('')}</ul>`;
     }
     // Phones can't show hover tips, so the labels are explained once in words
@@ -1035,7 +1046,8 @@
     return null;
   }
   const liveTime = () => (live ? live.at : null);
-  // "Live" / "Played" for display: live data first, else the data run's.
+  // "Live" / "Played" for display: live data first, else the data run's;
+  // "Started" once his kickoff has passed (or he has points) without either.
   // (Locking moves still goes by the data run's times: see startedSince.)
   function stateWord(p) {
     const lv = liveOf(p);
@@ -1043,7 +1055,7 @@
     const g = p && live && live.games && live.games[p.team];  // the live scoreboard has every game
     if (g && (g.completed || g.state === 'post')) return 'Played';
     if (g && g.state === 'in') return 'Live';
-    return gameState(p);
+    return gameState(p) || (p && (startedSince(p) || p.actual) ? 'Started' : '');
   }
 
   // Games on now (or just over) with a starter from either side
@@ -1323,12 +1335,12 @@
   $('#refresh-btn').addEventListener('click', () => refresh(true));
   // While games with our starters are on: live scores every 2 minutes
   setInterval(() => { if (document.visibilityState === 'visible') refreshLive(false); }, 120000);
-  // Kickoffs pass while the page is open: redraw the lineup when one does
+  // Kickoffs pass while the page is open: redraw the open view when one does
   let startedCount = -1;
   setInterval(() => {
-    if (!data || !data.lineup || view !== 'lineup' || document.visibilityState !== 'visible') return;
+    if (!data || document.visibilityState !== 'visible') return;
     const n = [...index.values()].filter(startedSince).length;
-    if (n !== startedCount) { startedCount = n; renderLineup(); }
+    if (n !== startedCount) { startedCount = n; renderView(); }
   }, 60000);
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState !== 'visible' || !data) return;

@@ -573,9 +573,11 @@ def pickups(slots, entries, bench, by_id, value, mode, cfg, market, now, phase_o
     for p in by_id.values():
         if p["roster"] is not None or p.get("flag") in OUT_STATUSES or not p.get("opp"):
             continue
-        can_start = phase_of(p) == "pre"
+        state = phase_of(p)
+        can_start = state == "pre"
         g, low, hole, text = compare(p) if can_start else (None, None, None, "")
-        rows.append({"p": p, "can_start": can_start, "gap": g, "low": low, "hole": hole, "text": text})
+        rows.append({"p": p, "state": state, "can_start": can_start, "gap": g, "low": low, "hole": hole,
+                     "text": text})
     worth = sorted((r for r in rows if r["gap"] is not None and r["gap"] > 0), key=lambda r: -r["gap"])
     rest = sorted((r for r in rows if r not in worth and r["p"]["pos"] in ("RB", "WR", "TE")),
                   key=lambda r: (not r["can_start"], -value(r["p"]), r["p"]["name"]))
@@ -593,7 +595,7 @@ def pickups(slots, entries, bench, by_id, value, mode, cfg, market, now, phase_o
     for r in chosen:
         p = r["p"]
         if not r["can_start"]:
-            why = "His game has started: one to grab for later weeks"
+            why = {"final": "Game played", "live": "Playing now"}.get(r["state"], "No game this week")
         elif r["gap"] is not None and r["gap"] > 0:
             why = r["text"]
         else:
