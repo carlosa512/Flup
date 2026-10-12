@@ -295,4 +295,16 @@ Candidates (Claude's suggestions):
    `controllerchange`). Reload once when the new version takes over.
 2. Monday night check (2026-10-12): confirm the new Thu/Mon-night
    scheduled runs actually fire (Actions history the next morning).
-3. Whatever bugged the owner while using the app on Sunday 2026-10-11.
+3. Owner feedback (2026-10-12), plan proposed, waiting for OK:
+   - Lock icon on the Played/Live/Started chip for every player whose
+     game has started (Tiers, both lineups, bench, free agents). A small
+     drawn padlock, not the emoji (it already means "paywall" in news).
+     Also show "Started" on Tiers/free-agent rows once kickoff passes
+     (today they keep the kickoff time until fresh data).
+   - Free agents who played: "Game played" / "Playing now" instead of
+     "His game has started: one to grab for later weeks"
+     (pipeline/lineup.py, site/app.js, tests/test_lineup.py). Postponed
+     games say "No game this week" (today they wrongly say started).
+4. Spec leftovers: beat-writer list unverified, none for ATL, DAL, LAC,
+   TEN; rest flag only for the #1 seed (`[rest]` could add division
+   winners "z"); EPA from the spec is unused (no decision recorded).
