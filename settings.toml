@@ -170,18 +170,22 @@ paywalled = ["nytimes.com/athletic", "theathletic.com", "4for4.com",
              "sharpfootballanalysis.com", "fantasylife.com"]
 
 [news.beat]
-# Bluesky beat writers per team (Sleeper abbreviations). Drafted 2026-10-11
-# from Bluesky bios: UNVERIFIED, fix any that are wrong. None found for
-# ATL, DAL, LAC, TEN.
+# Bluesky beat writers per team (Sleeper abbreviations). Checked 2026-10-12
+# on GitHub's runner (tools/snapshot.py beat_check: bio names the team, own
+# posts in the last 14 days). Nobody covering LAC posts on Bluesky now
+# (elliottteaford, OC Register, last posted Sep 14); ATL's beat writers are
+# quiet there too, so ATL uses SB Nation's Falcons account.
 ARI = ["darrenurban.bsky.social"]                              # Cardinals.com
+ATL = ["thefalcoholic.bsky.social"]                            # SB Nation
 BAL = ["giana-jade.bsky.social"]                               # Baltimore Banner
 BUF = ["joebuscaglia.bsky.social"]                             # The Athletic
 CAR = ["mikekayefootball.bsky.social"]                         # ESPN
 CHI = ["seanhammond.bsky.social", "kfishbain.bsky.social"]     # Tribune, The Athletic
 CIN = ["bbaby41.bsky.social", "laurelpfahler.bsky.social"]     # ESPN, Dayton Daily News
 CLE = ["ashleybastock42.bsky.social"]                          # cleveland.com
+DAL = ["saadyousuf126.bsky.social"]                            # The Athletic
 DEN = ["parkerjgabriel.bsky.social"]                           # Denver Post
-DET = ["davebirkett.bsky.social", "coltonpouncy.bsky.social"]  # Free Press, The Athletic
+DET = ["davebirkett.bsky.social"]                              # Free Press
 GB = ["tspoon62.bsky.social"]                                  # Milwaukee Journal Sentinel
 HOU = ["aaronwilsonnfl.bsky.social"]                           # KPRC 2
 IND = ["joelaerickson.bsky.social", "jakearthurnfl.bsky.social"]  # IndyStar, Roundtable
@@ -196,8 +200,9 @@ NO = ["nickunderhill.bsky.social"]                             # NewOrleans.Foot
 NYG = ["evanbarnes.bsky.social"]                               # Newsday
 NYJ = ["antwanstaley.bsky.social"]                             # NY Daily News
 PHI = ["jeff-neiburg.bsky.social", "timmcmanus42.bsky.social"] # Inquirer, ESPN
-PIT = ["mikedefabo.bsky.social", "bepryor.bsky.social"]        # The Athletic, ESPN
+PIT = ["mikedefabo.bsky.social"]                               # The Athletic
 SF = ["mattbarrows.bsky.social", "mattmaiocco.bsky.social"]    # The Athletic, NBC Sports BA
 SEA = ["johnpboyle.bsky.social"]                               # Seahawks.com
 TB = ["jennalaine.bsky.social"]                                # ESPN
+TEN = ["jwyattsports.bsky.social", "paulkuharsky.bsky.social"] # Titans site, PaulKuharsky.com
 WAS = ["tashanreed.bsky.social"]                               # Washington Post

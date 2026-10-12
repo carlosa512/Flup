@@ -304,26 +304,25 @@ the lock everywhere for consistency):
 3. Built: the "may rest" flag also covers division winners (`[rest]
    clinchers = ["*", "z"]`). Their line adds "if its seed is locked":
    only the #1 seed's place is surely settled.
-4. In progress: beat writers. tools/snapshot.py now checks every
-   configured Bluesky account plus candidates on GitHub's runner (own
-   posts in the last 14 days: `news/bsky_beat_check.json` on
-   dev-snapshots), and fetches three other free per-team feeds for ATL,
-   DAL, LAC, TEN (`news/feeds/`). Web research (2026-10-12) confirmed 28
-   of the 39 configured handles; 11 weren't checked. Candidates:
-   - ATL: willmcfadden (Falcons site), marcraimondi (ESPN, quiet on
-     Bluesky), danielflick (AJC since May 2026), thefalcoholic (SB Nation)
-   - DAL: saadyousuf126 (The Athletic, active Oct 2026), calvinwatkins and
-     joejhoyt (Dallas Morning News, quiet)
-   - LAC: elliottteaford (OC Register)
-   - TEN: paulkuharsky (PaulKuharsky.com), jwyattsports (Titans site).
-     Teresa Walker (AP) has retired.
-   - League-wide accounts that would cover every team: rotoworld-fb,
-     rotowirenfl, rapsheet, insidenflnews, nflnewsposter (needs a small
-     news.py change: they're not per team).
-   Other free sources: official team sites (`www.<club>.com/rss/news`),
-   SB Nation blogs (`www.<blog>.com/rss/index.xml`), Google News search
-   RSS (redirect links, so the paywall tag can't match; undocumented,
-   may rate-limit). The owner picks once the runner's results are in.
+4. Beat writers, checked on GitHub's runner 2026-10-12 (tools/snapshot.py
+   beat_check: `news/bsky_beat_check.json` on dev-snapshots). 37 of the 39
+   configured accounts are real and posting; dropped the 2 quiet ones
+   (DET coltonpouncy, last post May 2026; PIT bepryor, Mar 2025). Added:
+   DAL saadyousuf126 (The Athletic), TEN jwyattsports (Titans site) and
+   paulkuharsky, ATL thefalcoholic (SB Nation; ATL's beat writers don't
+   post on Bluesky now). LAC: nobody active (elliottteaford last posted
+   Sep 14). Now 31 of 32 teams.
+   Other free sources, all reached from the runner (`news/feeds/`), for
+   the owner to pick from (each needs a small news.py change):
+   - Official team sites, `www.<club>.com/rss/news` (RSS, 35-100 items,
+     inactives and injury posts). Covers all 32 incl. LAC.
+   - League-wide Bluesky accounts, all very active: rotowirenfl and
+     rotoworld-fb (fantasy news), rapsheet (Ian Rapoport), plus two
+     repost bots (insidenflnews, nflnewsposter).
+   - SB Nation team blogs, `www.<blog>.com/rss/index.xml` (Atom, 10
+     entries; fan sites).
+   - Google News search RSS (100 items, but redirect links, so the
+     paywall tag can't match; undocumented, may rate-limit).
 5. EPA: the original request says "nflverse ... routes ... EPA". nflverse
    was dropped (routes aren't free), so EPA never came in. The owner
    doesn't remember asking; parked unless they want it.
