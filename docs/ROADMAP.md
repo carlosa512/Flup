@@ -288,23 +288,45 @@ Decisions (owner, 2026-10-11), all built and merged:
    silhouette while loading or when there's no photo.
 
 ## Phase 5b: more polish (on `claude/phase-5-polish`, restarted from main)
-Light plan, 2026-10-12. Waiting for the owner to pick; nothing built yet.
-Candidates (Claude's suggestions):
-1. One-open updates: after a deploy the app still opens the old version
-   once (sw.js calls skipWaiting, but app.js never reloads on
-   `controllerchange`). Reload once when the new version takes over.
-2. Monday night check (2026-10-12): confirm the new Thu/Mon-night
-   scheduled runs actually fire (Actions history the next morning).
-3. Owner feedback (2026-10-12), plan proposed, waiting for OK:
-   - Lock icon on the Played/Live/Started chip for every player whose
-     game has started (Tiers, both lineups, bench, free agents). A small
-     drawn padlock, not the emoji (it already means "paywall" in news).
-     Also show "Started" on Tiers/free-agent rows once kickoff passes
-     (today they keep the kickoff time until fresh data).
-   - Free agents who played: "Game played" / "Playing now" instead of
-     "His game has started: one to grab for later weeks"
-     (pipeline/lineup.py, site/app.js, tests/test_lineup.py). Postponed
-     games say "No game this week" (today they wrongly say started).
-4. Spec leftovers: beat-writer list unverified, none for ATL, DAL, LAC,
-   TEN; rest flag only for the #1 seed (`[rest]` could add division
-   winners "z"); EPA from the spec is unused (no decision recorded).
+Owner's picks, 2026-10-12 ("Playing now" to match the starters' rows;
+the lock everywhere for consistency):
+
+1. Built, on the preview: a small drawn padlock (not the emoji, which
+   already means "paywall" in news) before Played / Live / Started on
+   every player row (Tiers, both lineups, bench, free agents) and on
+   crossed-out moves. Tiers and free-agent rows say Started once kickoff
+   passes (or he has points) instead of the kickoff time. Postponed or
+   canceled games never count as started (ESPN files them as state
+   "post", so the live scoreboard is checked for that first).
+2. Built: free agents whose game is on or over say "Playing now" /
+   "Game played" / "Game started"; postponed: "No game this week" (was
+   "His game has started: one to grab for later weeks").
+3. Built: the "may rest" flag also covers division winners (`[rest]
+   clinchers = ["*", "z"]`). Their line adds "if its seed is locked":
+   only the #1 seed's place is surely settled.
+4. In progress: beat writers. tools/snapshot.py now checks every
+   configured Bluesky account plus candidates on GitHub's runner (own
+   posts in the last 14 days: `news/bsky_beat_check.json` on
+   dev-snapshots), and fetches three other free per-team feeds for ATL,
+   DAL, LAC, TEN (`news/feeds/`). Web research (2026-10-12) confirmed 28
+   of the 39 configured handles; 11 weren't checked. Candidates:
+   - ATL: willmcfadden (Falcons site), marcraimondi (ESPN, quiet on
+     Bluesky), danielflick (AJC since May 2026), thefalcoholic (SB Nation)
+   - DAL: saadyousuf126 (The Athletic, active Oct 2026), calvinwatkins and
+     joejhoyt (Dallas Morning News, quiet)
+   - LAC: elliottteaford (OC Register)
+   - TEN: paulkuharsky (PaulKuharsky.com), jwyattsports (Titans site).
+     Teresa Walker (AP) has retired.
+   - League-wide accounts that would cover every team: rotoworld-fb,
+     rotowirenfl, rapsheet, insidenflnews, nflnewsposter (needs a small
+     news.py change: they're not per team).
+   Other free sources: official team sites (`www.<club>.com/rss/news`),
+   SB Nation blogs (`www.<blog>.com/rss/index.xml`), Google News search
+   RSS (redirect links, so the paywall tag can't match; undocumented,
+   may rate-limit). The owner picks once the runner's results are in.
+5. EPA: the original request says "nflverse ... routes ... EPA". nflverse
+   was dropped (routes aren't free), so EPA never came in. The owner
+   doesn't remember asking; parked unless they want it.
+6. Still open: reload once when a new version takes over (first open
+   after a deploy shows the old app), and check that the Thu/Mon-night
+   scheduled runs fire (Monday 2026-10-12, Actions history).

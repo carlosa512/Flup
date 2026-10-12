@@ -101,7 +101,7 @@ def main():
 
     news_probe(save, out, lid, season, week)
     phase5_probe(save, out, season)
-    beat_check(out)
+    beat_check(save, out)
 
     (out / "index.json").write_text(json.dumps(
         {"season": season, "week": week, "taken_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
@@ -282,19 +282,40 @@ def phase5_probe(save, out, season):
              f"https://site.api.espn.com/apis/v2/sports/football/nfl/standings?season={yr}")
 
 
-if __name__ == "__main__":
-    main()
-
-
 # ---------- Beat writers: is each Bluesky account in settings.toml
 # [news.beat] (plus candidates for teams with few or none) real and posting?
 # Own posts only (reposts don't count), over the last 14 days. ----------
 
 BEAT_CANDIDATES = [
+    ("ATL", "willmcfadden.bsky.social"), ("ATL", "marcraimondi.bsky.social"),
+    ("ATL", "danielflick.bsky.social"), ("ATL", "thefalcoholic.bsky.social"),
+    ("ATL", "falcfans.bsky.social"),
+    ("DAL", "saadyousuf126.bsky.social"), ("DAL", "calvinwatkins.bsky.social"),
+    ("DAL", "joejhoyt.bsky.social"), ("DAL", "jctsports.bsky.social"),
+    ("LAC", "elliottteaford.bsky.social"), ("LAC", "realframirez.bsky.social"),
+    ("TEN", "paulkuharsky.bsky.social"), ("TEN", "jwyattsports.bsky.social"),
+    # League-wide news accounts: would cover every team at once
+    ("ALL", "rotoworld-fb.bsky.social"), ("ALL", "rotowirenfl.bsky.social"),
+    ("ALL", "rapsheet.bsky.social"), ("ALL", "insidenflnews.bsky.social"),
+    ("ALL", "nflnewsposter.bsky.social"),
 ]
+# Other free per-team feeds to try (official team site, SB Nation blog,
+# Google News search), for the four teams with no beat writer yet
+TEAM_FEEDS = {
+    "ATL": ("atlantafalcons", "thefalcoholic", "Atlanta Falcons"),
+    "DAL": ("dallascowboys", "bloggingtheboys", "Dallas Cowboys"),
+    "LAC": ("chargers", "boltsfromtheblue", "Los Angeles Chargers"),
+    "TEN": ("tennesseetitans", "musiccitymiracles", "Tennessee Titans"),
+}
 
 
-def beat_check(out):
+def beat_check(save, out):
+    for team, (club, blog, name) in TEAM_FEEDS.items():
+        save(f"news/feeds/{team}_team_site.xml", f"https://www.{club}.com/rss/news")
+        save(f"news/feeds/{team}_sbnation.xml", f"https://www.{blog}.com/rss/index.xml")
+        q = f"%22{name.replace(' ', '%20')}%22%20when:2d"
+        save(f"news/feeds/{team}_google_news.xml",
+             f"https://news.google.com/rss/search?q={q}&hl=en-US&gl=US&ceid=US:en")
     import tomllib
     cfg = tomllib.loads((Path(__file__).resolve().parent.parent / "settings.toml").read_text())
     beat = (cfg.get("news") or {}).get("beat") or {}
@@ -326,3 +347,5 @@ def beat_check(out):
     quiet = [f"{r['team']} {r['handle']}" for r in rows if r["kind"] == "configured" and not r["last_14_days"]]
     print(f"Beat writers checked: {len(rows)}; configured with no posts in 14 days: {quiet}")
 
+if __name__ == "__main__":
+    main()
