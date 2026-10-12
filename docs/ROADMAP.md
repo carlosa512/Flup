@@ -268,11 +268,10 @@ agents), `claude {text, written, changed?}` (from inputs/writeups.json).
 math in the browser; `refresh {crons, repo, scheduled}` for "next update";
 `settings.stale_game_day_hours`, `settings.injury_news_hours`.
 
-## Phase 5: polish (building on `claude/phase-5-polish`)
-Phase 4 merged as PR #6 on 2026-10-11.
+## Phase 5: polish (merged, PR #9)
+Phase 4 merged as PR #6 on 2026-10-11; Phase 5 as PR #9 the same day.
 
-Decisions (owner, 2026-10-11) and status, all built, waiting for the owner
-to try the preview:
+Decisions (owner, 2026-10-11), all built and merged:
 1. Week 17 rest flag: players on a team that has clinched the #1 seed
    (ESPN standings clincher "*"), flag only, shown in weeks 16-17
    (settings `[rest]`). Card warning, "May rest" chip, Copy for Claude line.
@@ -287,3 +286,13 @@ to try the preview:
    image server (`sleepercdn.com/content/nfl/players/thumb/<id>.jpg`, team
    logos `images/team_logos/nfl/<team>.png` for DEF), no key, a grey
    silhouette while loading or when there's no photo.
+
+## Phase 5b: more polish (on `claude/phase-5-polish`, restarted from main)
+Light plan, 2026-10-12. Waiting for the owner to pick; nothing built yet.
+Candidates (Claude's suggestions):
+1. One-open updates: after a deploy the app still opens the old version
+   once (sw.js calls skipWaiting, but app.js never reloads on
+   `controllerchange`). Reload once when the new version takes over.
+2. Monday night check (2026-10-12): confirm the new Thu/Mon-night
+   scheduled runs actually fire (Actions history the next morning).
+3. Whatever bugged the owner while using the app on Sunday 2026-10-11.
