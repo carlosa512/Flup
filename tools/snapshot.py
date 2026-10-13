@@ -84,8 +84,9 @@ def main():
              + "&".join(f"position[]={p}" for p in POSITIONS), gz=True)
     # Backtests: Sleeper's own weekly projections for every finished week,
     # last season and this one, to test new inputs (nflverse EPA, WOPR...)
-    # against what Sleeper already projected
-    for yr, last in ((prev_season, 18), (season, int(week) - 1)):
+    # against what Sleeper already projected (this week too: once it is
+    # over, it can be compared with a copy saved before the games)
+    for yr, last in ((prev_season, 18), (season, int(week))):
         for past in range(1, last + 1):
             save(f"sleeper/proj_{yr}_{past}_all.json",
                  f"{SLEEPER}/projections/nfl/{yr}/{past}?season_type=regular&"
