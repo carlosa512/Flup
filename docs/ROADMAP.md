@@ -420,3 +420,29 @@ Tested: Playwright at iPhone 13 on week 6 data (Judkins → Croskey-Merritt,
 DEF → a free agent, Undo), on the 2026-10-11 3:32 PM live capture (9 locked
 starters, only the late-game WR swappable; the swap dropped at his
 kickoff), and a fake deploy (one automatic reload, none without a change).
+
+## Phase 7: advanced data (backtest done, waiting for the owner's OK)
+Owner (2026-10-13): "go ahead and start that next step" (nflverse EPA etc.,
+added only if a backtest shows it helps start/sit or boom/bust).
+
+Built: `tools/backtest.py` (dev only) rebuilds Predicted week by week for a
+past season from Sleeper's stored pre-game projections and checks it
+against real results, out of sample; tools/snapshot.py now also saves
+every finished week's projections and the season before last's stats.
+Full results and method: [docs/BACKTEST.md](BACKTEST.md).
+
+Findings (2025): nflverse's EPA, CPOE, aDOT, RACR etc. don't make Predicted
+more accurate (Sleeper's projection already has it). WOPR spots reliable
+pass catchers (TEs clearly), and it can be worked out from Sleeper's own
+targets and air yards: no new source needed. Bigger wins are fixes to the
+current model: usage trend and RB/WR matchup don't help; the return man
+rule points the wrong way; the spread (sd, floor, ceiling) is about 1.2×
+too narrow, so win % is a bit too sure.
+
+Proposed (each held up in both halves of 2025):
+1. Turn off the usage trend (weight 0) and matchup for RB/WR.
+2. Return men: the projection's return points count twice; no yards added
+   when the projection has none.
+3. Spread × 1.2 (sd, and floor/ceiling's distance from Predicted).
+4. Steady for TEs (maybe WRs) from WOPR, worked out from Sleeper's stats.
+
