@@ -41,3 +41,33 @@ def test_saturdays_only_in_december_and_january():
     # Saturday 2026-12-19: every 30 minutes from about 1 PM ET
     assert next_run.next_slot(crons, datetime(2026, 12, 19, 17, 0, tzinfo=UTC)) == \
         datetime(2026, 12, 19, 17, 7, tzinfo=UTC)
+
+
+def run_main(monkeypatch, capsys, now, hours=5.5):
+    slept = []
+
+    class Clock(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return now
+
+    monkeypatch.setattr(next_run, "datetime", Clock)
+    monkeypatch.setattr(next_run.time, "sleep", slept.append)
+    monkeypatch.setattr(sys, "argv", ["next_run.py", "--wait", str(hours)])
+    next_run.main()
+    return capsys.readouterr().out.strip(), slept
+
+
+def test_a_link_that_starts_just_after_a_slot_still_takes_it(monkeypatch, capsys):
+    # Sunday 18:37:40Z: the 18:37 slot passed 40 seconds ago
+    out, slept = run_main(monkeypatch, capsys, datetime(2026, 10, 18, 18, 37, 40, tzinfo=UTC))
+    assert out == "due=true" and slept == [0.0]
+
+
+def test_a_far_off_slot_hands_over_ten_minutes_early(monkeypatch, capsys):
+    # Friday 2026-10-16 12:00Z: next is Friday 22:07Z (about 6 PM Eastern), 10 h away
+    out, slept = run_main(monkeypatch, capsys, datetime(2026, 10, 16, 12, 0, tzinfo=UTC))
+    assert out == "due=false" and slept == [5.5 * 3600]
+    # 5 h 35 min before it: wait 5 h 25 min, so the next link wakes 10 min ahead
+    out, slept = run_main(monkeypatch, capsys, datetime(2026, 10, 16, 16, 32, tzinfo=UTC))
+    assert out == "due=false" and slept == [5 * 3600 + 25 * 60]

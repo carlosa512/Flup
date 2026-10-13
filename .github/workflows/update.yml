@@ -42,13 +42,35 @@ on:
 
 permissions:
   contents: write
+  actions: read     # the gate below lists recent runs
 
 concurrency:
   group: update-data
   cancel-in-progress: false
 
 jobs:
+  # A scheduled run (GitHub starts them 5-45 min late) has nothing to do if
+  # the Ticker already ran an update in the last 25 minutes
+  gate:
+    runs-on: ubuntu-latest
+    outputs:
+      skip: ${{ steps.check.outputs.skip }}
+    steps:
+      - id: check
+        if: github.event_name == 'schedule'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          last=$(gh run list -R "$GITHUB_REPOSITORY" --workflow update.yml --branch main --limit 5 \
+            --json databaseId,createdAt --jq "[.[] | select(.databaseId != $GITHUB_RUN_ID)][0].createdAt // empty" || true)
+          if [ -n "$last" ] && [ $(( $(date +%s) - $(date -d "$last" +%s) )) -lt 1500 ]; then
+            echo "An update started at $last: skipping this scheduled run"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          fi
+
   update:
+    needs: gate
+    if: needs.gate.outputs.skip != 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:

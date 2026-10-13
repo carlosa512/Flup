@@ -4,7 +4,7 @@
 # update.yml, start the next link. GitHub's own token may start "Run
 # workflow" events, so no key is needed, and runner time is free on a public
 # repo. If the chain breaks, the schedule below restarts it; update.yml's own
-# schedule keeps running as before either way.
+# schedule keeps running as before (it skips a slot the Ticker already ran).
 name: Ticker
 
 on:
@@ -19,11 +19,13 @@ permissions:
   actions: write
   contents: read
 
-# One link at a time: a new one (the restart schedule, a manual run)
-# replaces one that's waiting
+# One link at a time. A new link replaces the one before it; a scheduled
+# restart only waits its turn (it runs right away when the chain is broken,
+# and the chain's next link replaces it otherwise), so it never cuts off a
+# link that's about to start an update.
 concurrency:
   group: ticker-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name != 'schedule' }}
 
 jobs:
   tick:
@@ -46,16 +48,26 @@ jobs:
       - name: Start the data update
         if: github.ref == 'refs/heads/main' && steps.wait.outputs.due == 'true'
         run: |
-          # Skip it if one started in the last 10 minutes (update.yml's own
+          # Not if one started in the last 10 minutes (update.yml's own
           # schedule does fire sometimes)
-          last=$(gh run list --workflow update.yml --branch main --limit 1 --json createdAt --jq '.[0].createdAt // empty')
+          last=$(gh run list --workflow update.yml --branch main --limit 1 --json createdAt --jq '.[0].createdAt // empty' || true)
           if [ -n "$last" ] && [ $(( $(date +%s) - $(date -d "$last" +%s) )) -lt 600 ]; then
             echo "An update started at $last: not starting another"
-          else
-            gh workflow run update.yml --ref main
+            exit 0
           fi
+          for try in 1 2 3 4 5; do
+            gh workflow run update.yml --ref main && exit 0
+            sleep 20
+          done
+          exit 1
 
       - name: Start the next link
-        # Not when this one was cancelled: the run that replaced it carries on
-        if: ${{ !cancelled() && github.ref == 'refs/heads/main' }}
-        run: gh workflow run ticker.yml --ref main
+        # Only after a clean wait (never a tight loop if something's broken),
+        # and not when this link was replaced: the new one carries on
+        if: ${{ !cancelled() && steps.wait.outcome == 'success' && github.ref == 'refs/heads/main' }}
+        run: |
+          for try in 1 2 3 4 5; do
+            gh workflow run ticker.yml --ref main && exit 0
+            sleep 20
+          done
+          exit 1
