@@ -343,11 +343,24 @@ the lock everywhere for consistency):
    (e.g. WOPR for receivers, a defense's EPA allowed per play for
    matchups), shown in the card's math. License to check (nflverse data
    is believed CC-BY 4.0: credit needed). Waiting for the owner's OK.
-7. Still open: reload once when a new version takes over (first open
+7. Built (owner, 2026-10-13): after Monday night the site shows the next
+   week. Sleeper's display_week stays on the finished week until about
+   Wednesday (seen: week 6, display_week 5), so trades, drops and lineups
+   for the new week didn't show. build.pick_week moves on once every ESPN
+   game of the week is final (postponed count as done; without ESPN,
+   Sleeper's week). Until FantasyPros posts the new week, predictions use
+   Sleeper's projection alone (last week's ranks were leaking in) and the
+   just-finished week's scoring check waits. New runs: Tuesday ~7 AM, 1 PM,
+   7 PM and Thursday ~9 AM Eastern.
+8. Built: "My Score" is now "Predicted" ("predicted points", "the
+   prediction" in sentences), on cards, write-ups and Copy for Claude.
+9. Still open: reload once when a new version takes over (first open
    after a deploy shows the old app).
-8. Scheduled runs: GitHub keeps dropping them. Only 4 have ever run (all
+10. Scheduled runs: GitHub keeps dropping them. Only 4 have ever run (all
    on Sunday 2026-10-11, the first at 3:42 PM ET); the 11:45 AM inactives
    run and 0 of the 7 Monday-night slots (to 9:40 PM ET 2026-10-12) ran.
-   The app's live card covers scores. A reliable trigger would need an
-   outside scheduler holding a GitHub token, which goes against "no keys
-   anywhere": owner's call.
+   The app's live card covers scores. Owner's OK (2026-10-13) for two
+   keyless fixes: the app checks your Sleeper roster/lineup against the
+   data on open, and each data run starts the next one itself (GitHub's
+   built-in token may trigger "Run workflow"; the repo is public, so
+   runner time is free).
