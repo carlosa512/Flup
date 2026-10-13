@@ -46,10 +46,12 @@ pipeline/            Python 3.11+, standard library only; `python3 -m pipeline`
   sleeper.py espn.py consensus.py   data sources
   scoring.py         stat line x league settings, with per-stat parts
   history.py         every game this + last season rescored in league scoring
-  model.py           My Score: blend, capped adjustments, injury, floor/ceiling
+  model.py           Predicted points (was "My Score"): blend, capped
+                     adjustments, injury, floor/ceiling
   tiers.py           local-gap tiers; league.py rosters + settings check
   lineup.py          best lineup, game phase (pre/live/final), win %, mode
-  news.py            news links per player (ESPN, PFT, RotoBaller, Bluesky beat)
+  news.py            news links per player (ESPN, PFT, RotoBaller, Bluesky beat
+                     writers, RotoWire/Rotoworld on Bluesky)
   writeups.py        template write-ups; attaches Claude's (inputs/writeups.json)
   validate.py        rescores finished weeks vs Sleeper's official points
 site/                static app, no build step: index.html app.js app.css sw.js
@@ -58,9 +60,11 @@ inputs/consensus/    optional FantasyPros CSV uploads (weekNN_pos.csv)
 inputs/writeups.json Claude's write-ups from /writeups (pushed straight to main)
 .claude/commands/    writeups.md: the owner's /writeups command
 tests/               pytest; test_real_snapshot.py runs only with FLUP_REPLAY
-.github/workflows/   update.yml (scheduled data runs + deploy), snapshot.yml (dev)
+.github/workflows/   update.yml (data runs + deploy), ticker.yml (keeps runs
+                     coming), snapshot.yml (dev)
 tools/               snapshot.py (dev raw capture + news/CORS probe), make_icons.py,
-                     check_writeups.py (/writeups must pass it before pushing)
+                     check_writeups.py (/writeups must pass it before pushing),
+                     next_run.py (next update.yml slot, for ticker.yml)
 ```
 
 Data format: `site/data/latest.json`, `"version": 3` (field list in
@@ -102,7 +106,8 @@ iPhone 13, `timezoneId: 'America/Chicago'` (the owner's local time).
 
 ## Deploy and schedule
 
-- update.yml runs on schedule (Wed ~9 AM, Fri ~6 PM, Sun ~11:45 AM, then
+- update.yml runs on schedule (Tue ~7 AM/1 PM/7 PM, Wed ~9 AM, Thu ~9 AM,
+  Fri ~6 PM, Sun ~11:45 AM, then
   every 30 min from ~1 PM to 12:30 AM Eastern; Thu and Mon nights from
   ~6 PM; Saturdays in Dec/Jan; listed for EDT and EST in UTC), by "Run
   workflow",
@@ -110,6 +115,13 @@ iPhone 13, `timezoneId: 'America/Chicago'` (the owner's local time).
   tests/, inputs/, settings.toml, requirements*.txt or update.yml
   (docs-only pushes don't run it). Tests run first; a failed run publishes
   nothing.
+- ticker.yml (from main only) is a chain that doesn't depend on GitHub's
+  scheduler: each link waits for the next update.yml cron slot
+  (tools/next_run.py), starts update.yml, then starts the next link
+  (GITHUB_TOKEN may trigger workflow_dispatch; free on this public repo).
+  A cron every 3 h restarts it if broken; cancel-in-progress keeps one link.
+  It only starts once ticker.yml is on main (Run workflow > Ticker, or wait
+  for the restart cron). On a claude/** push it only checks next_run.py.
 - `main` publishes the gh-pages root; `claude/**` publishes gh-pages
   `/preview/` and overwrites `dev-raw`; each keeps the other's files.
 - Scheduled runs only happen from `main`, so preview data never refreshes on
@@ -163,7 +175,10 @@ iPhone 13, `timezoneId: 'America/Chicago'` (the owner's local time).
   it also files league-wide stories under each player, so stories must
   name him. RotoWire items there have no link. FantasyPros has no public
   news feed (robots.txt blocks /xml/), so it isn't used. Bluesky public
-  API needs no key; beat writers are listed in settings.toml [news.beat].
+  API needs no key; beat writers are listed in settings.toml [news.beat]
+  (checked on the runner by tools/snapshot.py beat_check). RotoWire's
+  Bluesky posts are "First Last: headline" with the link in the text
+  (facets, no card); Rotoworld's have a dlvr.it card, often last name only.
 - Images: Sleeper's CDN serves headshots at
   `sleepercdn.com/content/nfl/players/thumb/<player_id>.jpg` (a default
   silhouette for unknown ids, not a 404) and team logos at

@@ -8,7 +8,7 @@ the math behind every number. Total cost: $0 (no paid APIs, no keys).
 
 1. Open the site on your phone (link from Settings → Pages once it's live).
 2. Share → **Add to Home Screen**. It opens like an app, dark by default.
-3. Tap any player to see his My Score: the blend, what moved it, and his
+3. Tap any player to see his predicted points: the blend, what moved it, and his
    floor and ceiling.
 4. Tap the "Data from … / ✓ All checks pass" line for the checks: your league
    settings vs Sleeper's, and every finished week rescored against Sleeper's
@@ -18,7 +18,7 @@ Data updates on its own: Wednesday (projections), Friday evening (injury
 reports) and Sunday before the 1 PM and late games. For a fresh pull any
 time: GitHub → **Actions** → **Update data** → **Run workflow**.
 
-## How My Score works
+## How predicted points work
 
 1. **Projection:** Sleeper's projected stat line, scored with your league's
    settings (TE premium, 6-pt pass TDs, -3 INTs, return yards).

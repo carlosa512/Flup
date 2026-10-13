@@ -170,7 +170,7 @@ def test_locked_starter_stays_and_uses_actual_points():
     r = run(players, current, games=games, points={"te2": 21.4})
     te = r["me"]["starters"][5]
     assert te["id"] == "te2" and te["pts"] == 21.4 and te["sd"] == 0 and te["state"] == "final"
-    assert te["why"] == "Played: 21.4 pts (My Score was 7.0)"
+    assert te["why"] == "Played: 21.4 pts (predicted 7.0)"
     assert "te1" in ids(r)                           # te1 still starts, in a FLEX
 
 
@@ -273,7 +273,7 @@ def test_close_call_pairs_bench_player_with_the_starter_he_would_replace():
     r = run(players, BEST)
     assert len(r["close_calls"]) == 1
     c = r["close_calls"][0]
-    assert (c["start"], c["bench"], c["slot"], c["gap"], c["measure"]) == ("rb3", "te2", "FLEX", 0.5, "My Score")
+    assert (c["start"], c["bench"], c["slot"], c["gap"], c["measure"]) == ("rb3", "te2", "FLEX", 0.5, "predicted points")
     assert c["for_start"][0] == "More expected points: 9.0 vs 8.5"
 
 
@@ -497,8 +497,18 @@ def test_free_agents_already_played_rank_last_and_can_be_flagged_as_dropped():
     market = dict(MARKET, dropped={"fa2": 1791636000000}, trending={"fa2": 5400})   # dropped 2026-10-10 12:40Z
     r = run(roster() + fa, BEST, games=games, market=market)
     assert [f["id"] for f in r["free_agents"]] == ["fa2", "fa1"]
-    assert r["free_agents"][1]["why"].startswith("His game has started")
+    assert r["free_agents"][1]["why"] == "Game played"
     assert r["free_agents"][0]["dropped"] == "2026-10-10T12:40Z" and r["free_agents"][0]["trending"] == 5400
+
+
+def test_free_agents_whose_game_is_on_or_off_say_just_that():
+    fa = [player("fa1", "WR", 9, roster=None, team="LIV"), player("fa2", "RB", 8, roster=None, team="OFF")]
+    games = {p["team"]: game() for p in roster() + fa}
+    games["LIV"] = game("in", period=2, clock=300)
+    games["OFF"] = game(status="STATUS_POSTPONED")
+    r = run(roster() + fa, BEST, games=games, market=MARKET)
+    got = {f["id"]: f["why"] for f in r["free_agents"]}
+    assert got == {"fa1": "Playing now", "fa2": "No game this week"}
 
 
 def test_bench_flex_options():

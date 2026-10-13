@@ -43,3 +43,13 @@ def test_week_16_looks_ahead_and_earlier_weeks_say_nothing():
     pos = positions()
     assert build.add_rest_flags(pos, standings(), 10, CFG) == 0
     assert all("rest" not in p for b in pos.values() for p in b["players"])
+
+
+def test_division_winners_are_flagged_with_a_caveat_when_z_counts():
+    pos = positions()
+    n = build.add_rest_flags(pos, standings(), 17, {"weeks": [16, 17], "clinchers": ["*", "z"]})
+    flagged = {p["id"]: p.get("rest") for b in pos.values() for p in b["players"]}
+    assert n == 4
+    assert flagged["ne1"] == "NE has clinched its division: starters may rest this week if its seed is locked."
+    # The #1 seed's line has no caveat: its place is settled
+    assert flagged["den1"] == "DEN has clinched the #1 seed: starters may rest this week."

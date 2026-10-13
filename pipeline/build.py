@@ -20,6 +20,7 @@ ROOT = Path(__file__).resolve().parent.parent
 COMPANY_NAMES = {"rotowire": "RotoWire"}
 UPLOADS = ROOT / "inputs" / "consensus"
 CLAUDE_WRITEUPS = ROOT / "inputs" / "writeups.json"
+MAX_WEEK = 18  # the last regular-season week
 # Average weekly points a player needs before his spread of outcomes helps
 # set the position's typical floor/ceiling (keeps deep backups out of it)
 RELEVANT_MEAN = {"QB": 12, "RB": 7, "WR": 7, "TE": 5, "K": 6, "DEF": 5}
@@ -115,8 +116,9 @@ CLINCHED = {"*": "the #1 seed", "z": "its division", "y": "a wild card spot", "x
 
 def add_rest_flags(positions, standings, week, cfg):
     """Late in the season, players on teams that have clinched (settings
-    [rest] clinchers, "*" = the #1 seed) may sit: flag them, no points off.
-    Returns how many players were flagged."""
+    [rest] clinchers, "*" = the #1 seed, "z" = the division) may sit: flag
+    them, no points off. Only the #1 seed's place is surely settled; for the
+    others the flag says so. Returns how many players were flagged."""
     weeks = cfg.get("weeks") or []
     if week not in weeks:
         return 0
@@ -127,7 +129,9 @@ def add_rest_flags(positions, standings, week, cfg):
         for p in block["players"]:
             mark = (standings.get(p.get("team")) or {}).get("clincher")
             if mark and mark in (cfg.get("clinchers") or []):
-                p["rest"] = f"{p['team']} has clinched {CLINCHED.get(mark, 'a playoff spot')}: starters may rest {when}."
+                maybe = "" if mark == "*" else " if its seed is locked"
+                p["rest"] = (f"{p['team']} has clinched {CLINCHED.get(mark, 'a playoff spot')}: "
+                             f"starters may rest {when}{maybe}.")
                 n += 1
     return n
 
@@ -154,7 +158,7 @@ def add_news(positions, ctx, my_lineup, rows_by_pos, cfg, now, sources):
                                      datetime.fromisoformat(now.replace("Z", "+00:00")))
     for pid, links in found.items():
         by_id[pid]["news"] = links
-    sources.append({"id": "news", "label": "News links (ESPN, PFT, RotoBaller, Bluesky)",
+    sources.append({"id": "news", "label": "News links (ESPN, RotoWire, Rotoworld, PFT, RotoBaller, beat writers)",
                     "ok": ok, "fetched": now, "detail": detail})
 
 
@@ -187,6 +191,10 @@ def load_consensus(rows_by_pos, game_list, week):
     try:
         cons, note = consensus.from_dynastyprocess(index, game_list, dates)
         notes.append(note)
+    except consensus.NotPostedYet as err:
+        # Expected Monday night to about Wednesday: not a problem
+        cons = {}
+        notes.append(f"{err}, so predictions use Sleeper's projection alone for now")
     except (FetchError, ValueError, KeyError) as err:
         cons = {}
         problems.append(f"automatic file: {err}")
@@ -238,6 +246,23 @@ def fetch_market(lid, week):
     return market, problems
 
 
+def pick_week(st, season, scoreboard=espn.scoreboard):
+    """The week to show: Sleeper's display_week, or the next one once its
+    last game is over (Monday night). Sleeper keeps display_week on the old
+    week until about Wednesday, but lineups, trades and waivers are already
+    for the next one. Returns (week, its ESPN games if fetched, moved on)."""
+    week = int(st.get("display_week") or st["week"])
+    try:
+        games = scoreboard(season, week)
+        # ESPN files postponed and canceled games as "post" too
+        over = bool(games) and all(g["completed"] or g["state"] == "post" for g in games)
+    except FetchError:
+        games, over = None, int(st.get("week") or 0) > week  # no ESPN: Sleeper's own week
+    if over and week < MAX_WEEK:
+        return week + 1, None, True
+    return week, games, False
+
+
 def build(settings, week=None, league_id=None, now=None):
     now = now or iso()
     lid = league_id or settings["league"]["id"]
@@ -246,7 +271,10 @@ def build(settings, week=None, league_id=None, now=None):
 
     st = sleeper.state()
     season = str(st["season"])
-    week = int(week or st.get("display_week") or st["week"])
+    if week:
+        week, week_list, moved_on = int(week), None, False
+    else:
+        week, week_list, moved_on = pick_week(st, season)
 
     lg = sleeper.league(lid)
     if not lg:
@@ -261,13 +289,14 @@ def build(settings, week=None, league_id=None, now=None):
     # Vegas lines (optional: everything still works without them)
     games, game_list = {}, []
     try:
-        game_list = espn.scoreboard(season, week)
+        game_list = week_list if week_list is not None else espn.scoreboard(season, week)
         games = espn.by_team(game_list)
         lined = sum(1 for g in game_list if g["total"] is not None)
         books = sorted({g["book"] for g in game_list if g["book"]})
         sources.append({"id": "lines", "label": "Vegas lines (ESPN)", "ok": True, "fetched": now,
                         "detail": f"{lined} of {len(game_list)} games have lines"
-                                  + (f" ({', '.join(books)})" if books else "")})
+                                  + (f" ({', '.join(books)})" if books else "")
+                                  + (f"; week {week - 1} is over, so this is week {week}" if moved_on else "")})
     except FetchError as err:
         sources.append({"id": "lines", "label": "Vegas lines (ESPN)", "ok": False,
                         "fetched": now, "detail": str(err)})
@@ -294,7 +323,7 @@ def build(settings, week=None, league_id=None, now=None):
                     f"{n_games:,} player-games from {int(season) - 1} and {season} weeks 1-{week - 1}, scored your way"})
 
     cons, cons_notes, cons_problems = load_consensus(rows_by_pos, game_list, week)
-    sources.append({"id": "consensus", "label": "Expert consensus", "ok": bool(cons),
+    sources.append({"id": "consensus", "label": "Expert consensus", "ok": bool(cons) or not cons_problems,
                     "fetched": now,
                     "detail": "; ".join(cons_notes + cons_problems) or "no consensus this week"})
 
@@ -383,6 +412,10 @@ def build(settings, week=None, league_id=None, now=None):
                              dict(settings["lineup"], floor_pct=fc["floor_pct"],
                                   ceiling_pct=fc["ceiling_pct"]),
                              now, scoring, market)
+    if my_lineup:
+        # My whole roster (IR too) as of this run: the app compares it with
+        # Sleeper's when it opens, so trades and drops show right away
+        my_lineup["roster"] = sorted(pid for pid, rid in ctx["owners"].items() if rid == ctx["my_rid"])
 
     # Teams that may rest starters late in the season (flag only)
     rest_cfg = settings.get("rest") or {}
@@ -414,9 +447,11 @@ def build(settings, week=None, league_id=None, now=None):
     # News links: my roster, their starters, the free agents suggested
     add_news(positions, ctx, my_lineup, rows_by_pos, settings.get("news") or {}, now, sources)
 
-    # Prove the scoring engine on every finished week
+    # Prove the scoring engine on every finished week. The one that just
+    # ended waits (as before the move to next week): Sleeper's official
+    # points can trail its stats for minutes after the last game
     weeks = []
-    for past in range(1, week):
+    for past in range(1, week - 1 if moved_on else week):
         if past not in this_season:
             weeks.append({"week": None, "error": f"week {past} stats didn't load"})
             continue

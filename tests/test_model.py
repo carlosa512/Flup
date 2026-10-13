@@ -305,6 +305,23 @@ def test_upload_without_position_reports_a_problem(tmp_path):
     assert ranks == {} and note == "" and "week05.csv" in problems[0]
 
 
+def test_last_weeks_consensus_file_isnt_used_for_next_week(monkeypatch):
+    # Monday night after the move to week 6: DynastyProcess still has week 5
+    # (scrape date 2026-10-12, kickoffs Oct 9-13); its own scrape date must
+    # not stretch "this week" back to cover it
+    monkeypatch.setattr(consensus, "id_rows", lambda: [{"fantasypros_id": "1", "sleeper_id": "s1"}])
+    week5 = "page,fantasypros_id,player_name,team,ecr,rank,player_game_kickoff_ts,scrape_date\n" + "".join(
+        f"ppr-wr,1,Someone,SEA,{i}.0,{i},{1791763200 + i * 3600},2026-10-12\n" for i in range(1, 11))
+    monkeypatch.setattr(consensus, "get_text", lambda url: week5)
+    week6 = [{"kickoff": "2026-10-16T00:15Z"}, {"kickoff": "2026-10-20T00:15Z"}]
+    with pytest.raises(consensus.NotPostedYet, match="newest: 2026-10-12"):
+        consensus.from_dynastyprocess({}, week6, {"2026-10-15", "2026-10-18", "2026-10-19"})
+    # The same file is fine for week 5
+    week5_games = [{"kickoff": "2026-10-09T00:15Z"}, {"kickoff": "2026-10-13T00:15Z"}]
+    ranks, note = consensus.from_dynastyprocess({}, week5_games, {"2026-10-08", "2026-10-11", "2026-10-12"})
+    assert "s1" in ranks and note.endswith("posted 2026-10-12")
+
+
 def test_stale_consensus_rejected_using_projection_dates_when_espn_is_down():
     last_week = [1790000000.0] * 10  # kickoffs a week before the dates below
     assert consensus._current(last_week, [], {"2026-10-11"}) is False

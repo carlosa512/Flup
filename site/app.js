@@ -119,6 +119,13 @@
     if (/IN_PROGRESS|HALFTIME|END_PERIOD/.test(s)) return 'Live';
     return '';
   }
+  // A small padlock: his game is on or over, so Sleeper has locked him
+  const LOCK = '<svg class="lock" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>';
+  // "Played" / "Live" / "Started" with the lock, or the kickoff time before then
+  function gameChip(p, state) {
+    if (state) return `<span class="played">${LOCK}${state}</span>`;
+    return p.kickoff ? `<span>${esc(when(p.kickoff))}</span>` : '';
+  }
   function gameText(p) {
     if (!p.opp) return p.team;
     return p.team + (p.home === false ? ' @ ' : ' vs ') + p.opp;
@@ -251,11 +258,11 @@
   }
 
   // Once he has played (or while he plays) the big number is his real
-  // score, with My Score small underneath; before that, My Score
+  // score, with Predicted small underneath; before that, Predicted
   function scoreCell(p) {
     const a = gameState(p) && p.actual;
     if (!a && !liveOf(p)) return `<span class="pts">${pts(p.score)}</span>`;
-    return `<span class="pts real">${pts(realPts(p))}<small>My Score ${pts(p.score)}</small></span>`;
+    return `<span class="pts real">${pts(realPts(p))}<small>Predicted ${pts(p.score)}</small></span>`;
   }
 
   // Live: his stat line (Sleeper's matchup points can lag it by a play or
@@ -274,7 +281,7 @@
     const isOpen = open.has(p.id);
     const sub = [
       `<span>${esc(gameText(p))}</span>`,
-      state ? `<span class="played">${state}</span>` : (p.kickoff ? `<span>${esc(when(p.kickoff))}</span>` : ''),
+      gameChip(p, state),
       `<span class="chip ${o.cls}" title="${esc(o.team || o.label)}">${esc(o.label)}</span>`,
     ].join('');
     return `<li class="player ${o.kind === 'mine' || o.kind === 'opp' ? o.kind : ''}" data-id="${esc(p.id)}">
@@ -398,7 +405,7 @@
     const live = stateWord(p) === 'Live';
     const shown = realPts(p);
     let html = `<h3>${live ? 'So far' : 'Scored'}</h3>
-      <div class="score-head"><b class="big">${pts(shown)}</b><span>My Score was ${pts(p.score)} (${signedPts(shown - p.score)})</span></div>`;
+      <div class="score-head"><b class="big">${pts(shown)}</b><span>Predicted ${pts(p.score)} (${signedPts(shown - p.score)})</span></div>`;
     if (a && a.parts.length) {
       html += `<p class="muted">${live ? 'So far' : 'His points came'}${partsPhrase(a.parts, a.pts, true).replace(/^, mostly/, ' mostly') || ': nothing yet'}.</p>
         <details class="every"><summary>How his points add up</summary>
@@ -494,7 +501,7 @@
     const block = data.positions[p.pos];
     const rows = partsTable(p.parts);
     let html = `<div class="detail">${actualBlock(p)}${writeupBlock(p)}
-      <h3>${p.actual ? 'My Score (before the game)' : 'My Score'}</h3>${myScore(p)}`;
+      <h3>${p.actual ? 'Predicted (before the game)' : 'Predicted'}</h3>${myScore(p)}`;
     if (p.parts.length) {
       html += `<details class="every"><summary>How the projection adds up</summary>
           <p>${projectionSentence(p)}</p>
@@ -523,7 +530,7 @@
   const MODE = {
     favored: { word: 'Favored', line: 'playing it safe', cls: 'fav' },
     underdog: { word: 'Underdog', line: 'swinging for upside', cls: 'dog' },
-    even: { word: 'Close matchup', line: 'going with My Score', cls: 'even' },
+    even: { word: 'Close matchup', line: 'going with predicted points', cls: 'even' },
   };
   const SLOT_SHORT = { SUPER_FLEX: 'SF', WRRB_FLEX: 'W/R', REC_FLEX: 'W/T' };
   const SINGLE = new Set(['QB', 'RB', 'WR', 'TE', 'K', 'DEF']);
@@ -532,7 +539,8 @@
   // The data is a snapshot. Between updates, a player whose kickoff has
   // passed is locked in Sleeper even though the data says "not started".
   function startedSince(p) {
-    return !!(p && p.kickoff && !gameState(p) && Date.now() >= Date.parse(p.kickoff));
+    return !!(p && p.kickoff && !gameState(p) && !/POSTPONED|CANCELED/.test(p.game_status || '')
+      && Date.now() >= Date.parse(p.kickoff));
   }
   const startedId = (id) => startedSince(index.get(id));
   const nameOf = (id) => (index.get(id) || {}).name || 'Unknown player';
@@ -562,12 +570,17 @@
     const sideNow = live && live[side];
     const benched = !!(on && sideNow && !sideNow.rows.some((r) => r.id === e.id));
     const lv = on && !benched ? lvr : null;
-    const st = lv ? lv.state : e.state;
+    const st = on ? lvr.state : e.state;  // benched or not, his game is on or over
     const state = st === 'final' ? 'Played' : st === 'live' ? 'Live' : startedSince(p) ? 'Started' : '';
+    // New: in the best lineup but not starting in Sleeper (as of the data
+    // run, or right now once your Sleeper lineup has loaded)
+    const now = side === 'me' ? sleeperFor() : null;
+    const isNew = !benched && (now ? now.roster.has(e.id) && !now.starters.includes(e.id) : e.new);
     const sub = [
       `<span>${esc(gameText(p))}</span>`,
-      state ? `<span class="played">${state}</span>` : (p.kickoff ? `<span>${esc(when(p.kickoff))}</span>` : ''),
-      e.new && !benched ? '<span class="chip new">New</span>' : '',
+      gameChip(p, state),
+      isNew ? '<span class="chip new">New</span>' : '',
+      now && !now.roster.has(e.id) ? '<span class="stale">No longer on your roster</span>' : '',
       benched ? '<span class="stale">Not in your Sleeper lineup</span>' : '',
       p.rest ? '<span class="stale">May rest</span>' : '',
       side === 'me' && quietInjury(p) ? `<span class="stale">${quietInjury(p) === 'never' ? 'No news' : 'No news since ' + esc(when(quietInjury(p)).split(' ')[0])}</span>` : '',
@@ -578,14 +591,14 @@
         + (e.replaces ? ` (${nameOf(e.replaces)} plays instead).` : '.');
     } else if (lv && lv.state === 'live') {
       why = `${side === 'me' ? 'Playing now: ' : ''}${pts(lv.got)} so far, ${Math.round(lv.left * 100)}% of the game left`
-        + (side === 'me' ? ` (My Score ${pts(p.score)})` : '');
+        + (side === 'me' ? ` (predicted ${pts(p.score)})` : '');
     } else if (lv) {
-      why = side === 'me' ? `Played: ${pts(lv.got)} pts (My Score was ${pts(p.score)})` : '';
+      why = side === 'me' ? `Played: ${pts(lv.got)} pts (predicted ${pts(p.score)})` : '';
     } else if (side !== 'me' && e.state === 'live') {
       why = `${pts(e.actual)} so far, ${Math.round(e.left * 100)}% of the game left`;
     }
     const isOpen = open.has(p.id);
-    return `<li class="player ${e.new ? 'new' : ''}" data-id="${esc(p.id)}">
+    return `<li class="player ${isNew ? 'new' : ''}" data-id="${esc(p.id)}">
       <button type="button" class="row lu" aria-expanded="${isOpen}">
         ${slot}
         <span class="nm">${face(p)}${esc(p.name)}${inj}</span>
@@ -605,8 +618,8 @@
       html += `<h4>The lineup advice (data from ${esc(when(data.generated))})</h4>
         <p>Then: you ${pts(me.total)} vs them ${pts(opp.total)}, ${pct(L.win)} to win. That set the mode the lineup below uses.</p>`;
     } else {
-      html += `<p>Each starter counts his expected points: My Score if his game hasn't started,
-        points so far plus My Score for the part of the game left if it's live, and his actual points once it's over.</p>`;
+      html += `<p>Each starter counts his expected points: his predicted points if his game hasn't started,
+        points so far plus his prediction for the part of the game left if it's live, and his actual points once it's over.</p>`;
       html += `<p>You <b>${pts(me.total)}</b> (give or take ${pts(me.sd)}) vs them <b>${pts(opp.total)}</b>
         (give or take ${pts(opp.sd)}). Their lineup is counted exactly as set in Sleeper.</p>`;
     }
@@ -615,12 +628,12 @@
         = ${signedPts(diff)} ÷ ${pts(comb)} = ${(diff < 0 ? '−' : '') + Math.abs(diff / comb).toFixed(2)} on the bell curve → <b>${pct(L.win)}</b>.</p>`;
     }
     if (L.mode === 'even') {
-      html += `<p>Your best lineup by My Score wins ${pct(f.win)} of the time. That's between ${pct(L.underdog)} and
-        ${pct(L.favored)}, so players are ranked by My Score as is.</p>`;
+      html += `<p>Your best lineup by predicted points wins ${pct(f.win)} of the time. That's between ${pct(L.underdog)} and
+        ${pct(L.favored)}, so players are ranked by predicted points as is.</p>`;
     } else {
       const dog = L.mode === 'underdog';
-      html += `<p>Your best lineup by My Score wins ${pct(f.win)} of the time. That's ${dog ? 'under ' + pct(L.underdog) + ': underdog' : pct(L.favored) + ' or more: favored'}.
-        So players are ranked by <b>${dog ? 'upside score' : 'safe score'}</b>: My Score moved ${lean} of the way
+      html += `<p>Your best lineup by predicted points wins ${pct(f.win)} of the time. That's ${dog ? 'under ' + pct(L.underdog) + ': underdog' : pct(L.favored) + ' or more: favored'}.
+        So players are ranked by <b>${dog ? 'upside score' : 'safe score'}</b>: predicted points moved ${lean} of the way
         ${dog ? 'up to his ceiling, which favors boom-or-bust players' : 'down to his floor, which favors steady players'}.
         Final lineup: ${pct(L.win)}.</p>`;
       if (L.win < f.win) {
@@ -660,16 +673,82 @@
     </div>`;
   }
 
+  // Positions each slot takes (as SLOT_POSITIONS in pipeline/lineup.py)
+  const SLOT_TAKES = { FLEX: ['RB', 'WR', 'TE'], WRRB_FLEX: ['WR', 'RB'], REC_FLEX: ['WR', 'TE'], SUPER_FLEX: ['QB', 'RB', 'WR', 'TE'] };
+  const takes = (slot, pos) => (SLOT_TAKES[slot] || [slot]).includes(pos);
+  // What to change in Sleeper: the data run's list until your Sleeper
+  // roster has loaded, or while nothing has changed there since. Otherwise
+  // the best lineup against the lineup you have now:
+  // 1. each starter it wants who isn't starting takes a seat it doesn't want
+  //    (one his position fits first);
+  // 2. any other seat it doesn't want gets your best free player for it if
+  //    he's predicted higher (say you dropped who the data run picked);
+  // 3. an empty slot gets your best free player for it, or a starter slides
+  //    over from a FLEX to make room.
+  // The same starters in other slots score the same, so that's a match.
+  // Players whose game has started are locked and left alone.
+  function todo(L) {
+    const now = sleeperFor();
+    const d = now && sleeperDiff(L);
+    if (!now || !d) return { moves: L.moves || [], changes: L.changes };
+    const locked = (id) => !!(id && index.get(id) && (gameState(index.get(id)) || startedSince(index.get(id))));
+    const score = (id) => (index.get(id) || {}).score || 0;
+    const best = L.me.starters.map((e) => e.id).filter((id) => id && now.roster.has(id) && !locked(id));
+    const wanted = new Set(best);
+    const starting = new Set(now.starters.filter((id) => id && id !== '0'));
+    const seats = now.starters.map((id, i) => ({ id: id && id !== '0' ? id : null, slot: L.slots[i] }))
+      .filter((seat) => !seat.id || (!wanted.has(seat.id) && !locked(seat.id)));
+    const moves = [], changes = [];
+    for (const id of best.filter((x) => !starting.has(x))) {
+      const pos = (index.get(id) || {}).pos;
+      const k = Math.max(0, seats.findIndex((seat) => takes(seat.slot, pos)));
+      const seat = seats.splice(k, 1)[0];
+      if (seat) changes.push({ in: id, out: seat.id, slot: seat.slot });
+    }
+    const free = [...now.roster].map((id) => index.get(id)).filter((p) => p && !starting.has(p.id)
+      && !wanted.has(p.id) && !/^(Doubtful|Out|IR|PUP|Sus|NA)$/i.test(p.injury || '') && !locked(p.id))
+      .sort((x, y) => y.score - x.score);
+    const take = (slot, beat) => {
+      const k = free.findIndex((p) => takes(slot, p.pos) && p.score > beat);
+      return k < 0 ? null : free.splice(k, 1)[0].id;
+    };
+    for (const seat of seats) {
+      if (seat.id) {
+        const id = take(seat.slot, score(seat.id));
+        if (id) changes.push({ in: id, out: seat.id, slot: seat.slot });
+        continue;
+      }
+      let id = take(seat.slot, -Infinity);
+      if (!id) {
+        // Slide a starter who fits this slot out of a FLEX-type one, if a
+        // free player fits the FLEX
+        const j = now.starters.findIndex((x, i) => x && x !== '0' && !locked(x) && SLOT_TAKES[L.slots[i]]
+          && takes(seat.slot, (index.get(x) || {}).pos) && free.some((p) => takes(L.slots[i], p.pos)));
+        if (j >= 0) {
+          moves.push({ id: now.starters[j], to: seat.slot });
+          changes.push({ in: take(L.slots[j], -Infinity), out: null, slot: L.slots[j] });
+          continue;
+        }
+      }
+      changes.push({ in: id, out: null, slot: seat.slot });
+    }
+    return { moves, changes };
+  }
+  const changeText = (c) => (c.in && c.out ? `start ${nameOf(c.in)} for ${nameOf(c.out)}`
+    : c.in ? `start ${nameOf(c.in)} in the empty ${c.slot} slot`
+      : c.out ? `bench ${nameOf(c.out)}` : `fill the empty ${c.slot} slot (no healthy player left for it)`);
+
   function changesBox(L) {
-    const moves = L.moves || [];
-    if (!L.changes.length && !moves.length) return '<p class="note done">✓ Your Sleeper lineup already matches.</p>';
+    const { moves, changes } = todo(L);
+    if (!changes.length && !moves.length) return '<p class="note done">✓ Your Sleeper lineup already matches.</p>';
     // Slides first: they open up the slot a newcomer goes into
     const locked = (text, ids) => (ids.some(startedId)
-      ? `<s>${text}</s> <span class="gone">game started, Sleeper has locked it</span>` : text);
-    const items = moves.map((m) => locked(`Move <b>${esc(nameOf(m.id))}</b> to ${esc(m.to)}`, [m.id])).concat(L.changes.map((c) => {
+      ? `<s>${text}</s> <span class="gone">${LOCK}game started, Sleeper has locked it</span>` : text);
+    const items = moves.map((m) => locked(`Move <b>${esc(nameOf(m.id))}</b> to ${esc(m.to)}`, [m.id])).concat(changes.map((c) => {
       const ids = [c.in, c.out].filter(Boolean);
       if (c.in && c.out) return locked(`Start <b>${esc(nameOf(c.in))}</b> for ${esc(nameOf(c.out))}`, ids);
       if (c.in) return locked(`Start <b>${esc(nameOf(c.in))}</b> in the empty ${esc(c.slot)} slot`, ids);
+      if (!c.out) return `Your ${esc(c.slot)} slot is empty, and no healthy player you have fits it`;
       return locked(`Bench ${esc(nameOf(c.out))}: no healthy player to put in`, ids);
     }));
     const n = items.length;
@@ -689,7 +768,7 @@
   }
 
   function callSide(p, verb, value, reasons, measure) {
-    const extra = measure !== 'My Score' ? ` · ${pts(value)} ${esc(measure)}` : '';
+    const extra = measure !== 'predicted points' ? ` · ${pts(value)} ${esc(measure)}` : '';
     const list = reasons.length
       ? reasons.map((r) => `<li>${esc(r)}</li>`).join('')
       : '<li class="muted">Nothing stands out</li>';
@@ -698,12 +777,13 @@
   }
 
   function closeCalls(L) {
+    const now = sleeperFor();
     const calls = (L.close_calls || []).filter((c) => index.get(c.start) && index.get(c.bench)
-      && !startedId(c.start) && !startedId(c.bench));
+      && !startedId(c.start) && !startedId(c.bench) && (!now || (now.roster.has(c.start) && now.roster.has(c.bench))));
     if (!calls.length) return '';
     const how = {
-      'upside score': 'My Score moved halfway up to the ceiling, because you\'re the underdog',
-      'safe score': 'My Score moved halfway down to the floor, because you\'re favored',
+      'upside score': 'predicted points moved halfway up to the ceiling, because you\'re the underdog',
+      'safe score': 'predicted points moved halfway down to the floor, because you\'re favored',
     };
     const items = calls.map((c) => {
       const s = index.get(c.start), b = index.get(c.bench);
@@ -742,7 +822,7 @@
     const state = stateWord(p);
     const sub = [
       `<span>${esc(gameText(p))}</span>`,
-      state ? `<span class="played">${state}</span>` : (p.kickoff ? `<span>${esc(when(p.kickoff))}</span>` : ''),
+      gameChip(p, state),
       labelChip(item.label), p.rest ? '<span class="stale">May rest</span>' : '', extra || '',
     ].join('');
     const isOpen = open.has(p.id);
@@ -756,12 +836,16 @@
       </button>${isOpen ? detail(p) : ''}</li>`;
   }
 
+  // A free agent's line once his game is on or over (the data run's line
+  // says "No game this week" for a postponed one)
+  const GONE = { Played: 'Game played', Live: 'Playing now', Started: 'Game started' };
   function pickups(L) {
     let html = '';
     const bench = L.bench_flex || [];
     const fas = L.free_agents || [];
     if (bench.length) {
-      const avail = bench.filter((b) => !startedId(b.id));
+      const now = sleeperFor();
+      const avail = bench.filter((b) => !startedId(b.id) && (!now || now.roster.has(b.id)));
       if (avail.length) {
         html += `<h2 class="section"><span class="dot bench"></span>Bench options</h2><ul class="players lineup grp-bench">${avail.map((b) =>
           pickRow(b, b.why)).join('')}</ul>`;
@@ -776,9 +860,10 @@
           const day = new Date(f.dropped).toLocaleDateString(undefined, { weekday: 'short' });
           extra += `<span class="chip drop">Dropped ${esc(day)}: maybe on waivers</span>`;
         }
+        if (sleeperFor() && sleeperFor().roster.has(f.id)) extra += '<span class="chip new">On your roster now</span>';
         const adds = Number(f.trending) || 0;
         if (adds) extra += `<span>${esc(bigCount(adds))} adds in 2 days</span>`;
-        return pickRow(f, startedId(f.id) ? 'His game has started: one to grab for later weeks' : f.why, extra);
+        return pickRow(f, GONE[stateWord(index.get(f.id) || {})] || f.why, extra);
       }).join('')}</ul>`;
     }
     // Phones can't show hover tips, so the labels are explained once in words
@@ -805,7 +890,7 @@
       html += `<p class="note">Games have started since this data (from ${esc(when(data.generated))}).
         ${live && live.opp ? 'The score card is live.' : 'Totals and win % are as of then.'} Sleeper has locked those players, so any moves for them are crossed out.</p>`;
     }
-    html += verdict(L) + changesBox(L) + lateSwapTip(L);
+    html += sleeperNote(L) + verdict(L) + changesBox(L) + lateSwapTip(L);
     html += `<h2 class="section"><span class="dot me"></span>Your lineup</h2><ul class="players lineup grp-me">${L.me.starters.map((e) => lineupRow(e, 'me')).join('')}</ul>`;
     html += closeCalls(L);
     html += pickups(L);
@@ -869,9 +954,62 @@
 
   // ---------- live scores in the browser (Sleeper and ESPN both allow it) ----------
   // The same math as pipeline/lineup.py: a live starter counts his points so
-  // far plus My Score x the share of his game left; win % from the totals.
+  // far plus predicted points x the share of his game left; win % from the totals.
 
   let live = null;  // {at, now, me, opp, win, games, defLines, gotFor}
+
+  // ---------- your Sleeper roster right now ----------
+  // A trade, a drop or a lineup change made in Sleeper since the data run
+  // shows as soon as the app opens: your roster and this week's lineup come
+  // straight from Sleeper (it lets the browser ask). Null until fetched.
+  let sleeperNow = null;  // {roster: Set of ids, starters: ids in slot order, generated}
+  async function checkSleeper() {
+    if (!data || !data.lineup) return;
+    const lg = data.league, generated = data.generated;
+    const get = (url) => fetch(url, { cache: 'no-store' }).then((r) => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); });
+    try {
+      const [rosters, mu] = await Promise.all([
+        get(`https://api.sleeper.app/v1/league/${lg.id}/rosters`),
+        get(`https://api.sleeper.app/v1/league/${lg.id}/matchups/${data.week}`),
+      ]);
+      const r = (rosters || []).find((x) => x.roster_id === lg.my_rid);
+      const m = (mu || []).find((x) => x.roster_id === lg.my_rid);
+      if (!r || !m || data.generated !== generated) return;  // newer data came in meanwhile
+      const was = sleeperNow && JSON.stringify([[...sleeperNow.roster], sleeperNow.starters, sleeperNow.generated]);
+      sleeperNow = { roster: new Set((r.players || []).map(String)), starters: (m.starters || []).map(String), generated };
+      if (JSON.stringify([[...sleeperNow.roster], sleeperNow.starters, generated]) !== was) renderView();
+    } catch (e) {
+      // Offline or Sleeper down: the data run's roster stands
+    }
+  }
+  // Your Sleeper roster as fetched for this data (null until then)
+  const sleeperFor = () => (sleeperNow && data && sleeperNow.generated === data.generated ? sleeperNow : null);
+  // What's different in Sleeper from the data run: {added, dropped, lineup}
+  function sleeperDiff(L) {
+    const sleeperNow = sleeperFor();
+    if (!sleeperNow) return null;
+    const was = L.roster ? new Set(L.roster) : null;
+    const added = was ? [...sleeperNow.roster].filter((id) => !was.has(id)) : [];
+    const dropped = was ? L.roster.filter((id) => !sleeperNow.roster.has(id)) : [];
+    const lineup = sleeperNow.starters.join() !== (L.current || []).join();
+    return added.length || dropped.length || lineup ? { added, dropped, lineup } : null;
+  }
+  const someone = (id) => (index.get(id) || {}).name || 'a player with no projection this week';
+  function sleeperNote(L) {
+    const d = sleeperDiff(L);
+    if (!d) return '';
+    const names = (ids) => andList(ids.map((id) => `<b>${esc(someone(id))}</b>`));
+    const did = [];
+    if (d.added.length) did.push(`added ${names(d.added)}`);
+    if (d.dropped.length) did.push(`dropped ${names(d.dropped)}`);
+    if (d.lineup) did.push('changed your lineup');
+    const next = nextRun();
+    const after = d.added.length || d.dropped.length
+      ? `; win % and the best lineup update with the next data run${next ? ` (${esc(when(next.toISOString()))})` : ''}`
+      : '';
+    return `<p class="note">Since this data (${esc(when(data.generated))}), you ${andList(did)} in Sleeper.
+      The change list below is up to date${after}.</p>`;
+  }
   const LAG_MS = 6 * 60000;
   const BELL = (z) => {  // standard normal CDF (Abramowitz-Stegun 7.1.26)
     const t = 1 / (1 + 0.3275911 * Math.abs(z) / Math.SQRT2);
@@ -1035,15 +1173,17 @@
     return null;
   }
   const liveTime = () => (live ? live.at : null);
-  // "Live" / "Played" for display: live data first, else the data run's.
+  // "Live" / "Played" for display: live data first, else the data run's;
+  // "Started" once his kickoff has passed (or he has points) without either.
   // (Locking moves still goes by the data run's times: see startedSince.)
   function stateWord(p) {
     const lv = liveOf(p);
     if (lv) return lv.state === 'final' ? 'Played' : 'Live';
     const g = p && live && live.games && live.games[p.team];  // the live scoreboard has every game
+    if (g && /POSTPONED|CANCELED/.test(g.status || '')) return '';  // ESPN files these as 'post'
     if (g && (g.completed || g.state === 'post')) return 'Played';
     if (g && g.state === 'in') return 'Live';
-    return gameState(p);
+    return gameState(p) || (p && (startedSince(p) || p.actual) ? 'Started' : '');
   }
 
   // Games on now (or just over) with a starter from either side
@@ -1081,7 +1221,7 @@
     const opp = data.league.teams[data.league.opp_rid];
     const diff = lv.me.total - lv.opp.total, comb = Math.sqrt(lv.me.sd ** 2 + lv.opp.sd ** 2);
     let html = `<p><b>Live:</b> both lineups as set in Sleeper right now. Each starter counts his points so far
-      plus My Score for the part of his game left; one who hasn't started counts My Score. Points so far are
+      plus his prediction for the part of his game left; one who hasn't started counts his prediction. Points so far are
       Sleeper's matchup points, which can trail a play by a few minutes. Updates every 2 minutes.</p>
       <p>You <b>${pts(lv.me.total)}</b> (give or take ${pts(lv.me.sd)}) vs them <b>${pts(lv.opp.total)}</b> (give or take ${pts(lv.opp.sd)})`;
     html += comb > 0 ? `: ${signedPts(diff)} ÷ ${pts(comb)} = ${(diff < 0 ? '−' : '') + Math.abs(diff / comb).toFixed(2)} on the bell curve → <b>${pct(lv.win)}</b>.</p>` : '.</p>';
@@ -1117,11 +1257,11 @@
       lines.push(`My team: ${me.name} (${me.wins}-${me.losses}) vs ${opp.name} (${opp.wins}-${opp.losses}). `
         + `Projected ${pts(L.me.total)} (sd ${pts(L.me.sd)}) vs ${pts(L.opp.total)} (sd ${pts(L.opp.sd)}): `
         + `win chance ${pct(L.win)}, so the dashboard is in "${(MODE[L.mode] || MODE.even).word}" mode `
-        + `(players ranked ${L.mode === 'underdog' ? 'toward their ceiling' : L.mode === 'favored' ? 'toward their floor' : 'by My Score'}).`);
+        + `(players ranked ${L.mode === 'underdog' ? 'toward their ceiling' : L.mode === 'favored' ? 'toward their floor' : 'by predicted points'}).`);
     }
     const b = data.settings.blend || {}, fc = data.settings.floor_ceiling || {};
     const share = (x) => Math.round(100 * x / ((b.projection || 0) + (b.consensus || 0) || 1));
-    lines.push(`My Score = ${share(b.projection)}% Sleeper projection (rescored in my scoring) + ${share(b.consensus)}% FantasyPros consensus rank turned into points, `
+    lines.push(`Predicted = ${share(b.projection)}% Sleeper projection (rescored in my scoring) + ${share(b.consensus)}% FantasyPros consensus rank turned into points, `
       + `plus small capped adjustments. Floor/ceiling = ${fc.floor_pct}th/${fc.ceiling_pct}th percentile of his weekly scores, scaled to this week.`);
     return lines.join('\n');
   }
@@ -1144,7 +1284,7 @@
     out.push(`${p.name} (${p.pos}, ${gameText(p)}${p.kickoff ? ', ' + when(p.kickoff) : ''}${inj}): ${roleOf(p)}.`);
     if (p.note) { out.push(`  ${p.note}.`); return out.join('\n'); }
     const r = p.range;
-    out.push(`  My Score ${plain(p.score)}` + (r ? ` (floor ${plain(r.floor)}, ceiling ${plain(r.ceiling)}${r.if_plays ? ', if he plays' : ''})` : '')
+    out.push(`  Predicted ${plain(p.score)}` + (r ? ` (floor ${plain(r.floor)}, ceiling ${plain(r.ceiling)}${r.if_plays ? ', if he plays' : ''})` : '')
       + (p.tier != null ? `, tier ${p.tier}, rank ${p.rank} at ${p.pos}` : '') + '.');
     out.push(`  Sleeper projection ${plain(p.proj)}` + (p.cons ? `; experts ${p.pos}${p.cons.rank}${p.cons.pts != null ? ' (about ' + plain(p.cons.pts) + ')' : ''}` : '')
       + ` -> ${plain(p.base)} (${p.blend}).`);
@@ -1175,13 +1315,21 @@
   function lineupPrompt() {
     const L = data.lineup;
     const parts = [promptHeader(), '', 'MY LINEUP (as the dashboard recommends):'];
+    const now = sleeperFor();
     for (const e of L.me.starters) {
       const p = index.get(e.id);
-      parts.push(p ? playerText(p, true) : `${e.slot}: empty`);
+      parts.push(p ? playerText(p, true) + (now && !now.roster.has(e.id) ? '  (no longer on my roster)' : '') : `${e.slot}: empty`);
     }
-    if (L.changes.length) {
-      parts.push('', 'Changes from my current Sleeper lineup: ' + L.changes.map((c) =>
-        (c.in ? `start ${nameOf(c.in)}` : '') + (c.in && c.out ? ' for ' : '') + (c.out ? `bench ${nameOf(c.out)}` : '')).join('; ') + '.');
+    const d = sleeperDiff(L);
+    if (d) {
+      parts.push('', 'Since this data, in Sleeper: ' + [d.added.length ? 'added ' + d.added.map(someone).join(', ') : '',
+        d.dropped.length ? 'dropped ' + d.dropped.map(someone).join(', ') : '', d.lineup ? 'changed my lineup' : '']
+        .filter(Boolean).join('; ') + '. The recommendations above are from before that.');
+    }
+    const { moves, changes } = todo(L);
+    if (moves.length || changes.length) {
+      parts.push('', 'Changes from my current Sleeper lineup: '
+        + moves.map((m) => `move ${nameOf(m.id)} to ${m.to}`).concat(changes.map(changeText)).join('; ') + '.');
     }
     if ((L.close_calls || []).length) {
       parts.push('', 'Close calls: ' + L.close_calls.map((c) => `${nameOf(c.start)} ${plain(c.values[0])} vs ${nameOf(c.bench)} ${plain(c.values[1])} (${c.measure})`).join('; ') + '.');
@@ -1290,7 +1438,8 @@
       const changed = !data || fresh.generated !== data.generated;
       data = fresh;
       write(DATA_KEY, fresh);
-      if (changed) { live = null; render(); }
+      if (changed) { live = null; sleeperNow = null; render(); }
+      checkSleeper();
       if (gamesOn()) {
         const ok = await refreshLive(manual);
         if (manual && ok) toast('Live scores updated' + (changed ? ', and new data loaded' : ''));
@@ -1323,17 +1472,17 @@
   $('#refresh-btn').addEventListener('click', () => refresh(true));
   // While games with our starters are on: live scores every 2 minutes
   setInterval(() => { if (document.visibilityState === 'visible') refreshLive(false); }, 120000);
-  // Kickoffs pass while the page is open: redraw the lineup when one does
+  // Kickoffs pass while the page is open: redraw the open view when one does
   let startedCount = -1;
   setInterval(() => {
-    if (!data || !data.lineup || view !== 'lineup' || document.visibilityState !== 'visible') return;
+    if (!data || document.visibilityState !== 'visible') return;
     const n = [...index.values()].filter(startedSince).length;
-    if (n !== startedCount) { startedCount = n; renderLineup(); }
+    if (n !== startedCount) { startedCount = n; renderView(); }
   }, 60000);
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState !== 'visible' || !data) return;
     if (hoursOld(data.generated) > 0.5) refresh(false);
-    else refreshLive(false);
+    else { refreshLive(false); checkSleeper(); }
   });
 
   data = read(DATA_KEY);

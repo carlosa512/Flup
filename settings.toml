@@ -51,7 +51,7 @@ min_median_gap = 0.2      # points; stops near-ties from splitting every player
 smooth_def_brackets = true
 
 # ---------------------------------------------------------------------------
-# My Score = blend of projection and consensus + small adjustments - injury
+# Predicted points = blend of projection and consensus + small adjustments - injury
 # ---------------------------------------------------------------------------
 
 # Start from this mix of Sleeper's projection (in your scoring) and the
@@ -125,9 +125,9 @@ shrink_games = 6          # a player's own spread counts half at this many games
 # Lineup and win %
 # ---------------------------------------------------------------------------
 
-# Win % comes from your best lineup by My Score. Favored: players are ranked
+# Win % comes from your best lineup by predicted points. Favored: players are ranked
 # partway toward their floor (playing it safe). Underdog: partway toward
-# their ceiling (swinging for upside). In between: My Score as is.
+# their ceiling (swinging for upside). In between: predicted points as is.
 [lineup]
 favored = 0.65            # win chance at or above this = favored
 underdog = 0.35           # win chance below this = underdog
@@ -153,9 +153,10 @@ injury_news_hours = 24
 # Late in the season, players on teams that have clinched may sit. They're
 # flagged on the card (no points off) in these weeks (17 = your final).
 weeks = [16, 17]
-# ESPN clinch marks that count: "*" = clinched the #1 seed (the only bye).
-# Add "z" (won the division) to flag more teams.
-clinchers = ["*"]
+# ESPN clinch marks that count: "*" = clinched the #1 seed (the only bye),
+# "z" = won the division (its seed may still be in play, so the card says
+# "if its seed is locked"). Add "y"/"x" to flag wild cards too.
+clinchers = ["*", "z"]
 
 [news]
 # Links per player: headline, source, date and link only, newest first.
@@ -164,23 +165,34 @@ max_links = 3
 days = 7
 # A beat writer with no posts in this many days is listed as inactive
 inactive_days = 14
+# League-wide fantasy news on Bluesky, every team (owner's pick 2026-10-13:
+# RotoWire "is gold for accuracy"). A post counts for a player when it names
+# him in full, or by a last name no other projected player has. Each run
+# reads back `days` days, up to this many pages of 100 posts per account
+# (RotoWire posts about 60 a day, Rotoworld about 50: checked 2026-10-12).
+league_wide = ["rotowirenfl.bsky.social", "rotoworld-fb.bsky.social"]
+league_wide_pages = 6
 # Links to these sites get a lock (subscription needed)
 paywalled = ["nytimes.com/athletic", "theathletic.com", "4for4.com",
              "sharpfootballanalysis.com", "fantasylife.com"]
 
 [news.beat]
-# Bluesky beat writers per team (Sleeper abbreviations). Drafted 2026-10-11
-# from Bluesky bios: UNVERIFIED, fix any that are wrong. None found for
-# ATL, DAL, LAC, TEN.
+# Bluesky beat writers per team (Sleeper abbreviations). Checked 2026-10-12
+# on GitHub's runner (tools/snapshot.py beat_check: bio names the team, own
+# posts in the last 14 days). Nobody covering LAC posts on Bluesky now
+# (elliottteaford, OC Register, last posted Sep 14); ATL's beat writers are
+# quiet there too, so ATL uses SB Nation's Falcons account.
 ARI = ["darrenurban.bsky.social"]                              # Cardinals.com
+ATL = ["thefalcoholic.bsky.social"]                            # SB Nation
 BAL = ["giana-jade.bsky.social"]                               # Baltimore Banner
 BUF = ["joebuscaglia.bsky.social"]                             # The Athletic
 CAR = ["mikekayefootball.bsky.social"]                         # ESPN
 CHI = ["seanhammond.bsky.social", "kfishbain.bsky.social"]     # Tribune, The Athletic
 CIN = ["bbaby41.bsky.social", "laurelpfahler.bsky.social"]     # ESPN, Dayton Daily News
 CLE = ["ashleybastock42.bsky.social"]                          # cleveland.com
+DAL = ["saadyousuf126.bsky.social"]                            # The Athletic
 DEN = ["parkerjgabriel.bsky.social"]                           # Denver Post
-DET = ["davebirkett.bsky.social", "coltonpouncy.bsky.social"]  # Free Press, The Athletic
+DET = ["davebirkett.bsky.social"]                              # Free Press
 GB = ["tspoon62.bsky.social"]                                  # Milwaukee Journal Sentinel
 HOU = ["aaronwilsonnfl.bsky.social"]                           # KPRC 2
 IND = ["joelaerickson.bsky.social", "jakearthurnfl.bsky.social"]  # IndyStar, Roundtable
@@ -195,8 +207,9 @@ NO = ["nickunderhill.bsky.social"]                             # NewOrleans.Foot
 NYG = ["evanbarnes.bsky.social"]                               # Newsday
 NYJ = ["antwanstaley.bsky.social"]                             # NY Daily News
 PHI = ["jeff-neiburg.bsky.social", "timmcmanus42.bsky.social"] # Inquirer, ESPN
-PIT = ["mikedefabo.bsky.social", "bepryor.bsky.social"]        # The Athletic, ESPN
+PIT = ["mikedefabo.bsky.social"]                               # The Athletic
 SF = ["mattbarrows.bsky.social", "mattmaiocco.bsky.social"]    # The Athletic, NBC Sports BA
 SEA = ["johnpboyle.bsky.social"]                               # Seahawks.com
 TB = ["jennalaine.bsky.social"]                                # ESPN
+TEN = ["jwyattsports.bsky.social", "paulkuharsky.bsky.social"] # Titans site, PaulKuharsky.com
 WAS = ["tashanreed.bsky.social"]                               # Washington Post

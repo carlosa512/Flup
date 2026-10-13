@@ -8,6 +8,11 @@ on:
     # GitHub's clock is UTC, so each time is listed twice to cover both
     # daylight (EDT) and standard (EST) time. Runs can start 5-30 min late.
     - cron: "7 13,14 * * 3"    # Wednesday about 9 AM Eastern: projections
+    # Tuesday about 7 AM, 1 PM and 7 PM Eastern: the site has moved on to the
+    # next week (after Monday night), so trades, drops and lineups show
+    - cron: "7 11,12,17,18,23 * * 2"
+    - cron: "7 0 * * 3"
+    - cron: "7 13,14 * * 4"    # Thursday about 9 AM Eastern: after waivers
     - cron: "7 22,23 * * 5"    # Friday about 6 PM Eastern: final injury reports
     - cron: "45 15,16 * * 0"   # Sunday about 11:45 AM Eastern: inactives, 1 PM games
     # Sunday during the games, every 30 min from about 1 PM to 12:30 AM
@@ -37,13 +42,35 @@ on:
 
 permissions:
   contents: write
+  actions: read     # the gate below lists recent runs
 
 concurrency:
   group: update-data
   cancel-in-progress: false
 
 jobs:
+  # A scheduled run (GitHub starts them 5-45 min late) has nothing to do if
+  # the Ticker already ran an update in the last 25 minutes
+  gate:
+    runs-on: ubuntu-latest
+    outputs:
+      skip: ${{ steps.check.outputs.skip }}
+    steps:
+      - id: check
+        if: github.event_name == 'schedule'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          last=$(gh run list -R "$GITHUB_REPOSITORY" --workflow update.yml --branch main --limit 5 \
+            --json databaseId,createdAt --jq "[.[] | select(.databaseId != $GITHUB_RUN_ID)][0].createdAt // empty" || true)
+          if [ -n "$last" ] && [ $(( $(date +%s) - $(date -d "$last" +%s) )) -lt 1500 ]; then
+            echo "An update started at $last: skipping this scheduled run"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          fi
+
   update:
+    needs: gate
+    if: needs.gate.outputs.skip != 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:

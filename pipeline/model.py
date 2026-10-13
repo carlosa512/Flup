@@ -1,5 +1,6 @@
-"""My Score: this week's projection (your scoring) blended with the expert
-consensus, plus small capped adjustments, then injury.
+"""Predicted points (called "My Score" until 2026-10-13): this week's
+projection (your scoring) blended with the expert consensus, plus small
+capped adjustments, then injury.
 
 Every adjustment comes back as {key, label, pts, why} so the site can show
 exactly what moved a player and by how much. All weights and caps live in

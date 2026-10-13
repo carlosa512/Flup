@@ -268,11 +268,10 @@ agents), `claude {text, written, changed?}` (from inputs/writeups.json).
 math in the browser; `refresh {crons, repo, scheduled}` for "next update";
 `settings.stale_game_day_hours`, `settings.injury_news_hours`.
 
-## Phase 5: polish (building on `claude/phase-5-polish`)
-Phase 4 merged as PR #6 on 2026-10-11.
+## Phase 5: polish (merged, PR #9)
+Phase 4 merged as PR #6 on 2026-10-11; Phase 5 as PR #9 the same day.
 
-Decisions (owner, 2026-10-11) and status, all built, waiting for the owner
-to try the preview:
+Decisions (owner, 2026-10-11), all built and merged:
 1. Week 17 rest flag: players on a team that has clinched the #1 seed
    (ESPN standings clincher "*"), flag only, shown in weeks 16-17
    (settings `[rest]`). Card warning, "May rest" chip, Copy for Claude line.
@@ -287,3 +286,87 @@ to try the preview:
    image server (`sleepercdn.com/content/nfl/players/thumb/<id>.jpg`, team
    logos `images/team_logos/nfl/<team>.png` for DEF), no key, a grey
    silhouette while loading or when there's no photo.
+
+## Phase 5b: more polish (on `claude/phase-5-polish`, restarted from main)
+Owner's picks, 2026-10-12 ("Playing now" to match the starters' rows;
+the lock everywhere for consistency):
+
+1. Built, on the preview: a small drawn padlock (not the emoji, which
+   already means "paywall" in news) before Played / Live / Started on
+   every player row (Tiers, both lineups, bench, free agents) and on
+   crossed-out moves. Tiers and free-agent rows say Started once kickoff
+   passes (or he has points) instead of the kickoff time. Postponed or
+   canceled games never count as started (ESPN files them as state
+   "post", so the live scoreboard is checked for that first).
+2. Built: free agents whose game is on or over say "Playing now" /
+   "Game played" / "Game started"; postponed: "No game this week" (was
+   "His game has started: one to grab for later weeks").
+3. Built: the "may rest" flag also covers division winners (`[rest]
+   clinchers = ["*", "z"]`). Their line adds "if its seed is locked":
+   only the #1 seed's place is surely settled.
+4. Beat writers, checked on GitHub's runner 2026-10-12 (tools/snapshot.py
+   beat_check: `news/bsky_beat_check.json` on dev-snapshots). 37 of the 39
+   configured accounts are real and posting; dropped the 2 quiet ones
+   (DET coltonpouncy, last post May 2026; PIT bepryor, Mar 2025). Added:
+   DAL saadyousuf126 (The Athletic), TEN jwyattsports (Titans site) and
+   paulkuharsky, ATL thefalcoholic (SB Nation; ATL's beat writers don't
+   post on Bluesky now). LAC: nobody active (elliottteaford last posted
+   Sep 14). Now 31 of 32 teams.
+   Other free sources, all reached from the runner (`news/feeds/`), for
+   the owner to pick from (each needs a small news.py change):
+   - Official team sites, `www.<club>.com/rss/news` (RSS, 35-100 items,
+     inactives and injury posts). Covers all 32 incl. LAC.
+   - League-wide Bluesky accounts, all very active: rotowirenfl and
+     rotoworld-fb (fantasy news), rapsheet (Ian Rapoport), plus two
+     repost bots (insidenflnews, nflnewsposter).
+   - SB Nation team blogs, `www.<blog>.com/rss/index.xml` (Atom, 10
+     entries; fan sites).
+   - Google News search RSS (100 items, but redirect links, so the
+     paywall tag can't match; undocumented, may rate-limit).
+5. League-wide news (owner's pick 2026-10-13, "RotoWire is gold for
+   accuracy"): RotoWire (rotowirenfl, ~60 posts a day, "Name: headline"
+   plus a link to his rotowire.com page) and Rotoworld (rotoworld-fb, ~50
+   a day, often last name only) on Bluesky, settings [news] league_wide.
+   A week back, up to 6 pages of 100. A post counts for a player when it
+   names him in full or by a last name no other projected player has; a
+   "First Last:" start counts only for that player (seen 2026-10-12:
+   "Terry McLaurin: Likely to have restrictions" isn't Isaiah Likely).
+   Checked on the real feeds against the real roster.
+6. EPA / advanced stats: reachable after all, free and keyless. nflverse
+   publishes weekly player stats on GitHub releases
+   (`nflverse-data/releases/download/stats_player/stats_player_week_<year>.csv.gz`,
+   ~350 KB for 2026 so far, updated nightly; week 5 was in on 2026-10-13):
+   passing/rushing/receiving EPA, CPOE, target share, air-yards share,
+   WOPR, RACR. Owner (2026-10-13): worth it if it helps start/sit and
+   boom/bust. Proposal for its own phase: add only what a backtest on
+   2025 shows makes My Score or the Boom/Steady labels more accurate
+   (e.g. WOPR for receivers, a defense's EPA allowed per play for
+   matchups), shown in the card's math. License to check (nflverse data
+   is believed CC-BY 4.0: credit needed). Waiting for the owner's OK.
+7. Built (owner, 2026-10-13): after Monday night the site shows the next
+   week. Sleeper's display_week stays on the finished week until about
+   Wednesday (seen: week 6, display_week 5), so trades, drops and lineups
+   for the new week didn't show. build.pick_week moves on once every ESPN
+   game of the week is final (postponed count as done; without ESPN,
+   Sleeper's week). Until FantasyPros posts the new week, predictions use
+   Sleeper's projection alone (last week's ranks were leaking in) and the
+   just-finished week's scoring check waits. New runs: Tuesday ~7 AM, 1 PM,
+   7 PM and Thursday ~9 AM Eastern.
+8. Built: "My Score" is now "Predicted" ("predicted points", "the
+   prediction" in sentences), on cards, write-ups and Copy for Claude.
+9. Still open: reload once when a new version takes over (first open
+   after a deploy shows the old app).
+10. Scheduled runs: GitHub keeps dropping them. Only 4 have ever run (all
+   on Sunday 2026-10-11, the first at 3:42 PM ET); the 11:45 AM inactives
+   run and 0 of the 7 Monday-night slots (to 9:40 PM ET 2026-10-12) ran.
+   The app's live card covers scores. Owner's OK (2026-10-13) for two
+   keyless fixes, both built:
+   - The app checks Sleeper on open/refresh (rosters + this week's
+     matchup, browser fetch): "Since this data, you added X, dropped Y and
+     changed your lineup in Sleeper". The change list drops changes already
+     made or for players no longer on the roster; "New" chips follow
+     Sleeper's lineup now; a free agent you picked up says "On your roster
+     now"; Copy for Claude mentions it. Data has `lineup.roster` (all my
+     player ids, IR too) for this.
+   - ticker.yml: a chain of runs that each wait for the next update.yml
+     slot and start it (see CLAUDE.md). Starts once on main.
