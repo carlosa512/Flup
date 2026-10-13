@@ -16,8 +16,9 @@ against what really happened:
 - accuracy: fit "points per standard deviation of the stat" on half the
   season, apply it (capped like the other adjustments) to the other half,
   and see whether the average miss gets smaller, both ways round;
-- start/sit: same-position pairs predicted within the close-call gap
-  (1.5 pts); how often the higher one really scored more;
+- start/sit: same-position pairs within the close-call gap (1.5 pts) on
+  Sleeper's projection (the same pairs for any model); how often the
+  higher one really scored more;
 - boom/bust: how well the stat picks out big games (1.5x the prediction
   or more) and duds (half or less), next to the current Boom/Steady
   ratios (AUC: 0.5 = no better than a coin flip).
@@ -174,6 +175,7 @@ def predictions(snap, settings, scoring, season, games_csv, current):
                     "ret_proj": return_points(raw.get(p["id"], {}), scoring, projected=True),
                     "ret_real": returned.get(p["id"]),
                     "label": lineup.label(p, ctx["pos_ratios"], labels_cfg, pcts, fc.get("stretch", 1.0)),
+                    "wopr": p.get("wopr"),
                     "actual": actual.get(p["id"]),
                 })
         print(f"  week {week}: {sum(1 for r in out if r['week'] == week)} players", file=sys.stderr)
@@ -338,8 +340,10 @@ def auc(values, hits):
 
 
 def pair_accuracy(rows, value):
-    """Same position, same week, predicted within CLOSE on the site's
-    number: how often the higher `value` really scored more."""
+    """Same position, same week, within CLOSE on Sleeper's projection: how
+    often the higher `value` really scored more. The pairs are picked on
+    the projection (not on Predicted) so they're the same pairs for every
+    version of the model, and runs compare fairly."""
     by = defaultdict(list)
     for r in rows:
         by[(r["week"], r["pos"])].append(r)
@@ -347,7 +351,7 @@ def pair_accuracy(rows, value):
     for group in by.values():
         for i, a in enumerate(group):
             for b in group[i + 1:]:
-                if abs(a["score"] - b["score"]) >= CLOSE or a["actual"] == b["actual"]:
+                if abs(a["proj"] - b["proj"]) >= CLOSE or a["actual"] == b["actual"]:
                     continue
                 va, vb = value(a), value(b)
                 if va == vb:
@@ -413,26 +417,45 @@ def report(rows, season, first=FIRST_WEEK):
         lines.append(f"| {pos} | {len(g)} | {mae([r['actual'] - r['proj'] for r in g]):.2f} | "
                      f"{mae([r['actual'] - r['score'] for r in g]):.2f} | {mean(r['actual'] - r['score'] for r in g):+.2f} | "
                      f"{pct(pair_accuracy(g, lambda r: r['proj']))} | {pct(pair_accuracy(g, lambda r: r['score']))} |")
+    lines += ["", "Close calls: pairs within 1.5 on Sleeper's projection (the same pairs for any model). "
+              "By half of the season, all positions:", "",
+              "| Weeks | Avg miss: projection / Predicted | Close calls right: projection / Predicted |", "|---|---|---|"]
+    for name, h in ((f"{first}-{SPLIT}", [r for r in played if r["week"] <= SPLIT]),
+                    (f"{SPLIT + 1}+", [r for r in played if r["week"] > SPLIT])):
+        if h:
+            lines.append(f"| {name} | {mae([r['actual'] - r['proj'] for r in h]):.3f} / {mae([r['actual'] - r['score'] for r in h]):.3f} | "
+                         f"{pct(pair_accuracy(h, lambda r: r['proj']))} / {pct(pair_accuracy(h, lambda r: r['score']))} |")
 
     lines += ["", "## Are the current adjustments the right size?", "",
               "Slope of the miss before each adjustment on its points: 1 = right size, 0 = no help, "
-              "above 1 = too timid. ± is one standard error.", "",
-              "| Adjustment | Pos | Players | Slope | Avg miss without → with |", "|---|---|---|---|---|"]
+              "above 1 = too timid, ± one standard error; then the slope in each half of the season "
+              "(an adjustment should hold up in both).", "",
+              "| Adjustment | Pos | Players | Slope | Slope by half | Avg miss without → with |",
+              "|---|---|---|---|---|---|"]
+
+    def slope_of(g, key):
+        if len(g) < 3:
+            return None, None, []
+        xs = [r["adj"][key] for r in g]
+        ys = [r["actual"] - (r["score"] - r["adj"][key]) for r in g]
+        mx, my = mean(xs), mean(ys)
+        sxx = sum((x - mx) ** 2 for x in xs)
+        if not sxx:
+            return None, None, ys
+        slope = sum((x - mx) * (y - my) for x, y in zip(xs, ys)) / sxx
+        resid = [y - my - slope * (x - mx) for x, y in zip(xs, ys)]
+        return slope, math.sqrt(sum(e * e for e in resid) / max(1, len(g) - 2) / sxx), ys
     for key in ("usage", "environment", "matchup", "qb", "returns"):
         for pos in MIN_PROJ:
             g = [r for r in played if r["pos"] == pos and r["adj"].get(key)]
             if len(g) < 30:
                 continue
-            xs = [r["adj"][key] for r in g]
-            ys = [r["actual"] - (r["score"] - r["adj"][key]) for r in g]
-            mx, my = mean(xs), mean(ys)
-            sxx = sum((x - mx) ** 2 for x in xs)
-            if not sxx:
+            slope, se, ys = slope_of(g, key)
+            if slope is None:
                 continue
-            slope = sum((x - mx) * (y - my) for x, y in zip(xs, ys)) / sxx
-            resid = [y - my - slope * (x - mx) for x, y in zip(xs, ys)]
-            se = math.sqrt(sum(e * e for e in resid) / max(1, len(g) - 2) / sxx)
-            lines.append(f"| {key} | {pos} | {len(g)} | {slope:.2f} ± {se:.2f} | "
+            halves = [slope_of([r for r in g if (r["week"] <= SPLIT) == early], key)[0] for early in (True, False)]
+            by_half = " / ".join("–" if h is None else f"{h:+.2f}" for h in halves)
+            lines.append(f"| {key} | {pos} | {len(g)} | {slope:.2f} ± {se:.2f} | {by_half} | "
                          f"{mae(ys):.2f} → {mae([r['actual'] - r['score'] for r in g]):.2f} |")
 
     lines += ["", "## Do nflverse stats help? (out of sample)", "",
@@ -471,9 +494,10 @@ def report(rows, season, first=FIRST_WEEK):
                      f"{rate([r for r in g if r['label'] == 'Steady'], under)} | {rate([r for r in g if r['label'] != 'Steady'], under)} |")
 
     lines += ["", "## Is the \"give or take\" (sd) right?", "",
-              "Win % adds up each starter's sd. If the sd is right, misses divided by it spread out "
-              "with a standard deviation of 1.0 and 68% of them land within ±1 sd. Under 1.0 / over 68% = "
-              "the sd is too big (win % too timid); over 1.0 / under 68% = too small (win % too sure).", "",
+              "Win % adds up each starter's sd (square root of the sum of squares), so the check that "
+              "matters is the spread of misses divided by the sd: 1.0 = right, under = sd too big (win % too "
+              "timid), over = too small (win % too sure). Weekly misses have fat tails, so the share within "
+              "±1 sd runs above the bell curve's 68% even when the spread is right.", "",
               "| Pos | Players | Miss ÷ sd: spread | Within ±1 sd | sd should be × |", "|---|---|---|---|---|"]
     for pos in MIN_PROJ:
         g = [r for r in played if r["pos"] == pos and r.get("sd")]

@@ -129,15 +129,15 @@ def test_recent_returner_without_projected_returns_gets_nothing():
 
 def test_projected_kick_returns_count_again():
     games = [game(kr=3, kr_yd=70, pr=0)] * 3
-    a = model.returns(games, {"kr_yd": 60}, SCORING, ADJ["returns"])
-    assert a["pts"] == pytest.approx(60 * 0.05 * ADJ["returns"]["extra"])
-    assert "60 kick return yds" in a["why"]
+    a = model.returns(games, {"kr_yd": 12}, SCORING, ADJ["returns"])
+    assert a["pts"] == pytest.approx(12 * 0.05 * ADJ["returns"]["extra"])
+    assert "12 kick return yds (0.6 pts)" in a["why"]
 
 
 def test_projected_punt_returns_count_again():
     games = [game(kr=0, pr=3, pr_yd=30)] * 3
-    a = model.returns(games, {"pr_yd": 25}, SCORING, ADJ["returns"])
-    assert a["pts"] == pytest.approx(25 * 0.05 * ADJ["returns"]["extra"])
+    a = model.returns(games, {"pr_yd": 10}, SCORING, ADJ["returns"])
+    assert a["pts"] == pytest.approx(10 * 0.05 * ADJ["returns"]["extra"])
 
 
 def test_not_a_returner():
@@ -146,8 +146,9 @@ def test_not_a_returner():
 
 
 def test_returns_capped():
-    a = model.returns([game(kr=6, kr_yd=200)] * 3, {"kr_yd": 200}, SCORING, ADJ["returns"])
-    assert a["pts"] == ADJ["returns"]["cap"]
+    # Heavy returners: doubling over-predicted their totals, so it's capped
+    a = model.returns([game(kr=6, kr_yd=200)] * 3, {"kr_yd": 60}, SCORING, ADJ["returns"])
+    assert a["pts"] == ADJ["returns"]["cap"] and "up to" in a["why"]
 
 
 # ---------- injury ----------
@@ -420,9 +421,23 @@ def test_history_works_out_wopr_per_game():
     assert g["wopr"] == pytest.approx(1.5 * 8 / 20 + 0.7 * 60 / 200)
 
 
+def test_wopr_air_share_kept_to_0_100_and_tiny_team_totals_skipped():
+    from pipeline import history
+    row = lambda pid, tgt, air: {"player_id": pid, "team": "LV", "opponent": "KC",
+                                 "player": {"position": "TE"},
+                                 "stats": {"gp": 1, "rec_tgt": tgt, "rec_air_yd": air}}
+    # Screens make teammates' air yards negative: his share would be over 100%
+    h = history.build([("2026", 1, [row("te", 4, 90), row("rb", 4, -30)])], {}, "2026")
+    assert h["games"]["te"][0]["wopr"] == pytest.approx(1.5 * 4 / 8 + 0.7 * 1.0)
+    # A team total of 2 air yards: no WOPR for that game
+    h = history.build([("2026", 1, [row("te", 2, 5), row("rb", 3, -3)])], {}, "2026")
+    assert "wopr" not in h["games"]["te"][0]
+
+
 def test_wopr_needs_three_games_and_a_listed_position():
     cfg = {"wopr_positions": ["TE"]}
     two = [game(wopr=0.5), game(wopr=0.4)]
     assert model.wopr("TE", two, cfg) is None
     assert model.wopr("TE", two + [game(wopr=0.6), game()], cfg) == 0.5  # a game without it is skipped
+    assert model.wopr("TE", [game(wopr=0.4486)] * 3, cfg) == 0.449       # 3 decimals: under a 0.45 cutoff
     assert model.wopr("WR", two + [game(wopr=0.6)], cfg) is None

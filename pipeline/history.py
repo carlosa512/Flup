@@ -11,6 +11,7 @@ from statistics import mean
 from .scoring import score_line
 
 POSITIONS = ("QB", "RB", "WR", "TE", "K", "DEF")
+MIN_TEAM_AIR = 50  # team air yards on catches; under this a game's air share is noise
 KEEP = ("off_snp", "tm_off_snp", "rec_tgt", "rush_att", "rec_air_yd", "kr", "kr_yd",
         "pr", "pr_yd", "pass_att", "pass_int", "rush_yd", "rush_td")
 
@@ -58,10 +59,14 @@ def build(weeks, scoring, current_season):
                 g["tgt_share"] = (g.get("rec_tgt") or 0) / team_tgt[key]
             if team_rush[key]:
                 g["rush_share"] = (g.get("rush_att") or 0) / team_rush[key]
-            # WOPR: 1.5 x target share + 0.7 x air yards share (how much of
-            # the passing game runs through him)
-            if team_tgt[key] and team_air[key] > 0:
-                g["wopr"] = 1.5 * g["tgt_share"] + 0.7 * (g.get("rec_air_yd") or 0) / team_air[key]
+            # WOPR-style: 1.5 x target share + 0.7 x air yards share (how much
+            # of the passing game runs through him). Sleeper's air yards count
+            # catches only and go negative on screens, so the share is kept to
+            # 0-100% and a game with a tiny team total (under MIN_TEAM_AIR)
+            # is skipped: one such game made a share of 250%.
+            if team_tgt[key] and team_air[key] >= MIN_TEAM_AIR:
+                air = max(0.0, min(1.0, (g.get("rec_air_yd") or 0) / team_air[key]))
+                g["wopr"] = 1.5 * g["tgt_share"] + 0.7 * air
     return {"games": games, "allowed": allowed, "current": str(current_season)}
 
 

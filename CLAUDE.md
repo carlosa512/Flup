@@ -166,9 +166,13 @@ iPhone 13, `timezoneId: 'America/Chicago'` (the owner's local time).
   tools/backtest.py can rebuild Predicted for past weeks without hindsight.
   Players' projected punt return yards are `pr_yd` (`def_pr_yd` is DEF only).
 - Model changes go through tools/backtest.py first (both halves of 2025
-  must improve). Found 2026-10-13: nflverse EPA/CPOE add nothing over
-  Sleeper's projection; usage trend and RB/WR matchup are off; ranges are
-  stretched 1.2x; TE Steady is WOPR 0.45+.
+  must improve; 2026 weeks are a last check). Found 2026-10-13: nflverse
+  EPA/CPOE add nothing over Sleeper's projection; usage trend and RB/WR
+  matchup are off; return men get their projected return points again, up
+  to +1.0; ranges are stretched 1.2x; WOPR-based TE Steady is built but off.
+- Sleeper's `rec_air_yd` is air yards on catches only (it goes negative on
+  screens), not all targets like nflverse's; history.py keeps a game's air
+  share to 0-100% and skips team totals under 50.
 - Thursday games are already played by the weekend; players show "Played"
   (game_status from ESPN). Projections still exist for them, and their
   actual points are in this week's Sleeper matchups (`players_points`).

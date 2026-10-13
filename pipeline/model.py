@@ -151,25 +151,29 @@ def qb_style(base, games, proj_stats, scoring, league_int_rate, cfg):
 def returns(season_games, proj_stats, scoring, cfg):
     """Return men (at least min_returns_per_game lately): real return yards
     have run about double what the projection has, so its return points
-    count `extra` more (2025 backtest, docs/BACKTEST.md: 1.1 projected,
-    2.3 real, in both halves of the season). A recent returner with no
-    return yards in his projection has often lost the job (only 42% still
-    returned), so nothing is added for him."""
+    count `extra` more, up to `cap` (backtest, docs/BACKTEST.md: 1.1
+    projected, 2.3 real; capped at 1.0 because heavy returners' other
+    points run under their projection, and 1.0 kept their totals unbiased
+    in 2025 and 2026). A recent returner with no return yards in his
+    projection has often lost the job (only 42% still returned), so
+    nothing is added for him."""
     recent = season_games[-cfg["recent_games"]:]
     if not recent:
         return None
     if mean(g.get("kr", 0) + g.get("pr", 0) for g in recent) < cfg["min_returns_per_game"]:
         return None
-    pts, parts = 0.0, []
+    projected, parts = 0.0, []
     for kind, label in (("kr", "kick"), ("pr", "punt")):
         yds, weight = proj_stats.get(f"{kind}_yd") or 0, scoring.get(f"{kind}_yd") or 0
         if yds > 0 and weight:
-            pts += yds * weight * cfg["extra"]
+            projected += yds * weight
             parts.append(f"{yds:.0f} {label} return yds")
+    pts = min(projected * cfg["extra"], cfg["cap"])
     if pts < 0.05:
         return None
-    return _adj("returns", "Return man", min(pts, cfg["cap"]),
-                f"His projection has {' + '.join(parts)}; real returns have run about double that")
+    return _adj("returns", "Return man", pts,
+                f"His projection has {' + '.join(parts)} ({projected:.1f} pts); real returns have run "
+                f"about double, so that much again, up to +{cfg['cap']:.1f}")
 
 
 def injury(status, detail, pre, cfg, consensus_part=0.0):
@@ -336,4 +340,5 @@ def wopr(pos, season_games, cfg):
     if pos not in cfg.get("wopr_positions", []):
         return None
     vals = [g["wopr"] for g in season_games if "wopr" in g]
-    return round(mean(vals), 2) if len(vals) >= 3 else None
+    # 3 decimals: the card shows the number the label was decided on
+    return round(mean(vals), 3) if len(vals) >= 3 else None

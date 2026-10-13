@@ -19,6 +19,12 @@ since then, which override the text below:
 - nflverse turned out not to be needed: Sleeper's weekly stats include
   snaps, targets, red-zone looks, air yards and return yards. Routes run
   aren't available from any free source; snap and target share stand in.
+  A 2025 backtest (docs/BACKTEST.md, 2026-10-13) found nflverse's EPA and
+  CPOE add nothing over Sleeper's projection.
+- After that backtest (owner's OK, 2026-10-13): the usage trend and the
+  matchup adjustment for RBs and WRs are off (they didn't help); return men
+  get their projected return points again, up to +1.0; floor, ceiling and
+  the give-or-take behind win % are spread 1.2x wider.
 
 ---
 

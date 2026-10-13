@@ -360,7 +360,7 @@ the lock everywhere for consistency):
 8. Built: "My Score" is now "Predicted" ("predicted points", "the
    prediction" in sentences), on cards, write-ups and Copy for Claude.
 9. Built in Phase 6 (below): the app reloads once when a new version
-   takes over.
+   takes over (index.html catches a takeover before app.js runs).
 10. Scheduled runs: GitHub keeps dropping them. Only 4 have ever run (all
    on Sunday 2026-10-11, the first at 3:42 PM ET); the 11:45 AM inactives
    run and 0 of the 7 Monday-night slots (to 9:40 PM ET 2026-10-12) ran.
@@ -440,19 +440,37 @@ rule points the wrong way; the spread (sd, floor, ceiling) is about 1.2×
 too narrow, so win % is a bit too sure.
 
 Owner picked all four (2026-10-13); built, each in settings.toml with the
-backtest numbers in a comment:
+backtest numbers in a comment, then corrected after the pre-PR review:
 1. Usage trend off (`[adjust.usage] positions = []`), matchup off for RB/WR
    (`[adjust.matchup] positions`). model._on.
 2. Return men (returned lately): the projection's return points count
-   twice (`extra = 1.0`); nothing added when it has none (was +0.3, or
-   recent yards).
+   again, up to +1.0 (`extra = 1.0`, `cap = 1.0`); nothing added when it has
+   none (was +0.3, or recent yards). The review found uncapped doubling
+   over-predicted heavy returners (Turpin 11.2); 1.0 kept return men
+   unbiased in both halves of 2025 and in 2026.
 3. Spread × 1.2 (`[floor_ceiling] stretch`, model.stretch): sd, floor and
    ceiling. Labels compare the unstretched range, so they mean what they
    did. Week 6: win % 37% → 39%.
-4. TE Steady = WOPR 0.45+ this season (`[labels] wopr_positions`,
-   `wopr_steady`); WOPR per game from Sleeper's targets and air yards
-   (history.py); players get `wopr` (TEs, 3+ games), shown in the card;
-   `settings.labels` reaches the app for the legend.
-After: average miss and close calls better for RB/WR/TE, the same for the
-rest; sd and floor/ceiling on target (docs/BACKTEST.md "Built").
+4. TE Steady from WOPR: built but **off** (`[labels] wopr_positions = []`).
+   After the review fix (Sleeper's air yards count catches only, so a
+   game's share is kept to 0-100% and tiny team totals skipped; history.py),
+   it didn't beat the floor rule in both halves. Players get `wopr` only for
+   listed positions; the card line and legend show only then.
+After (fixed close-call pairs): average miss 5.30 → 5.27 and 5.13 → 5.09,
+close calls 53.2% → 54.2% and 55.4% → 55.6%; 2026 weeks 2-4 better too.
+Spread of miss ÷ sd 0.95-1.12 (was 1.14-1.33).
+
+Open, for the owner: matchup for QB, K and DEF fails the same both-halves
+test (docs/BACKTEST.md section 2); still on.
+
+## Pre-PR review (2026-10-13)
+A multi-agent review (4 reviewers, a skeptic each) of the branch confirmed
+17 findings, all fixed: 7 in "try a swap" (live math dropped a locked
+Sleeper starter; a pruned swap could double a player; a player who left
+the roster stayed; Sleeper steps that can't be done; IR players offered;
+1% rounding; waiver flag), 2 in the reload (a takeover before app.js ran
+was missed; a page that installed the worker ignored later updates), 3 in
+the model (return cap, WOPR air yards, Copy for Claude's floor/ceiling
+text), 5 in the backtest tool/docs (close-call pairs, K/DEF rows, WOPR
+rounding, RB AUC, sd check).
 

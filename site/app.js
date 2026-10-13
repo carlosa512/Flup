@@ -450,7 +450,7 @@
     html += '</div>';
     if (p.wopr != null) {
       const cut = (data.settings.labels || {}).wopr_steady;
-      html += `<p class="muted">WOPR ${num(p.wopr)} this season: his share of the team's targets (×1.5) and air yards (×0.7)${
+      html += `<p class="muted">WOPR ${Number(p.wopr).toFixed(3)} this season: his share of the team's targets (×1.5) and air yards on catches (×0.7)${
         cut != null ? `. ◆ Steady takes ${num(cut)}+` : ''}.</p>`;
     }
     if (p.flag === 'Doubtful') html += '<p class="warn">Doubtful: likely sits. Have a backup ready.</p>';
@@ -1560,8 +1560,10 @@
     }
     const b = data.settings.blend || {}, fc = data.settings.floor_ceiling || {};
     const share = (x) => Math.round(100 * x / ((b.projection || 0) + (b.consensus || 0) || 1));
+    const wider = fc.stretch && fc.stretch !== 1
+      ? `, then spread ${num(fc.stretch)}x as far from Predicted (past scores alone came out too narrow in a backtest); the sd used for win chance is widened the same way` : '';
     lines.push(`Predicted = ${share(b.projection)}% Sleeper projection (rescored in my scoring) + ${share(b.consensus)}% FantasyPros consensus rank turned into points, `
-      + `plus small capped adjustments. Floor/ceiling = ${fc.floor_pct}th/${fc.ceiling_pct}th percentile of his weekly scores, scaled to this week.`);
+      + `plus small capped adjustments. Floor/ceiling = ${fc.floor_pct}th/${fc.ceiling_pct}th percentile of his weekly scores, scaled to this week${wider}.`);
     return lines.join('\n');
   }
 

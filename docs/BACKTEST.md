@@ -4,29 +4,37 @@ Owner's question (Phase 7): nflverse publishes free EPA, CPOE, WOPR and
 more. Add them only if they make Predicted points or the Boom/Steady
 labels more accurate.
 
+Short answer: they don't. The test turned up fixes to the current model
+instead (usage trend and RB/WR matchup off, a capped return-man rule, a
+wider spread), checked on both halves of 2025 and on 2026 so far. This
+page was corrected after a review (see "Review corrections" at the end).
+
 ## How it was tested
 
 `tools/backtest.py` rebuilds Predicted for every week of the 2025 season
-from what was known before that week, the same way the site does:
+(and 2026 so far) from what was known before that week, the same way the
+site does:
 
 - Sleeper's projection for the week, rescored in our scoring. Sleeper keeps
   each week's last pre-game projection: re-fetched 2026 week 5 projections
   matched a copy saved on game day exactly for all 181 players whose games
   had started (only not-yet-started games had changed).
-- The current adjustments (usage, Vegas game environment from nflverse's
-  closing lines, matchup, QB habits, return men) and floor/ceiling, with
-  2024 as "last season".
+- The adjustments (usage, Vegas game environment from nflverse's closing
+  lines, matchup, QB habits, return men) and floor/ceiling, with the
+  season before as "last season".
 - Left out: the FantasyPros blend (no free history of weekly ranks) and
   injury status (Sleeper's player info is today's, not that week's).
 
-Then, against what really happened (weeks 4-18, players who played and
-were projected at least QB 8, RB/WR 4, TE/K/DEF 3):
+Then, against what really happened (2025 weeks 4-18, 2026 weeks 2-4;
+players who played and were projected at least QB 8, RB/WR 4, TE/K/DEF 3):
 
 - **Average miss**: |real − predicted|.
-- **Close calls**: same position, same week, predicted within 1.5 pts: how
-  often the higher one really scored more (50% = coin flip).
-- **Out of sample**: anything fitted is fitted on weeks 4-11 and checked on
+- **Close calls**: same position, same week, within 1.5 pts on Sleeper's
+  projection (the same pairs for any version of the model): how often the
+  one predicted higher really scored more (50% = coin flip).
+- **Both halves**: anything fitted is fitted on weeks 4-11 and checked on
   12-18, and the other way round. A change counts only if it helps in both.
+  2026 weeks 2-4 (none of the choices were tuned on them) is a last check.
 
 Rerun: `python3 tools/backtest.py SNAP_DIR NFLVERSE_DIR --season 2025`
 (dev-snapshots branch; nflverse files listed in the tool's docstring).
@@ -47,47 +55,71 @@ direction. Sleeper's projection already has this information.
 Slope of what Predicted missed (before the adjustment) on the adjustment's
 points, per half (1 = right size, 0 = no help, negative = wrong way):
 
-| Adjustment | Weeks 4-11 | Weeks 12-18 | Verdict |
-|---|---|---|---|
-| Usage trend, RB | −1.70 | −0.48 | wrong way |
-| Usage trend, WR | −0.53 | +0.45 | no help |
-| Usage trend, TE | −1.48 | +0.61 | no help |
-| Matchup, RB | +0.38 | −1.16 | flips |
-| Matchup, WR | −1.28 | +0.43 | flips |
-| Matchup, QB | +0.39 | +1.17 | helps |
-| Matchup, TE | +1.30 | +0.09 | helps a little |
-| Game environment, QB/RB/WR/TE | +0.33 to +1.24 | +0.41 to +0.83 | helps |
-| Game environment, K/DEF | −1.04 / −0.22 | +0.46 / +0.45 | unclear (kept) |
+| Adjustment | Weeks 4-11 | Weeks 12-18 | Verdict | Now |
+|---|---|---|---|---|
+| Usage trend, RB | −1.70 | −0.48 | wrong way | off |
+| Usage trend, WR | −0.53 | +0.45 | flips | off |
+| Usage trend, TE | −1.48 | +0.61 | flips | off |
+| Matchup, RB | +0.38 | −1.16 | flips | off |
+| Matchup, WR | −1.28 | +0.43 | flips | off |
+| Matchup, TE | +1.30 | +0.09 | helps (close calls up both halves) | on |
+| Matchup, QB | +0.39 | +1.17 | slope holds; average miss no better | on, owner to decide |
+| Matchup, K | −0.57 | +1.17 | flips | on, owner to decide |
+| Matchup, DEF | −0.57 | +0.66 | flips; average miss worse both halves | on, owner to decide |
+| Game environment, QB/RB/WR/TE | +0.67 to +1.24 | +0.33 to +0.84 | helps | on |
+| Game environment, K/DEF | −1.04 / −0.22 | +0.46 / +0.45 | unclear | on |
 
-### 3. The return man rule points the wrong way
+QB, K and DEF matchup fail the same test that turned it off for RB/WR (QB
+on average miss, K and DEF on both); they stay on until the owner decides.
 
-| Return men (RB/WR/TE) | Games | Return pts projected | Predicted added | Really got |
+### 3. The return man rule pointed the wrong way
+
+| Return men (RB/WR/TE), 2025 | Games | Return pts projected | Predicted added | Really got |
 |---|---|---|---|---|
 | Projection has return yards | 211 | 1.13 | 0.30 | 2.33 |
 | Projection has none | 96 | 0.00 | 2.11 | 0.92 |
 
-When the projection has return yards, real returns came to about double
-(both halves: 1.10 → 2.38 and 1.17 → 2.27). When it has none, he had often
-lost the job (only 42% still returned), so adding his recent yards
-overshoots. Better: count the projection's return points again, add
-nothing when there are none (bias −0.08/−0.21 and the smallest misses).
+Real return yards ran about double the projection at every level
+(projected under 1 pt: 0.5 → 1.2; 1-2: 1.4 → 2.8; 2-3: 2.3 → 4.5). When the
+projection had none, he had often lost the job (only 42% still returned),
+so adding his recent yards overshot. But heavy returners' other points run
+under their projection, so doubling their return points over-predicted
+their totals (2026: −0.9). Counting the projection's return points again,
+**up to 1.0**, kept return men's totals unbiased everywhere:
 
-### 4. "Give or take" and floor/ceiling are too narrow
-
-Win % adds up each starter's sd; if the sd is right, 68% of games land
-within ±1 sd. Floor = 25th percentile (25% of games at or under), ceiling
-= 90th (10% at or over).
-
-| Pos | Within ±1 sd | Under floor | Over ceiling | With everything × 1.2 |
+| Return rule | Bias 2025 wk 4-11 | 12-18 | 2026 wk 2-4 | rms miss (same three) |
 |---|---|---|---|---|
-| QB | 63% | 32% | 13% | 69% / 27% / 10% |
-| RB | 61% | 34% | 14% | 71% / 27% / 11% |
-| WR | 60% | 38% | 12% | 70% / 31% / 9% |
-| TE | 60% | 32% | 15% | 69% / 26% / 12% |
-| K | 61% | 29% | 16% | 72% / 24% / 11% |
-| DEF | 69% | 27% | 13% | 74% / 20% / 10% |
+| none | +0.87 | +1.09 | +0.96 | 5.76 / 6.20 / 5.63 |
+| old (+0.3) | +0.48 | +0.75 | – | 5.73 / 6.13 / – |
+| projected again, up to 1.0 (now) | +0.13 | +0.31 | +0.07 | 5.66 / 6.06 / 5.59 |
+| projected again, up to 4.0 | −0.23 | −0.09 | −0.89 | 5.71 / 6.04 / 5.80 |
 
-So win % has been a bit too sure of itself: with the spread × 1.2, a 37% would read about 39%, and a 75% about 71%.
+(The average miss of return men favors adding nothing, 4.39 vs 4.46,
+because long returns come and go; Predicted aims at expected points, so
+the bias and rms decide.)
+
+### 4. "Give or take" and floor/ceiling were too narrow
+
+Win % adds up each starter's sd, so the check is the spread of misses
+divided by the sd (1.0 = right; weekly misses have fat tails, so the share
+within ±1 sd runs above the bell curve's 68% even when the spread is
+right). Floor = 25th percentile (25% of games at or under), ceiling =
+90th (10% at or over).
+
+| Pos | Spread of miss ÷ sd: before → after | Under floor: before → after | Over ceiling: before → after |
+|---|---|---|---|
+| QB | 1.19 → 0.99 | 32% → 27% | 13% → 10% |
+| RB | 1.32 → 1.11 | 34% → 27% | 14% → 12% |
+| WR | 1.21 → 1.00 | 38% → 32% | 12% → 9% |
+| TE | 1.33 → 1.12 | 32% → 26% | 15% → 12% |
+| K | 1.14 → 0.95 | 29% → 24% | 16% → 12% |
+| DEF | 1.15 → 0.96 | 27% → 20% | 13% → 10% |
+
+"After" = everything spread 1.2× as far from Predicted. 2026 weeks 2-4:
+spread 1.12-1.38 before, 0.93-1.15 after. RB and TE are still about 10%
+narrow, K and DEF about 5% wide; one setting for all keeps it simple. So win
+% had been a bit too sure of itself: a 37% now reads about 39%, a 75%
+about 71%.
 
 ### 5. Boom and Steady labels
 
@@ -96,69 +128,62 @@ So win % has been a bit too sure of itself: with the spread × 1.2, a 37% would 
   uses. A high ceiling/score does weakly mean a swingier player (AUC 0.52-0.54
   for big-or-dud games), so leaning toward ceilings as the underdog still
   makes sense.
-- WOPR (1.5 × target share + 0.7 × air yards share) picks out reliable pass
-  catchers (fewer duds, under half of Predicted). AUC for duds, lower =
-  better: TE 0.38 vs 0.45 for floor/score (what Steady uses), WR 0.44 vs
-  0.45, RB 0.46 vs 0.43. WOPR worked out from Sleeper's own targets and air
-  yards gives the same answer as nflverse's (TE 0.380 vs 0.376), so no new
-  data source is needed.
+- Duds (under half of Predicted), AUC, lower = better: nflverse's WOPR vs
+  floor/score (what Steady uses): TE 0.38 vs 0.44, WR 0.44 vs 0.46, RB 0.44
+  vs 0.46. But as a yes/no label at a cutoff, it didn't hold up (below).
+- WOPR from Sleeper's stats: Sleeper's air yards count catches only and go
+  negative on screens, so a game's share is kept to 0-100% and games where
+  the team's total is under 50 yards are skipped (one had made a share of
+  250%). Then, for TEs, "Steady" at WOPR 0.45+ vs the floor rule: duds 20%
+  vs 18% in weeks 4-11, 17% vs 29% in weeks 12-18, too few games in 2026.
+  Not better in both halves, so it's **off** (`[labels] wopr_positions =
+  []`); the code stays for another look with more data.
+- The floor rule's Steady doesn't mean fewer busts for QBs and kickers
+  (36% vs 23% and 31% vs 21% under the floor). Labels show only on bench and
+  free-agent rows, mostly RB/WR/TE. Open.
 
-### Together
-
-Usage off, matchup off for RB/WR, the new return rule:
-
-| Pos | Avg miss: projection / now / changed | Close calls: projection / now / changed |
-|---|---|---|
-| QB | 8.33 / 8.32 / 8.32 | 50.2% / 51.6% / 51.6% |
-| RB | 5.31 / 5.38 / 5.29 | 55.8% / 54.8% / 56.4% |
-| WR | 4.85 / 4.89 / 4.86 | 53.2% / 54.2% / 56.0% |
-| TE | 4.66 / 4.67 / 4.64 | 52.2% / 52.8% / 53.4% |
-
-Both halves improve: average miss 5.30 → 5.28 and 5.13 → 5.09; close
-calls 53.0% → 54.4% and 53.8% → 54.8%.
-
-Check on 2026 weeks 2-4 (small, with 2025 as last season): the same
-pattern (ranges too narrow: 27-40% under the floor, 12-24% over the ceiling).
-
-## Built (owner's OK, 2026-10-13): all four, checked through the real code
+## Built (owner's OK, 2026-10-13)
 
 `settings.toml`: `[adjust.usage] positions = []`, `[adjust.matchup]
 positions = ["QB", "TE", "K", "DEF"]`, `[adjust.returns] extra = 1.0`,
-`[floor_ceiling] stretch = 1.2`, `[labels] wopr_positions = ["TE"]`,
-`wopr_steady = 0.45` (0.45 picked on weeks 4-11, held on 12-18: Steady TEs
-had a dud in 15% and 16% of games vs 18% and 28% for the floor rule; for
-WRs the floor rule did better, 21-23% vs 26-34%, so they keep it).
+`cap = 1.0`, `[floor_ceiling] stretch = 1.2`, `[labels] wopr_positions =
+[]` (off, see 5).
 
-Re-running `tools/backtest.py` on 2025 after the changes (same 3,993
-player-games):
+Before (main) and after, through the real code, same 3,993 player-games
+and the same close-call pairs:
 
-| Pos | Avg miss before → after (projection) | Close calls right before → after (projection) |
+| Pos | Avg miss: before → after (projection) | Close calls right: before → after (projection) |
 |---|---|---|
 | QB | 8.32 → 8.32 (8.33) | 55.2% → 55.2% (53.5%) |
-| RB | 5.38 → 5.27 (5.31) | 53.1% → 53.5% (52.7%) |
-| WR | 4.89 → 4.86 (4.85) | 55.5% → 56.7% (54.0%) |
+| RB | 5.38 → 5.27 (5.31) | 53.1% → 53.7% (52.7%) |
+| WR | 4.89 → 4.86 (4.85) | 55.5% → 56.3% (54.0%) |
 | TE | 4.67 → 4.64 (4.66) | 53.3% → 54.4% (52.8%) |
 | K | 3.85 → 3.85 (3.84) | 51.6% → 51.6% (51.0%) |
 | DEF | 4.82 → 4.82 (4.79) | 55.5% → 55.5% (54.6%) |
 
-(Close calls here: pairs within 1.5 on Sleeper's projection, one fixed
-set, so before and after compare fairly.)
+| All positions | Avg miss: before → after | Close calls: before → after |
+|---|---|---|
+| 2025 weeks 4-11 | 5.304 → 5.270 | 53.2% → 54.2% |
+| 2025 weeks 12-18 | 5.126 → 5.088 | 55.4% → 55.6% |
+| 2026 weeks 2-4 | 4.972 → 4.963 | 53.3% → 53.8% |
 
-- Within ±1 sd: 69-74% (was 60-69%; 68% is right). Under the floor 20-32%,
-  over the ceiling 9-12% (was 27-38% / 12-16%).
-- Return men with return yards in the projection: bias +0.62 → −0.17, rms
-  miss 5.92 → 5.86; the average miss ticks up 4.60 → 4.67 (long returns
-  come and go).
-- Steady TEs: 20% of games under the floor vs 27% for other TEs (was 30% vs
-  33%).
+## Review corrections (2026-10-13)
 
-Still open: the floor rule's Steady doesn't mean fewer busts for QBs and
-kickers (36% vs 23% and 31% vs 21% under the floor); labels show only on
-bench and free-agent rows, mostly RB/WR/TE.
+A review before the pull request found, and these were fixed:
+- The return rule doubled heavy returners' return points with a 4.0 cap
+  (Turpin 6.9 → 11.2); now capped at 1.0 (Turpin 8.2).
+- WOPR divided by a team's air yards on catches, which can be near zero:
+  now kept to 0-100% with tiny totals skipped, compared with the cutoff at
+  3 decimals, and the TE label is off (it no longer beat the floor rule in
+  both halves; the earlier "15-16% vs 18-28%" didn't survive the fix).
+- Close calls were picked on each model's own Predicted, so runs weren't
+  comparable; now picked on the projection. The earlier "within ±1 sd"
+  check is replaced by the spread of miss ÷ sd.
+- This page left out matchup's K and DEF rows; they're in section 2 now.
 
 ## Caveats
 
-- One season (about 4,800 player-games). Small effects can be noise; only
-  changes that held in both halves are proposed.
+- One season plus three weeks (about 4,800 + 1,000 player-games). Small
+  effects can be noise; only changes that held in both halves are made.
 - The FantasyPros blend (40% of Predicted) couldn't be tested.
 - Credit if nflverse data is ever shown: CC-BY 4.0, "data from nflverse".
