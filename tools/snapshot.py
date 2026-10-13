@@ -82,6 +82,14 @@ def main():
         save(f"sleeper/stats_{prev_season}_{past}_all.json",
              f"{SLEEPER}/stats/nfl/{prev_season}/{past}?season_type=regular&"
              + "&".join(f"position[]={p}" for p in POSITIONS), gz=True)
+    # Backtests: Sleeper's own weekly projections for every finished week,
+    # last season and this one, to test new inputs (nflverse EPA, WOPR...)
+    # against what Sleeper already projected
+    for yr, last in ((prev_season, 18), (season, int(week) - 1)):
+        for past in range(1, last + 1):
+            save(f"sleeper/proj_{yr}_{past}_all.json",
+                 f"{SLEEPER}/projections/nfl/{yr}/{past}?season_type=regular&"
+                 + "&".join(f"position[]={p}" for p in POSITIONS), gz=True)
     save("sleeper/trending_add.json",
          f"{SLEEPER}/v1/players/nfl/trending/add?lookback_hours=48&limit=50")
     save("sleeper/players_nfl.json", f"{SLEEPER}/v1/players/nfl", gz=True)
