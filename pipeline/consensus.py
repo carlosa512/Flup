@@ -95,14 +95,20 @@ def espn_ids():
     return out
 
 
+class NotPostedYet(FetchError):
+    """The newest consensus file is for an earlier week (Monday night to
+    about Wednesday, after the site moves on to the next week)."""
+
+
 def from_dynastyprocess(index, games, dates=()):
-    """sleeper id -> consensus entry, plus a note about the file."""
+    """sleeper id -> consensus entry, plus a note about the file. dates:
+    the shown week's game days from Sleeper's projections."""
     ids = {}
     for r in id_rows():
         sid = (r.get("sleeper_id") or "").strip()
         if r.get("fantasypros_id") and sid and sid != "NA":
             ids[r["fantasypros_id"]] = sid
-    out, dates, kickoffs = {}, set(), []
+    out, scraped, kickoffs = {}, set(), []
     for r in csv.DictReader(io.StringIO(get_text(WEEKLY_URL))):
         pos = PAGES.get(r.get("page"))
         if not pos:
@@ -120,13 +126,13 @@ def from_dynastyprocess(index, games, dates=()):
             kickoffs.append(float(r["player_game_kickoff_ts"]))
         except (KeyError, TypeError, ValueError):
             pass
-        dates.add(r.get("scrape_date"))
+        scraped.add(r.get("scrape_date"))
         out[pid] = {"pos": pos, "ecr": ecr, "rank": rank, "url": r.get("player_page_url") or ""}
     if not out:
         raise FetchError("the consensus file had no usable rankings")
     if not _current(kickoffs, games, dates):
-        raise FetchError(f"the consensus file (from {max(dates)}) is for a different week")
-    return out, f"FantasyPros consensus via DynastyProcess, posted {max(dates)}"
+        raise NotPostedYet(f"FantasyPros hasn't posted this week's ranks yet (newest: {max(scraped)})")
+    return out, f"FantasyPros consensus via DynastyProcess, posted {max(scraped)}"
 
 
 def _column(fields, *names):

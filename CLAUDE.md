@@ -46,7 +46,8 @@ pipeline/            Python 3.11+, standard library only; `python3 -m pipeline`
   sleeper.py espn.py consensus.py   data sources
   scoring.py         stat line x league settings, with per-stat parts
   history.py         every game this + last season rescored in league scoring
-  model.py           My Score: blend, capped adjustments, injury, floor/ceiling
+  model.py           Predicted points (was "My Score"): blend, capped
+                     adjustments, injury, floor/ceiling
   tiers.py           local-gap tiers; league.py rosters + settings check
   lineup.py          best lineup, game phase (pre/live/final), win %, mode
   news.py            news links per player (ESPN, PFT, RotoBaller, Bluesky beat
@@ -103,7 +104,8 @@ iPhone 13, `timezoneId: 'America/Chicago'` (the owner's local time).
 
 ## Deploy and schedule
 
-- update.yml runs on schedule (Wed ~9 AM, Fri ~6 PM, Sun ~11:45 AM, then
+- update.yml runs on schedule (Tue ~7 AM/1 PM/7 PM, Wed ~9 AM, Thu ~9 AM,
+  Fri ~6 PM, Sun ~11:45 AM, then
   every 30 min from ~1 PM to 12:30 AM Eastern; Thu and Mon nights from
   ~6 PM; Saturdays in Dec/Jan; listed for EDT and EST in UTC), by "Run
   workflow",

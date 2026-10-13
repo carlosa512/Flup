@@ -8,6 +8,11 @@ on:
     # GitHub's clock is UTC, so each time is listed twice to cover both
     # daylight (EDT) and standard (EST) time. Runs can start 5-30 min late.
     - cron: "7 13,14 * * 3"    # Wednesday about 9 AM Eastern: projections
+    # Tuesday about 7 AM, 1 PM and 7 PM Eastern: the site has moved on to the
+    # next week (after Monday night), so trades, drops and lineups show
+    - cron: "7 11,12,17,18,23 * * 2"
+    - cron: "7 0 * * 3"
+    - cron: "7 13,14 * * 4"    # Thursday about 9 AM Eastern: after waivers
     - cron: "7 22,23 * * 5"    # Friday about 6 PM Eastern: final injury reports
     - cron: "45 15,16 * * 0"   # Sunday about 11:45 AM Eastern: inactives, 1 PM games
     # Sunday during the games, every 30 min from about 1 PM to 12:30 AM

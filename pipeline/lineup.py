@@ -1,8 +1,8 @@
 """My recommended lineup, both teams' expected totals, and my win %.
 
 1. Each starter's expected points and spread (sd) for the week: a finished
-   game is his actual points (sd 0); a live game is points so far plus My
-   Score x the share of the game left; a game not started is predicted points.
+   game is his actual points (sd 0); a live game is points so far plus predicted
+   points x the share of the game left; a game not started is predicted points.
 2. Best lineup by predicted points from healthy players whose game hasn't started
    (a Doubtful player only when no healthy one fits his slot).
    A player whose game has started is locked: a starter stays in his slot,

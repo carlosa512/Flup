@@ -191,6 +191,10 @@ def load_consensus(rows_by_pos, game_list, week):
     try:
         cons, note = consensus.from_dynastyprocess(index, game_list, dates)
         notes.append(note)
+    except consensus.NotPostedYet as err:
+        # Expected Monday night to about Wednesday: not a problem
+        cons = {}
+        notes.append(f"{err}, so predictions use Sleeper's projection alone for now")
     except (FetchError, ValueError, KeyError) as err:
         cons = {}
         problems.append(f"automatic file: {err}")
@@ -319,7 +323,7 @@ def build(settings, week=None, league_id=None, now=None):
                     f"{n_games:,} player-games from {int(season) - 1} and {season} weeks 1-{week - 1}, scored your way"})
 
     cons, cons_notes, cons_problems = load_consensus(rows_by_pos, game_list, week)
-    sources.append({"id": "consensus", "label": "Expert consensus", "ok": bool(cons),
+    sources.append({"id": "consensus", "label": "Expert consensus", "ok": bool(cons) or not cons_problems,
                     "fetched": now,
                     "detail": "; ".join(cons_notes + cons_problems) or "no consensus this week"})
 
@@ -439,9 +443,11 @@ def build(settings, week=None, league_id=None, now=None):
     # News links: my roster, their starters, the free agents suggested
     add_news(positions, ctx, my_lineup, rows_by_pos, settings.get("news") or {}, now, sources)
 
-    # Prove the scoring engine on every finished week
+    # Prove the scoring engine on every finished week. The one that just
+    # ended waits (as before the move to next week): Sleeper's official
+    # points can trail its stats for minutes after the last game
     weeks = []
-    for past in range(1, week):
+    for past in range(1, week - 1 if moved_on else week):
         if past not in this_season:
             weeks.append({"week": None, "error": f"week {past} stats didn't load"})
             continue
