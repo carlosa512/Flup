@@ -6,7 +6,9 @@ const SHELL = ['./', 'index.html', 'app.css', 'app.js', 'manifest.webmanifest',
 const CACHE = 'flup-shell-' + VERSION;
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));
+  // 'reload' skips the browser's own cache, which can still hold the old files
+  event.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL.map((u) => new Request(u, { cache: 'reload' }))))
+    .then(() => self.skipWaiting()));
 });
 
 self.addEventListener('activate', (event) => {

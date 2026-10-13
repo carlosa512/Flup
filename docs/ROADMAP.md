@@ -359,8 +359,8 @@ the lock everywhere for consistency):
    7 PM and Thursday ~9 AM Eastern.
 8. Built: "My Score" is now "Predicted" ("predicted points", "the
    prediction" in sentences), on cards, write-ups and Copy for Claude.
-9. Still open: reload once when a new version takes over (first open
-   after a deploy shows the old app).
+9. Built in Phase 6 (below): the app reloads once when a new version
+   takes over.
 10. Scheduled runs: GitHub keeps dropping them. Only 4 have ever run (all
    on Sunday 2026-10-11, the first at 3:42 PM ET); the 11:45 AM inactives
    run and 0 of the 7 Monday-night slots (to 9:40 PM ET 2026-10-12) ran.
@@ -375,3 +375,45 @@ the lock everywhere for consistency):
      player ids, IR too) for this.
    - ticker.yml: a chain of runs that each wait for the next update.yml
      slot and start it (see CLAUDE.md). Starts once on main.
+
+## Phase 6: try a swap (on `claude/elegant-galileo-qyg5so`)
+Owner's ask (2026-10-13): move a player in the lineup (say Croskey-Merritt
+over Judkins) and see the points and win % change; drag handles or an
+inline dropdown, Claude's pick. "Lock players who have started playing or
+played from being moved."
+
+Built (tap, not drag: dragging on a phone fights scrolling, and a list can
+show each option's effect before you pick):
+1. A ⇅ button beside each of my starters opens the players who could take
+   his slot: my healthy bench players whose game hasn't started (the
+   suggested starter first, marked, if he's been swapped out), then the 3
+   best free agents ("add him in Sleeper first"). Each shows his predicted
+   points and "+1.5 pts → 38% to win" (plus his ceiling/floor in underdog/
+   favored mode). An empty slot gets the button too.
+2. Locked: a starter whose game is on, over or past kickoff shows a padlock
+   instead of the button; players whose game started are never options; a
+   swap is dropped when a game in it kicks off.
+3. Picking one swaps him in (amber dashed edge, "Your swap" chip, "Instead
+   of X: +1.5 pts"). A bar above the lineup (sticky while scrolling) shows
+   "With your swap: 38% to win", "Suggested 37% · you 114.5 (+1.5) vs
+   125.1", the math behind a tap, and Undo. Picking the suggested player
+   again undoes that slot.
+4. The math: my total = the card's total − his points + the new player's;
+   spread = √(card's sd² − his sd² + new sd²); win % on the bell curve as
+   the card. During games the suggested lineup's live numbers are the
+   base. Nothing is saved: new data or Undo clears it; nothing changes in
+   Sleeper.
+5. "Make N changes in Sleeper" follows the lineup shown (a free agent:
+   "Add X (free agent), then start him for Y"); the late-swap tip hides and
+   bench options skip anyone in the lineup shown while a swap is on; Copy
+   for Claude adds "I'M CONSIDERING: ..." with both win %s.
+6. Leftover 9 fixed: when a new app version takes over, the page reloads
+   once (right away if just opened or brought back, else next time it's
+   shown). Opening the app, coming back to it and the refresh button check
+   for a new version. sw.js's version is now a hash of the app's own files
+   (update.yml), so data runs alone don't trigger it; the worker fetches the
+   new files past the browser's cache.
+Tested: Playwright at iPhone 13 on week 6 data (Judkins → Croskey-Merritt,
+DEF → a free agent, Undo), on the 2026-10-11 3:32 PM live capture (9 locked
+starters, only the late-game WR swappable; the swap dropped at his
+kickoff), and a fake deploy (one automatic reload, none without a change).

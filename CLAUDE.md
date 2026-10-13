@@ -55,6 +55,7 @@ pipeline/            Python 3.11+, standard library only; `python3 -m pipeline`
   writeups.py        template write-ups; attaches Claude's (inputs/writeups.json)
   validate.py        rescores finished weeks vs Sleeper's official points
 site/                static app, no build step: index.html app.js app.css sw.js
+                     (app.js: Lineup with "try a swap", Tiers, live scores)
 settings.toml        every weight/cap/threshold (the owner edits this)
 inputs/consensus/    optional FantasyPros CSV uploads (weekNN_pos.csv)
 inputs/writeups.json Claude's write-ups from /writeups (pushed straight to main)
@@ -133,9 +134,10 @@ iPhone 13, `timezoneId: 'America/Chicago'` (the owner's local time).
   `actions_run_trigger` can do it; the owner granted the Claude app
   Actions access on 2026-10-11 after a 403).
 - The service worker serves the cached shell first, so the first open after
-  a deploy shows the previous app once. GitHub Pages also caches files for
-  ~10 minutes, so right after a deploy the owner may need to wait a few
-  minutes, close the app fully and open it twice.
+  a deploy shows the previous app for a moment, then reloads itself once
+  into the new one. sw.js's version is a hash of the app's own files, so
+  data-only runs don't trigger that. GitHub Pages caches files for ~10
+  minutes, so right after a deploy the new app can take a few minutes.
 
 ## Gotchas already learned (don't relearn them)
 
