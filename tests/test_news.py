@@ -289,3 +289,74 @@ def test_a_league_wide_account_that_fails_is_a_problem_and_the_rest_still_work()
                                   "profootballtalk": PFT, "rotoballer": ROTOBALLER})
     assert not ok and "@rotowirenfl.bsky.social didn't load" in detail
     assert len(found["b"]) == 2
+
+
+# Review fixes, each from the real feeds of 2026-10-12
+def wide(posts, players, teammates, extra=None, espn_ids=None):
+    responses = dict(extra or {})
+    responses.update({"rotowirenfl": {"feed": []}, "rotoworld-fb": {"feed": posts},
+                      "profootballtalk": PFT, "rotoballer": ROTOBALLER})
+    fetch = fake_fetch(responses)
+    return news.collect(players, espn_ids or {}, teammates, WIDE_CFG, NOW, fetch_json=fetch, fetch_text=fetch)
+
+
+def titles(found, pid):
+    return [x["title"] for x in found[pid]]
+
+
+def test_players_without_a_team_dont_make_a_last_name_shared():
+    # Sleeper's projections list thousands of teamless players (Gabe Nabers)
+    players = [{"id": "n", "name": "Malik Nabers", "team": "NYG", "pos": "WR"}]
+    found, _, _ = wide([rotoworld_post("Nabers sees 20 targets, scores late", "2026-10-11T12:00:00Z")],
+                       players, {"NYG": ["Malik Nabers"], None: ["Gabe Nabers"]})
+    assert titles(found, "n") == ["Nabers sees 20 targets, scores late"]
+
+
+def test_last_names_that_are_places_or_everyday_words_need_the_full_name():
+    players = [{"id": "d", "name": "Drake London", "team": "ATL", "pos": "WR"},
+               {"id": "c", "name": "Cam Little", "team": "JAX", "pos": "K"}]
+    posts = [rotoworld_post("Parker Washington erupts in London with 6/124/2", "2026-10-11T12:00:00Z"),
+             rotoworld_post("Little change for the Jaguars' kicking game", "2026-10-11T11:00:00Z"),
+             rotoworld_post("Bears get little from the run game", "2026-10-11T10:00:00Z"),
+             rotoworld_post("Drake London (hip) a full participant", "2026-10-11T09:00:00Z")]
+    found, _, _ = wide(posts, players, {"ATL": ["Drake London"], "JAX": ["Cam Little", "Parker Washington"]})
+    assert titles(found, "d") == ["Drake London (hip) a full participant"]
+    assert found["c"] == []
+
+
+def test_a_list_of_last_names_counts_for_each_and_a_source_before_a_colon_doesnt():
+    players = [{"id": "g", "name": "Dallas Goedert", "team": "PHI", "pos": "TE"},
+               {"id": "f", "name": "Jake Fowler", "team": "PHI", "pos": "WR"},
+               {"id": "b", "name": "Saquon Barkley", "team": "PHI", "pos": "RB"}]
+    posts = [rotoworld_post("Wicks, Goedert not on final Week 5 injury report", "2026-10-11T12:00:00Z"),
+             rotoworld_post("Fowler: Smith-Njigba (ankle) listed as limited", "2026-10-11T11:00:00Z"),
+             rotoworld_post("Ian Rapoport: Barkley expected to play", "2026-10-11T10:00:00Z")]
+    found, _, _ = wide(posts, players, {"PHI": ["Dallas Goedert", "Jake Fowler", "Saquon Barkley"]})
+    assert titles(found, "g") == ["Wicks, Goedert not on final Week 5 injury report"]
+    assert found["f"] == []
+    # Only RotoWire's player-page posts treat "First Last:" as who it's about
+    assert titles(found, "b") == ["Ian Rapoport: Barkley expected to play"]
+
+
+def test_a_page_that_fails_keeps_the_pages_that_loaded():
+    fetch = fake_fetch({"cursor=page2": FetchError("timeout"), "rotowirenfl": ROTOWIRE_1,
+                        "rotoworld-fb": {"feed": []}, "profootballtalk": PFT, "rotoballer": ROTOBALLER})
+    found, detail, ok = news.collect(WIDE_PLAYERS, {}, WIDE_TEAMMATES, WIDE_CFG, NOW, fetch_json=fetch,
+                                     fetch_text=fetch)
+    assert ok and "@rotowirenfl.bsky.social 2 posts" in detail
+    assert len(found["m"]) == 2
+
+
+def test_rotowire_on_bluesky_replaces_its_twin_in_espns_feed():
+    # Same note, same time give or take a minute: keep the headline with the RotoWire link
+    espn = {"feed": [{"type": "Rotowire", "published": "2026-10-11T12:25:42Z",
+                      "headline": "Moore (illness) is inactive for Monday's game against the Rams."},
+                     {"type": "Rotowire", "published": "2026-10-05T12:00:00Z",
+                      "headline": "Moore caught five passes for 60 yards."}]}
+    feed = {"feed": [rotowire_post("DJ Moore: Inactive in Week 5", MOORE, "2026-10-11T12:27:15Z")]}
+    fetch = fake_fetch({"playerId=777": espn, "rotowirenfl": feed, "rotoworld-fb": {"feed": []},
+                        "profootballtalk": PFT, "rotoballer": ROTOBALLER})
+    found, _, _ = news.collect(WIDE_PLAYERS, {"m": "777"}, WIDE_TEAMMATES, WIDE_CFG, NOW, fetch_json=fetch,
+                               fetch_text=fetch)
+    assert titles(found, "m") == ["DJ Moore: Inactive in Week 5", "Moore caught five passes for 60 yards."]
+    assert found["m"][0]["url"] == MOORE
