@@ -496,20 +496,31 @@ def late_swap(slots, open_slots, final, kickoff):
 
 # ---------- bench and free agents ----------
 
-def label(p, ratios, cfg, pcts=PCTS):
+def label(p, ratios, cfg, pcts=PCTS, stretch=1.0):
     """"Boom" when his ceiling/score is well above the usual for his
-    position, "Steady" when his floor/score is; "" otherwise. Ratios are
-    (floor, ceiling, sd) per score point, from model.position_ratios."""
+    position, "Steady" when his floor/score is (for wopr_positions: his
+    WOPR this season is at least wopr_steady, else the floor rule while he
+    has no WOPR yet); "" otherwise. Ratios are
+    (floor, ceiling, sd) per score point, from model.position_ratios.
+    His range was stretched (model.stretch); it's compared unstretched,
+    as the usual ratios are, so the labels mean what they did."""
     if (p.get("range") or {}).get("if_plays"):
         return ""  # a Doubtful player's spread is mostly "will he play", not his style
+    by_wopr = p["pos"] in cfg.get("wopr_positions", []) and p.get("wopr") is not None
+    if by_wopr and p["wopr"] >= cfg["wopr_steady"]:
+        # A big share of his team's targets and air yards: the 2025 backtest
+        # found it picks reliable TEs better than the floor does
+        return "Steady"
     found, usual = outcome(p, pcts), (ratios or {}).get(p["pos"])
     if not found or not usual or p["score"] <= 0 or usual[0] <= 0 or usual[1] <= 0:
         return ""
-    boom = found[1] / p["score"] / usual[1] - cfg["boom"]
-    steady = found[0] / p["score"] / usual[0] - cfg["steady"]
-    if boom >= 0 and boom >= steady:
+    floor = 1 - (1 - found[0] / p["score"]) / stretch
+    ceiling = 1 + (found[1] / p["score"] - 1) / stretch
+    boom = ceiling / usual[1] - cfg["boom"]
+    steady = floor / usual[0] - cfg["steady"]
+    if boom >= 0 and (by_wopr or boom >= steady):
         return "Boom"
-    return "Steady" if steady >= 0 else ""
+    return "Steady" if steady >= 0 and not by_wopr else ""
 
 
 def _dropped_recently(pid, market, now):
@@ -533,6 +544,7 @@ def pickups(slots, entries, bench, by_id, value, mode, cfg, market, now, phase_o
     slot (bye, injury) counts as 0. In a leaned mode both numbers are in
     the line, because the rows themselves show predicted points."""
     ratios, labels = market.get("ratios"), market.get("labels") or {"boom": 1.05, "steady": 1.10}
+    stretch = market.get("stretch", 1.0)
     starters = [(i, by_id[e["id"]]) for i, e in enumerate(entries)
                 if e["state"] == "pre" and e["id"] in by_id]
     empty = [slots[i] for i, e in enumerate(entries) if e["state"] == "empty"]
@@ -565,7 +577,7 @@ def pickups(slots, entries, bench, by_id, value, mode, cfg, market, now, phase_o
             continue
         bench_flex.append({"id": b["id"], "value": round(value(b), 1),
                            "behind": low["id"] if low else None, "gap": g,
-                           "label": label(b, ratios, labels, pcts), "why": text})
+                           "label": label(b, ratios, labels, pcts, stretch), "why": text})
         if len(bench_flex) == 3:
             break
 
@@ -606,7 +618,7 @@ def pickups(slots, entries, bench, by_id, value, mode, cfg, market, now, phase_o
         free_agents.append({"id": p["id"], "value": round(value(p), 1), "can_start": r["can_start"],
                             "start_over": r["low"]["id"] if worth_it and r["low"] else None,
                             "fills": r["hole"], "gap": r["gap"],
-                            "label": label(p, ratios, labels, pcts),
+                            "label": label(p, ratios, labels, pcts, stretch),
                             "trending": (market.get("trending") or {}).get(p["id"]),
                             "dropped": _dropped_recently(p["id"], market, now), "why": why})
     return bench_flex, free_agents

@@ -405,6 +405,7 @@ def build(settings, week=None, league_id=None, now=None):
                     f"{len(market['trending'])} trending players, {len(market['dropped'])} recent drops"})
     market["clear_days"] = (lg.get("settings") or {}).get("waiver_clear_days", 1)
     market["ratios"] = model_ctx["pos_ratios"]
+    market["stretch"] = fc.get("stretch", 1.0)
     market["labels"] = settings.get("labels", {"boom": 1.05, "steady": 1.10})
 
     # My best lineup, both teams' totals and my win %
@@ -485,6 +486,7 @@ def build(settings, week=None, league_id=None, now=None):
         "checks": {"settings": sanity(lg, settings["league"]["expect"]), "scoring": weeks},
         "settings": {"tiers": tier_cfg, "positions": settings["positions"],
                      "blend": settings["blend"], "floor_ceiling": fc,
+                     "labels": settings.get("labels", {}),
                      "stale_hours": settings.get("stale", {}).get("data_hours", 36),
                      "stale_game_day_hours": settings.get("stale", {}).get("game_day_hours", 3),
                      "injury_news_hours": settings.get("stale", {}).get("injury_news_hours", 24)},

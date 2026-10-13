@@ -421,7 +421,7 @@ DEF → a free agent, Undo), on the 2026-10-11 3:32 PM live capture (9 locked
 starters, only the late-game WR swappable; the swap dropped at his
 kickoff), and a fake deploy (one automatic reload, none without a change).
 
-## Phase 7: advanced data (backtest done, waiting for the owner's OK)
+## Phase 7: advanced data (built on `claude/elegant-galileo-qyg5so`)
 Owner (2026-10-13): "go ahead and start that next step" (nflverse EPA etc.,
 added only if a backtest shows it helps start/sit or boom/bust).
 
@@ -439,10 +439,20 @@ current model: usage trend and RB/WR matchup don't help; the return man
 rule points the wrong way; the spread (sd, floor, ceiling) is about 1.2×
 too narrow, so win % is a bit too sure.
 
-Proposed (each held up in both halves of 2025):
-1. Turn off the usage trend (weight 0) and matchup for RB/WR.
-2. Return men: the projection's return points count twice; no yards added
-   when the projection has none.
-3. Spread × 1.2 (sd, and floor/ceiling's distance from Predicted).
-4. Steady for TEs (maybe WRs) from WOPR, worked out from Sleeper's stats.
+Owner picked all four (2026-10-13); built, each in settings.toml with the
+backtest numbers in a comment:
+1. Usage trend off (`[adjust.usage] positions = []`), matchup off for RB/WR
+   (`[adjust.matchup] positions`). model._on.
+2. Return men (returned lately): the projection's return points count
+   twice (`extra = 1.0`); nothing added when it has none (was +0.3, or
+   recent yards).
+3. Spread × 1.2 (`[floor_ceiling] stretch`, model.stretch): sd, floor and
+   ceiling. Labels compare the unstretched range, so they mean what they
+   did. Week 6: win % 37% → 39%.
+4. TE Steady = WOPR 0.45+ this season (`[labels] wopr_positions`,
+   `wopr_steady`); WOPR per game from Sleeper's targets and air yards
+   (history.py); players get `wopr` (TEs, 3+ games), shown in the card;
+   `settings.labels` reaches the app for the legend.
+After: average miss and close calls better for RB/WR/TE, the same for the
+rest; sd and floor/ceiling on target (docs/BACKTEST.md "Built").
 

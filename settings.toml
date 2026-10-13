@@ -65,8 +65,12 @@ consensus = 0.40
 [adjust]
 total_cap = 3.0
 
-# Share of team snaps / targets / carries in the last few games vs the season
+# Share of team snaps / targets / carries in the last few games vs the season.
+# Off (2026-10-13): the 2025 backtest (docs/BACKTEST.md) found it didn't
+# help in either half of the season (for RBs it pointed the wrong way).
+# List positions here to turn it back on.
 [adjust.usage]
+positions = []
 weight = 0.25             # how much of the trend counts (0.25 = a 20% jump adds 5%)
 cap = 1.5                 # most this can add or take away (points)
 recent_games = 3
@@ -79,8 +83,11 @@ spread_rb = 0.04          # points per point of spread (favored RBs run more)
 spread_pass = 0.02        # points per point of spread (trailing teams throw more)
 cap = 1.5
 
-# Points the opponent allows to the position vs the league average
+# Points the opponent allows to the position vs the league average.
+# Not for RBs and WRs (2026-10-13): in the 2025 backtest it flipped
+# direction between the two halves of the season for them (docs/BACKTEST.md).
 [adjust.matchup]
+positions = ["QB", "TE", "K", "DEF"]
 weight = 0.30
 shrink_games = 4          # an opponent's numbers count half at this many games, more after
 cap = 1.5
@@ -96,12 +103,16 @@ rush_share_start = 0.15   # rushing share of points where the bump starts...
 rush_share_full = 0.35    # ...and where it reaches the full rush_bonus
 rush_bonus = 0.6
 
-# Return men: a small bump for return-TD upside. Return yards the
-# projection doesn't include are added from recent games.
+# Return men (at least min_returns_per_game in recent games). The 2025
+# backtest (docs/BACKTEST.md): real return yards ran about double the
+# projection's (1.1 projected pts, 2.3 real), so its return points count
+# `extra` more (1.0 = twice). A recent returner whose projection has no
+# return yards had often lost the job (only 42% still returned): nothing
+# added. (Was: +0.3 bonus, plus recent yards when the projection had none.)
 [adjust.returns]
 recent_games = 3
 min_returns_per_game = 1.0
-bonus = 0.3
+extra = 1.0
 cap = 4.0
 
 # Share of the score taken off by injury status. Questionable comes off the
@@ -120,6 +131,12 @@ floor_pct = 25
 ceiling_pct = 90
 last_season_games = 12    # most recent games from last season to include
 shrink_games = 6          # a player's own spread counts half at this many games
+# Past weekly scores alone come out too narrow (the prediction misses too).
+# The 2025 backtest (docs/BACKTEST.md): spread 1.2x as far from Predicted,
+# ~25% of games land under the floor, ~10% over the ceiling and ~68%
+# within one sd (was 32-38% / 12-16% / 60-63%). It also widens the sd that
+# win % adds up, so win % is less sure of itself.
+stretch = 1.2
 
 # ---------------------------------------------------------------------------
 # Lineup and win %
@@ -139,6 +156,13 @@ free_agents = 5           # most free agents to list (worth starting first, then
 [labels]
 boom = 1.05               # ceiling/score at least 5% above usual: "Boom"
 steady = 1.10             # floor/score at least 10% above usual: "Steady"
+# Tight ends: "Steady" when his WOPR this season (1.5 x share of team
+# targets + 0.7 x share of team air yards, from Sleeper's stats) is at
+# least this. 2025 backtest (docs/BACKTEST.md): duds (under half of
+# Predicted) 15-16% of games for them vs 18-28% for the floor rule. For WRs
+# the floor rule did better, so they keep it.
+wopr_positions = ["TE"]
+wopr_steady = 0.45
 
 [stale]
 # The page warns when the data is older than this

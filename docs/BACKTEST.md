@@ -120,6 +120,42 @@ calls 53.0% → 54.4% and 53.8% → 54.8%.
 Check on 2026 weeks 2-4 (small, with 2025 as last season): the same
 pattern (ranges too narrow: 27-40% under the floor, 12-24% over the ceiling).
 
+## Built (owner's OK, 2026-10-13): all four, checked through the real code
+
+`settings.toml`: `[adjust.usage] positions = []`, `[adjust.matchup]
+positions = ["QB", "TE", "K", "DEF"]`, `[adjust.returns] extra = 1.0`,
+`[floor_ceiling] stretch = 1.2`, `[labels] wopr_positions = ["TE"]`,
+`wopr_steady = 0.45` (0.45 picked on weeks 4-11, held on 12-18: Steady TEs
+had a dud in 15% and 16% of games vs 18% and 28% for the floor rule; for
+WRs the floor rule did better, 21-23% vs 26-34%, so they keep it).
+
+Re-running `tools/backtest.py` on 2025 after the changes (same 3,993
+player-games):
+
+| Pos | Avg miss before → after (projection) | Close calls right before → after (projection) |
+|---|---|---|
+| QB | 8.32 → 8.32 (8.33) | 55.2% → 55.2% (53.5%) |
+| RB | 5.38 → 5.27 (5.31) | 53.1% → 53.5% (52.7%) |
+| WR | 4.89 → 4.86 (4.85) | 55.5% → 56.7% (54.0%) |
+| TE | 4.67 → 4.64 (4.66) | 53.3% → 54.4% (52.8%) |
+| K | 3.85 → 3.85 (3.84) | 51.6% → 51.6% (51.0%) |
+| DEF | 4.82 → 4.82 (4.79) | 55.5% → 55.5% (54.6%) |
+
+(Close calls here: pairs within 1.5 on Sleeper's projection, one fixed
+set, so before and after compare fairly.)
+
+- Within ±1 sd: 69-74% (was 60-69%; 68% is right). Under the floor 20-32%,
+  over the ceiling 9-12% (was 27-38% / 12-16%).
+- Return men with return yards in the projection: bias +0.62 → −0.17, rms
+  miss 5.92 → 5.86; the average miss ticks up 4.60 → 4.67 (long returns
+  come and go).
+- Steady TEs: 20% of games under the floor vs 27% for other TEs (was 30% vs
+  33%).
+
+Still open: the floor rule's Steady doesn't mean fewer busts for QBs and
+kickers (36% vs 23% and 31% vs 21% under the floor); labels show only on
+bench and free-agent rows, mostly RB/WR/TE.
+
 ## Caveats
 
 - One season (about 4,800 player-games). Small effects can be noise; only

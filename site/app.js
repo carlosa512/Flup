@@ -448,6 +448,11 @@
     let html = `<div class="score-head"><b class="big">${pts(p.score)}</b>`;
     if (r) html += `<span>${r.if_plays ? 'If he plays: ' : ''}Floor ${pts(r.floor)} · Ceiling ${pts(r.ceiling)}</span>`;
     html += '</div>';
+    if (p.wopr != null) {
+      const cut = (data.settings.labels || {}).wopr_steady;
+      html += `<p class="muted">WOPR ${num(p.wopr)} this season: his share of the team's targets (×1.5) and air yards (×0.7)${
+        cut != null ? `. ◆ Steady takes ${num(cut)}+` : ''}.</p>`;
+    }
     if (p.flag === 'Doubtful') html += '<p class="warn">Doubtful: likely sits. Have a backup ready.</p>';
     if (p.rest) html += `<p class="warn">${esc(p.rest)}</p>`;
     const c = p.cons;
@@ -1023,7 +1028,7 @@
   }
   function labelChip(l) {
     if (l === 'Boom') return '<span class="chip label boom" title="Ceiling well above usual for his position">▲ Boom</span>';
-    if (l === 'Steady') return '<span class="chip label steady" title="Floor well above usual for his position">◆ Steady</span>';
+    if (l === 'Steady') return '<span class="chip label steady" title="Reliable: few duds (see the note below)">◆ Steady</span>';
     return '';
   }
 
@@ -1081,8 +1086,11 @@
     }
     // Phones can't show hover tips, so the labels are explained once in words
     if (bench.concat(fas).some((x) => x.label)) {
+      const lb = data.settings.labels || {};
+      const te = (lb.wopr_positions || []).includes('TE') && lb.wopr_steady != null
+        ? ` (tight ends: WOPR ${num(lb.wopr_steady)}+, a big share of his team's targets and air yards)` : '';
       html += `<p class="legend"><b>▲ Boom</b>: ceiling well above the usual for his position.
-        <b>◆ Steady</b>: floor well above the usual.</p>`;
+        <b>◆ Steady</b>: floor well above the usual${te}.</p>`;
     }
     return html;
   }

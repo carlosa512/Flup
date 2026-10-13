@@ -173,7 +173,7 @@ def predictions(snap, settings, scoring, season, games_csv, current):
                     # under def_kr_yd, some punt returns under def_pr_yd) and in the game
                     "ret_proj": return_points(raw.get(p["id"], {}), scoring, projected=True),
                     "ret_real": returned.get(p["id"]),
-                    "label": lineup.label(p, ctx["pos_ratios"], labels_cfg, pcts),
+                    "label": lineup.label(p, ctx["pos_ratios"], labels_cfg, pcts, fc.get("stretch", 1.0)),
                     "actual": actual.get(p["id"]),
                 })
         print(f"  week {week}: {sum(1 for r in out if r['week'] == week)} players", file=sys.stderr)
@@ -484,8 +484,8 @@ def report(rows, season, first=FIRST_WEEK):
         lines.append(f"| {pos} | {len(g)} | {spread:.2f} | {100 * sum(abs(z) <= 1 for z in zs) / len(zs):.0f}% | {spread:.2f} |")
 
     lines += ["", "## Return yards", "",
-              "The return man adjustment adds 0.3 when his projection has return yards, and his recent "
-              "return yards when it has none.", "",
+              "Recent returners (the return man adjustment's players): the return points in their "
+              "projection, what Predicted added for returns, and what they really got.", "",
               "| RB/WR/TE return men | Games | Return pts projected | Added by Predicted | Really got | Still returned |",
               "|---|---|---|---|---|---|"]
     men = [r for r in played if r["pos"] in ("RB", "WR", "TE") and r["adj"].get("returns")]

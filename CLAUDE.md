@@ -64,6 +64,8 @@ tests/               pytest; test_real_snapshot.py runs only with FLUP_REPLAY
 .github/workflows/   update.yml (data runs + deploy), ticker.yml (keeps runs
                      coming), snapshot.yml (dev)
 tools/               snapshot.py (dev raw capture + news/CORS probe), make_icons.py,
+                     backtest.py (rebuilds Predicted for a past season and checks it:
+                     docs/BACKTEST.md),
                      check_writeups.py (/writeups must pass it before pushing),
                      next_run.py (next update.yml slot, for ticker.yml)
 ```
@@ -159,6 +161,14 @@ iPhone 13, `timezoneId: 'America/Chicago'` (the owner's local time).
 - Shrinkage is n/(n+k): a number counts half at k, never fully.
 - The scoring engine matches Sleeper's official points 755/755 (weeks 1-4,
   2026). Any scoring change must keep test_real_snapshot.py passing.
+- Sleeper keeps each past week's last pre-game projection (re-fetched week 5
+  matched a game-day copy for every game already started, 2026-10-13), so
+  tools/backtest.py can rebuild Predicted for past weeks without hindsight.
+  Players' projected punt return yards are `pr_yd` (`def_pr_yd` is DEF only).
+- Model changes go through tools/backtest.py first (both halves of 2025
+  must improve). Found 2026-10-13: nflverse EPA/CPOE add nothing over
+  Sleeper's projection; usage trend and RB/WR matchup are off; ranges are
+  stretched 1.2x; TE Steady is WOPR 0.45+.
 - Thursday games are already played by the weekend; players show "Played"
   (game_status from ESPN). Projections still exist for them, and their
   actual points are in this week's Sleeper matchups (`players_points`).

@@ -24,6 +24,12 @@ def _pct(x):
     return f"{round(x * 100)}%"
 
 
+def _on(cfg, pos):
+    """An adjustment's settings can list the positions it's used for
+    (settings.toml `positions`); without the list, it's used for all."""
+    return pos in cfg.get("positions", [pos])
+
+
 def _adj(key, label, pts, why):
     return {"key": key, "label": label, "pts": round(pts, 2), "why": why}
 
@@ -143,24 +149,27 @@ def qb_style(base, games, proj_stats, scoring, league_int_rate, cfg):
 
 
 def returns(season_games, proj_stats, scoring, cfg):
-    """Return men: a small bump for return-TD upside, plus recent return
-    yards for any kind of return the projection leaves out."""
+    """Return men (at least min_returns_per_game lately): real return yards
+    have run about double what the projection has, so its return points
+    count `extra` more (2025 backtest, docs/BACKTEST.md: 1.1 projected,
+    2.3 real, in both halves of the season). A recent returner with no
+    return yards in his projection has often lost the job (only 42% still
+    returned), so nothing is added for him."""
     recent = season_games[-cfg["recent_games"]:]
     if not recent:
         return None
     if mean(g.get("kr", 0) + g.get("pr", 0) for g in recent) < cfg["min_returns_per_game"]:
         return None
-    pts, missing = cfg["bonus"], []
+    pts, parts = 0.0, []
     for kind, label in (("kr", "kick"), ("pr", "punt")):
-        yds = mean(g.get(f"{kind}_yd", 0) for g in recent)
-        weight = scoring.get(f"{kind}_yd") or 0
-        if weight and yds and f"{kind}_yd" not in proj_stats:
-            pts += yds * weight
-            missing.append(f"{yds:.0f} {label} return yds")
-    why = ("Returns kicks or punts" if not missing else
-           f"Averaging {' + '.join(missing)}/game lately (not in his projection)")
+        yds, weight = proj_stats.get(f"{kind}_yd") or 0, scoring.get(f"{kind}_yd") or 0
+        if yds > 0 and weight:
+            pts += yds * weight * cfg["extra"]
+            parts.append(f"{yds:.0f} {label} return yds")
+    if pts < 0.05:
+        return None
     return _adj("returns", "Return man", min(pts, cfg["cap"]),
-                why + f", plus {cfg['bonus']:g} for return-TD upside")
+                f"His projection has {' + '.join(parts)}; real returns have run about double that")
 
 
 def injury(status, detail, pre, cfg, consensus_part=0.0):
@@ -209,9 +218,21 @@ def position_ratios(histories_by_pos, min_games, min_mean, floor_pct, ceiling_pc
     return out
 
 
+def stretch(ratios, k):
+    """(floor, ceiling, sd) per score point, spread k times as far from the
+    score: past weekly scores alone come out too narrow, because the
+    prediction itself misses too (2025 backtest: k = 1.2 puts about 25% of
+    games under the floor, 10% over the ceiling and 68% within one sd).
+    A floor at or above 0 stays there."""
+    f, c, sd = ratios
+    floor = 1 - k * (1 - f)
+    return (max(0.0, floor) if f >= 0 else floor, 1 + k * (c - 1), sd * k)
+
+
 def outcome_range(score, games, pos_ratio, fc, min_mean=1.0):
     """Floor, ceiling and sd scaled to this week's score. A player's own
-    history counts more the more games he has (half at shrink_games)."""
+    history counts more the more games he has (half at shrink_games),
+    then the spread is stretched (settings [floor_ceiling] stretch)."""
     found = spread_ratios(games, fc["floor_pct"], fc["ceiling_pct"], min_mean)
     own, n = found if found else (None, 0)
     if not pos_ratio and not own:
@@ -221,6 +242,7 @@ def outcome_range(score, games, pos_ratio, fc, min_mean=1.0):
         r = tuple((n * a + k * b) / (n + k) for a, b in zip(own, pos_ratio))
     else:
         r = own or pos_ratio
+    r = stretch(r, fc.get("stretch", 1.0))
     return {"floor": round(score * r[0], 1), "ceiling": round(score * r[1], 1),
             "sd": round(score * r[2], 2), "games": n}
 
@@ -263,9 +285,9 @@ def my_score(p, proj_stats, cons, ctx):
     season = ctx["season_games"](p["id"])
     recent_all = ctx["recent_games"](p["id"])
     small = [a for a in (
-        usage(p["pos"], base, season, adj_cfg["usage"]),
+        usage(p["pos"], base, season, adj_cfg["usage"]) if _on(adj_cfg["usage"], p["pos"]) else None,
         environment(p, base, ctx["avg_implied"], ctx["implied"].get(p.get("opp")), adj_cfg["environment"]),
-        matchup(p, base, ctx["history"], adj_cfg["matchup"]),
+        matchup(p, base, ctx["history"], adj_cfg["matchup"]) if _on(adj_cfg["matchup"], p["pos"]) else None,
         qb_style(base, recent_all, proj_stats, ctx["scoring"], ctx["league_int_rate"], adj_cfg["qb"])
         if p["pos"] == "QB" else None,
     ) if a]
@@ -299,5 +321,19 @@ def my_score(p, proj_stats, cons, ctx):
                         cfg["floor_ceiling"], ctx.get("relevant_mean", {}).get(p["pos"], 1.0))
     if rng and flag:
         rng["if_plays"] = True
-    return {"score": score, "base": base, "blend": how, "note": "", "cons": cons_out,
-            "adj": adjustments, "range": rng, "flag": flag}
+    out = {"score": score, "base": base, "blend": how, "note": "", "cons": cons_out,
+           "adj": adjustments, "range": rng, "flag": flag}
+    found = wopr(p["pos"], season, cfg.get("labels") or {})
+    if found is not None:
+        out["wopr"] = found
+    return out
+
+
+def wopr(pos, season_games, cfg):
+    """His average WOPR this season (1.5 x target share + 0.7 x air yards
+    share), for the positions whose Steady label uses it; None before he
+    has 3 games with it."""
+    if pos not in cfg.get("wopr_positions", []):
+        return None
+    vals = [g["wopr"] for g in season_games if "wopr" in g]
+    return round(mean(vals), 2) if len(vals) >= 3 else None
