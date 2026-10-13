@@ -716,6 +716,17 @@
     return `<span class="swap-btn locked" role="img" aria-label="${esc(p ? p.name : 'He')} is locked: his game has started">${LOCK}</span>`;
   }
 
+  // Full roster: every spot but IR is taken, so adding a free agent means
+  // dropping someone. Sleeper's roster now if it has loaded, else the data
+  // run's. Null when the data doesn't say (older data without reserve).
+  function rosterFull(L) {
+    const now = sleeperFor();
+    const ids = now ? [...now.roster] : L.roster, ir = now ? now.reserve : L.reserve;
+    if (!ids || !ir) return null;
+    const spots = (data.league.roster_positions || []).filter((s) => !/^(IR|TAXI)$/.test(s)).length;
+    return ids.filter((id) => !ir.includes(id)).length >= spots;
+  }
+
   function swapButton(e, i) {
     const p = e.id ? index.get(e.id) : null;
     return `<button type="button" class="swap-btn" data-swap="${i}" aria-expanded="${swapOpen === i}"
@@ -750,7 +761,9 @@
       ? `<ul class="swap-opts">${bench.map((p) => option(p, p.id === back ? ' · suggested' : '')).join('')}</ul>`
       : `<p class="swap-none">Nobody on your bench can play ${esc(cur.slot)} this week.</p>`;
     if (fas.length) {
-      html += `<p class="swap-group">Free agents (add him in Sleeper first)</p><ul class="swap-opts">${fas.map((p) => option(p)).join('')}</ul>`;
+      const full = rosterFull(L);
+      html += `<p class="swap-group">Free agents</p>${full ? '<p class="swap-note">Your roster is full: adding one means dropping someone.</p>' : ''}
+        <ul class="swap-opts">${fas.map((p) => option(p)).join('')}</ul>`;
     }
     return html + '</div>';
   }
@@ -926,7 +939,7 @@
     }
     return { moves, changes };
   }
-  const changeText = (c) => (c.add ? `add ${nameOf(c.in)} (free agent) and start him ${c.out ? 'for ' + nameOf(c.out) : 'in the empty ' + c.slot + ' slot'}`
+  const changeText = (c) => (c.add ? `add free agent ${nameOf(c.in)}${rosterFull(data.lineup) ? ' (dropping someone to make room)' : ''} and start him ${c.out ? 'for ' + nameOf(c.out) : 'in the empty ' + c.slot + ' slot'}`
     : c.in && c.out ? `start ${nameOf(c.in)} for ${nameOf(c.out)}`
     : c.in ? `start ${nameOf(c.in)} in the empty ${c.slot} slot`
       : c.out ? `bench ${nameOf(c.out)}` : `fill the empty ${c.slot} slot (no healthy player left for it)`);
@@ -941,7 +954,8 @@
     const items = moves.map((m) => locked(`Move <b>${esc(nameOf(m.id))}</b> to ${esc(m.to)}`, [m.id])).concat(changes.map((c) => {
       const ids = [c.in, c.out].filter(Boolean);
       if (c.add) {
-        return locked(`Add <b>${esc(nameOf(c.in))}</b> (free agent), then start him ${c.out ? 'for ' + esc(nameOf(c.out)) : 'in the empty ' + esc(c.slot) + ' slot'}`, ids);
+        const drop = rosterFull(L) ? ' (drop someone to make room)' : '';
+        return locked(`Add free agent <b>${esc(nameOf(c.in))}</b>${drop}, then start him ${c.out ? 'for ' + esc(nameOf(c.out)) : 'in the empty ' + esc(c.slot) + ' slot'}`, ids);
       }
       if (c.in && c.out) return locked(`Start <b>${esc(nameOf(c.in))}</b> for ${esc(nameOf(c.out))}`, ids);
       if (c.in) return locked(`Start <b>${esc(nameOf(c.in))}</b> in the empty ${esc(c.slot)} slot`, ids);
@@ -1179,7 +1193,8 @@
       const m = (mu || []).find((x) => x.roster_id === lg.my_rid);
       if (!r || !m || data.generated !== generated) return;  // newer data came in meanwhile
       const was = sleeperNow && JSON.stringify([[...sleeperNow.roster], sleeperNow.starters, sleeperNow.generated]);
-      sleeperNow = { roster: new Set((r.players || []).map(String)), starters: (m.starters || []).map(String), generated };
+      sleeperNow = { roster: new Set((r.players || []).map(String)), starters: (m.starters || []).map(String),
+        reserve: (r.reserve || []).map(String), generated };
       if (JSON.stringify([[...sleeperNow.roster], sleeperNow.starters, generated]) !== was) renderView();
     } catch (e) {
       // Offline or Sleeper down: the data run's roster stands

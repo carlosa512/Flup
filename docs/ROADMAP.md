@@ -387,7 +387,9 @@ show each option's effect before you pick):
 1. A ⇅ button beside each of my starters opens the players who could take
    his slot: my healthy bench players whose game hasn't started (the
    suggested starter first, marked, if he's been swapped out), then the 3
-   best free agents ("add him in Sleeper first"). Each shows his predicted
+   best free agents (with "Your roster is full: adding one means dropping
+   someone" when it is; owner found "add him in Sleeper first" read
+   weird; `lineup.reserve` = my IR ids, for that). Each shows his predicted
    points and "+1.5 pts → 38% to win" (plus his ceiling/floor in underdog/
    favored mode). An empty slot gets the button too.
 2. Locked: a starter whose game is on, over or past kickoff shows a padlock
@@ -404,7 +406,8 @@ show each option's effect before you pick):
    base. Nothing is saved: new data or Undo clears it; nothing changes in
    Sleeper.
 5. "Make N changes in Sleeper" follows the lineup shown (a free agent:
-   "Add X (free agent), then start him for Y"); the late-swap tip hides and
+   "Add free agent X (drop someone to make room), then start him for Y");
+   the late-swap tip hides and
    bench options skip anyone in the lineup shown while a swap is on; Copy
    for Claude adds "I'M CONSIDERING: ..." with both win %s.
 6. Leftover 9 fixed: when a new app version takes over, the page reloads
