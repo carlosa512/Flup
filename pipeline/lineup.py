@@ -2,8 +2,8 @@
 
 1. Each starter's expected points and spread (sd) for the week: a finished
    game is his actual points (sd 0); a live game is points so far plus My
-   Score x the share of the game left; a game not started is My Score.
-2. Best lineup by My Score from healthy players whose game hasn't started
+   Score x the share of the game left; a game not started is predicted points.
+2. Best lineup by predicted points from healthy players whose game hasn't started
    (a Doubtful player only when no healthy one fits his slot).
    A player whose game has started is locked: a starter stays in his slot,
    a bench player can't come in.
@@ -36,7 +36,7 @@ QUARTER = 900  # seconds
 POS_WORD = {"K": "kicker", "DEF": "defense"}
 # What the ranking number is called when it leans toward floor or ceiling
 VALUE_NAME = {"underdog": " upside score", "favored": " safe score"}
-MEASURE = {"underdog": "upside score", "favored": "safe score", "even": "My Score"}
+MEASURE = {"underdog": "upside score", "favored": "safe score", "even": "predicted points"}
 SUFFIXES = {"Jr", "Sr", "II", "III", "IV", "V"}
 CALLS_PER_STARTER = 2
 MAX_CALLS = 4
@@ -65,7 +65,7 @@ def _accepts(slot):
 
 
 def _healthy(p):
-    """My Score before the injury discount."""
+    """predicted points before the injury discount."""
     return p["score"] - sum(a["pts"] for a in p.get("adj") or [] if a["key"] == "injury")
 
 
@@ -110,7 +110,7 @@ def _plays_quantile(u, healthy, floor, ceiling, pcts):
 
 def outcome(p, pcts=PCTS):
     """(floor, ceiling, sd) this week, or None. A Doubtful player's range is
-    'if he plays'. He plays with chance q = My Score / healthy score, else
+    'if he plays'. He plays with chance q = predicted points / healthy score, else
     scores 0, so his floor and ceiling are percentiles of that mix. With
     Doubtful flagged only (settings [adjust.injury] doubtful = 0), q = 1 and
     this is just his range; at 60% off his floor (25th percentile) would be
@@ -210,7 +210,7 @@ def _live_def(p, game, got, rest, left, scoring):
 
 
 def lean_value(mode, lean, pcts=PCTS):
-    """The number players are ranked by: My Score, moved `lean` of the way
+    """The number players are ranked by: predicted points, moved `lean` of the way
     to the floor (favored) or the ceiling (underdog)."""
     def value(p):
         found = outcome(p, pcts)
@@ -231,7 +231,7 @@ def pick(slots, open_slots, pool, value):
     """Best players for the open slots. The most specific slot is filled
     first (QB before FLEX), which is exact for QB/RB/WR/TE/K/DEF + FLEX.
     A Doubtful player only starts if no healthy player fits the slot (he
-    keeps his full My Score; the owner chose to flag, not discount)."""
+    keeps his full predicted points; the owner chose to flag, not discount)."""
     ranked = sorted(pool, key=lambda p: (_doubtful(p), -value(p), -p["score"], p["name"]))
     chosen, taken = {}, set()
     for i in sorted(open_slots, key=lambda i: (len(_accepts(slots[i])), i)):
@@ -313,10 +313,10 @@ def _signed(x):
 
 def _why(p, e, close, swapped_for, mode, pcts=PCTS):
     if e["state"] == "final":
-        return f"Played: {e['actual']:.1f} pts (My Score was {p['score']:.1f})"
+        return f"Played: {e['actual']:.1f} pts (predicted {p['score']:.1f})"
     if e["state"] == "live":
         return (f"Playing now: {e['actual']:.1f} so far, {round(e['left'] * 100)}% of the game left"
-                f" (My Score {p['score']:.1f})")
+                f" (predicted {p['score']:.1f})")
     main = None
     mine, theirs = outcome(p, pcts), outcome(swapped_for, pcts)
     if mine and theirs:
@@ -531,7 +531,7 @@ def pickups(slots, entries, bench, by_id, value, mode, cfg, market, now, phase_o
     grabbing. Each player is compared with the weakest not-yet-played
     starter in a slot he can play, the same rule as close calls; an empty
     slot (bye, injury) counts as 0. In a leaned mode both numbers are in
-    the line, because the rows themselves show My Score."""
+    the line, because the rows themselves show predicted points."""
     ratios, labels = market.get("ratios"), market.get("labels") or {"boom": 1.05, "steady": 1.10}
     starters = [(i, by_id[e["id"]]) for i, e in enumerate(entries)
                 if e["state"] == "pre" and e["id"] in by_id]
@@ -678,7 +678,7 @@ def build(positions, ctx, roster_positions, games, cfg, now, scoring=None, marke
                        for slot, pid in zip(slots, starters)]
         theirs = {**_totals(opp_entries), "starters": opp_entries}
 
-    # Pass 1: best lineup by My Score -> win % -> mode
+    # Pass 1: best lineup by predicted points -> win % -> mode
     first = pick(slots, open_slots, pool, lambda p: p["score"])
     first_tot = _totals(lineup_entries(first))
     win0 = win_prob(first_tot, theirs) if theirs else None

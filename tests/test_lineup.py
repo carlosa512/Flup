@@ -170,7 +170,7 @@ def test_locked_starter_stays_and_uses_actual_points():
     r = run(players, current, games=games, points={"te2": 21.4})
     te = r["me"]["starters"][5]
     assert te["id"] == "te2" and te["pts"] == 21.4 and te["sd"] == 0 and te["state"] == "final"
-    assert te["why"] == "Played: 21.4 pts (My Score was 7.0)"
+    assert te["why"] == "Played: 21.4 pts (predicted 7.0)"
     assert "te1" in ids(r)                           # te1 still starts, in a FLEX
 
 
@@ -273,7 +273,7 @@ def test_close_call_pairs_bench_player_with_the_starter_he_would_replace():
     r = run(players, BEST)
     assert len(r["close_calls"]) == 1
     c = r["close_calls"][0]
-    assert (c["start"], c["bench"], c["slot"], c["gap"], c["measure"]) == ("rb3", "te2", "FLEX", 0.5, "My Score")
+    assert (c["start"], c["bench"], c["slot"], c["gap"], c["measure"]) == ("rb3", "te2", "FLEX", 0.5, "predicted points")
     assert c["for_start"][0] == "More expected points: 9.0 vs 8.5"
 
 

@@ -258,11 +258,11 @@
   }
 
   // Once he has played (or while he plays) the big number is his real
-  // score, with My Score small underneath; before that, My Score
+  // score, with Predicted small underneath; before that, Predicted
   function scoreCell(p) {
     const a = gameState(p) && p.actual;
     if (!a && !liveOf(p)) return `<span class="pts">${pts(p.score)}</span>`;
-    return `<span class="pts real">${pts(realPts(p))}<small>My Score ${pts(p.score)}</small></span>`;
+    return `<span class="pts real">${pts(realPts(p))}<small>Predicted ${pts(p.score)}</small></span>`;
   }
 
   // Live: his stat line (Sleeper's matchup points can lag it by a play or
@@ -405,7 +405,7 @@
     const live = stateWord(p) === 'Live';
     const shown = realPts(p);
     let html = `<h3>${live ? 'So far' : 'Scored'}</h3>
-      <div class="score-head"><b class="big">${pts(shown)}</b><span>My Score was ${pts(p.score)} (${signedPts(shown - p.score)})</span></div>`;
+      <div class="score-head"><b class="big">${pts(shown)}</b><span>Predicted ${pts(p.score)} (${signedPts(shown - p.score)})</span></div>`;
     if (a && a.parts.length) {
       html += `<p class="muted">${live ? 'So far' : 'His points came'}${partsPhrase(a.parts, a.pts, true).replace(/^, mostly/, ' mostly') || ': nothing yet'}.</p>
         <details class="every"><summary>How his points add up</summary>
@@ -501,7 +501,7 @@
     const block = data.positions[p.pos];
     const rows = partsTable(p.parts);
     let html = `<div class="detail">${actualBlock(p)}${writeupBlock(p)}
-      <h3>${p.actual ? 'My Score (before the game)' : 'My Score'}</h3>${myScore(p)}`;
+      <h3>${p.actual ? 'Predicted (before the game)' : 'Predicted'}</h3>${myScore(p)}`;
     if (p.parts.length) {
       html += `<details class="every"><summary>How the projection adds up</summary>
           <p>${projectionSentence(p)}</p>
@@ -530,7 +530,7 @@
   const MODE = {
     favored: { word: 'Favored', line: 'playing it safe', cls: 'fav' },
     underdog: { word: 'Underdog', line: 'swinging for upside', cls: 'dog' },
-    even: { word: 'Close matchup', line: 'going with My Score', cls: 'even' },
+    even: { word: 'Close matchup', line: 'going with predicted points', cls: 'even' },
   };
   const SLOT_SHORT = { SUPER_FLEX: 'SF', WRRB_FLEX: 'W/R', REC_FLEX: 'W/T' };
   const SINGLE = new Set(['QB', 'RB', 'WR', 'TE', 'K', 'DEF']);
@@ -586,9 +586,9 @@
         + (e.replaces ? ` (${nameOf(e.replaces)} plays instead).` : '.');
     } else if (lv && lv.state === 'live') {
       why = `${side === 'me' ? 'Playing now: ' : ''}${pts(lv.got)} so far, ${Math.round(lv.left * 100)}% of the game left`
-        + (side === 'me' ? ` (My Score ${pts(p.score)})` : '');
+        + (side === 'me' ? ` (predicted ${pts(p.score)})` : '');
     } else if (lv) {
-      why = side === 'me' ? `Played: ${pts(lv.got)} pts (My Score was ${pts(p.score)})` : '';
+      why = side === 'me' ? `Played: ${pts(lv.got)} pts (predicted ${pts(p.score)})` : '';
     } else if (side !== 'me' && e.state === 'live') {
       why = `${pts(e.actual)} so far, ${Math.round(e.left * 100)}% of the game left`;
     }
@@ -613,8 +613,8 @@
       html += `<h4>The lineup advice (data from ${esc(when(data.generated))})</h4>
         <p>Then: you ${pts(me.total)} vs them ${pts(opp.total)}, ${pct(L.win)} to win. That set the mode the lineup below uses.</p>`;
     } else {
-      html += `<p>Each starter counts his expected points: My Score if his game hasn't started,
-        points so far plus My Score for the part of the game left if it's live, and his actual points once it's over.</p>`;
+      html += `<p>Each starter counts his expected points: his predicted points if his game hasn't started,
+        points so far plus his prediction for the part of the game left if it's live, and his actual points once it's over.</p>`;
       html += `<p>You <b>${pts(me.total)}</b> (give or take ${pts(me.sd)}) vs them <b>${pts(opp.total)}</b>
         (give or take ${pts(opp.sd)}). Their lineup is counted exactly as set in Sleeper.</p>`;
     }
@@ -623,12 +623,12 @@
         = ${signedPts(diff)} ÷ ${pts(comb)} = ${(diff < 0 ? '−' : '') + Math.abs(diff / comb).toFixed(2)} on the bell curve → <b>${pct(L.win)}</b>.</p>`;
     }
     if (L.mode === 'even') {
-      html += `<p>Your best lineup by My Score wins ${pct(f.win)} of the time. That's between ${pct(L.underdog)} and
-        ${pct(L.favored)}, so players are ranked by My Score as is.</p>`;
+      html += `<p>Your best lineup by predicted points wins ${pct(f.win)} of the time. That's between ${pct(L.underdog)} and
+        ${pct(L.favored)}, so players are ranked by predicted points as is.</p>`;
     } else {
       const dog = L.mode === 'underdog';
-      html += `<p>Your best lineup by My Score wins ${pct(f.win)} of the time. That's ${dog ? 'under ' + pct(L.underdog) + ': underdog' : pct(L.favored) + ' or more: favored'}.
-        So players are ranked by <b>${dog ? 'upside score' : 'safe score'}</b>: My Score moved ${lean} of the way
+      html += `<p>Your best lineup by predicted points wins ${pct(f.win)} of the time. That's ${dog ? 'under ' + pct(L.underdog) + ': underdog' : pct(L.favored) + ' or more: favored'}.
+        So players are ranked by <b>${dog ? 'upside score' : 'safe score'}</b>: predicted points moved ${lean} of the way
         ${dog ? 'up to his ceiling, which favors boom-or-bust players' : 'down to his floor, which favors steady players'}.
         Final lineup: ${pct(L.win)}.</p>`;
       if (L.win < f.win) {
@@ -697,7 +697,7 @@
   }
 
   function callSide(p, verb, value, reasons, measure) {
-    const extra = measure !== 'My Score' ? ` · ${pts(value)} ${esc(measure)}` : '';
+    const extra = measure !== 'predicted points' ? ` · ${pts(value)} ${esc(measure)}` : '';
     const list = reasons.length
       ? reasons.map((r) => `<li>${esc(r)}</li>`).join('')
       : '<li class="muted">Nothing stands out</li>';
@@ -710,8 +710,8 @@
       && !startedId(c.start) && !startedId(c.bench));
     if (!calls.length) return '';
     const how = {
-      'upside score': 'My Score moved halfway up to the ceiling, because you\'re the underdog',
-      'safe score': 'My Score moved halfway down to the floor, because you\'re favored',
+      'upside score': 'predicted points moved halfway up to the ceiling, because you\'re the underdog',
+      'safe score': 'predicted points moved halfway down to the floor, because you\'re favored',
     };
     const items = calls.map((c) => {
       const s = index.get(c.start), b = index.get(c.bench);
@@ -880,7 +880,7 @@
 
   // ---------- live scores in the browser (Sleeper and ESPN both allow it) ----------
   // The same math as pipeline/lineup.py: a live starter counts his points so
-  // far plus My Score x the share of his game left; win % from the totals.
+  // far plus predicted points x the share of his game left; win % from the totals.
 
   let live = null;  // {at, now, me, opp, win, games, defLines, gotFor}
   const LAG_MS = 6 * 60000;
@@ -1094,7 +1094,7 @@
     const opp = data.league.teams[data.league.opp_rid];
     const diff = lv.me.total - lv.opp.total, comb = Math.sqrt(lv.me.sd ** 2 + lv.opp.sd ** 2);
     let html = `<p><b>Live:</b> both lineups as set in Sleeper right now. Each starter counts his points so far
-      plus My Score for the part of his game left; one who hasn't started counts My Score. Points so far are
+      plus his prediction for the part of his game left; one who hasn't started counts his prediction. Points so far are
       Sleeper's matchup points, which can trail a play by a few minutes. Updates every 2 minutes.</p>
       <p>You <b>${pts(lv.me.total)}</b> (give or take ${pts(lv.me.sd)}) vs them <b>${pts(lv.opp.total)}</b> (give or take ${pts(lv.opp.sd)})`;
     html += comb > 0 ? `: ${signedPts(diff)} ÷ ${pts(comb)} = ${(diff < 0 ? '−' : '') + Math.abs(diff / comb).toFixed(2)} on the bell curve → <b>${pct(lv.win)}</b>.</p>` : '.</p>';
@@ -1130,11 +1130,11 @@
       lines.push(`My team: ${me.name} (${me.wins}-${me.losses}) vs ${opp.name} (${opp.wins}-${opp.losses}). `
         + `Projected ${pts(L.me.total)} (sd ${pts(L.me.sd)}) vs ${pts(L.opp.total)} (sd ${pts(L.opp.sd)}): `
         + `win chance ${pct(L.win)}, so the dashboard is in "${(MODE[L.mode] || MODE.even).word}" mode `
-        + `(players ranked ${L.mode === 'underdog' ? 'toward their ceiling' : L.mode === 'favored' ? 'toward their floor' : 'by My Score'}).`);
+        + `(players ranked ${L.mode === 'underdog' ? 'toward their ceiling' : L.mode === 'favored' ? 'toward their floor' : 'by predicted points'}).`);
     }
     const b = data.settings.blend || {}, fc = data.settings.floor_ceiling || {};
     const share = (x) => Math.round(100 * x / ((b.projection || 0) + (b.consensus || 0) || 1));
-    lines.push(`My Score = ${share(b.projection)}% Sleeper projection (rescored in my scoring) + ${share(b.consensus)}% FantasyPros consensus rank turned into points, `
+    lines.push(`Predicted = ${share(b.projection)}% Sleeper projection (rescored in my scoring) + ${share(b.consensus)}% FantasyPros consensus rank turned into points, `
       + `plus small capped adjustments. Floor/ceiling = ${fc.floor_pct}th/${fc.ceiling_pct}th percentile of his weekly scores, scaled to this week.`);
     return lines.join('\n');
   }
@@ -1157,7 +1157,7 @@
     out.push(`${p.name} (${p.pos}, ${gameText(p)}${p.kickoff ? ', ' + when(p.kickoff) : ''}${inj}): ${roleOf(p)}.`);
     if (p.note) { out.push(`  ${p.note}.`); return out.join('\n'); }
     const r = p.range;
-    out.push(`  My Score ${plain(p.score)}` + (r ? ` (floor ${plain(r.floor)}, ceiling ${plain(r.ceiling)}${r.if_plays ? ', if he plays' : ''})` : '')
+    out.push(`  Predicted ${plain(p.score)}` + (r ? ` (floor ${plain(r.floor)}, ceiling ${plain(r.ceiling)}${r.if_plays ? ', if he plays' : ''})` : '')
       + (p.tier != null ? `, tier ${p.tier}, rank ${p.rank} at ${p.pos}` : '') + '.');
     out.push(`  Sleeper projection ${plain(p.proj)}` + (p.cons ? `; experts ${p.pos}${p.cons.rank}${p.cons.pts != null ? ' (about ' + plain(p.cons.pts) + ')' : ''}` : '')
       + ` -> ${plain(p.base)} (${p.blend}).`);

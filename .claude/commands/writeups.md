@@ -26,7 +26,7 @@ Find each player in `positions[POS].players` by `id`.
 
 ## 3. Write 2-4 sentences per player
 
-For each one, read his whole entry: `score` (My Score), `proj` (Sleeper's
+For each one, read his whole entry: `score` (Predicted: the card calls it that, never "My Score"), `proj` (Sleeper's
 projection in this league's scoring), `cons` (expert rank and its points),
 `base` (projection and expert points blended; `blend` says how), every `adj` (label, pts, why), `range` (floor,
 ceiling), `injury`, `implied`/`spread`, `news` (headlines), and `writeup`
@@ -34,7 +34,7 @@ ceiling), `injury`, `implied`/`spread`, `news` (headlines), and `writeup`
 
 1. Lead with the biggest factor (whatever moves him most from the
    projection), in plain words.
-2. Say where the experts disagree with Sleeper and why My Score differs.
+2. Say where the experts disagree with Sleeper and why the prediction differs.
 3. Anything from his news headlines or the matchup that matters (who's
    out, his role, the game script), naming the source.
 4. For a close call, compare him with the other player directly.

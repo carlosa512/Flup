@@ -1,9 +1,9 @@
 """Template write-ups: 2-4 plain sentences from a player's breakdown.
 
-1. The biggest factor first: whatever moves My Score most away from
+1. The biggest factor first: whatever moves predicted points most away from
    Sleeper's projection (the expert blend, or one adjustment).
-2. Where the experts and Sleeper disagree, and where My Score starts.
-3. The other adjustments worth half a point or more, and My Score.
+2. Where the experts and Sleeper disagree, and where predicted points starts.
+3. The other adjustments worth half a point or more, and predicted points.
 4. His floor and ceiling.
 
 The wording varies by player (a fixed pick per player and week, so it
@@ -73,8 +73,8 @@ def writeup(p, week=0):
                        f"{'below' if lower else 'above'} Sleeper's {_n(proj)}.",
                        f"Sleeper projects {_n(proj)}, but the experts' {rank} is worth about "
                        f"{_n(cons['pts'])}."),
-                   f"My Score keeps {share.group(1)}% of Sleeper's number, so it starts at {_n(base)}."
-                   if share else f"My Score starts at {_n(base)}."]
+                   f"The prediction keeps {share.group(1)}% of Sleeper's number, so it starts at {_n(base)}."
+                   if share else f"The prediction starts at {_n(base)}."]
     elif has_cons:
         experts = [pick("agree",
                        f"Sleeper ({_n(proj)}) and the experts ({rank}, about {_n(cons['pts'])}) "
@@ -82,7 +82,7 @@ def writeup(p, week=0):
                        f"Sleeper projects {_n(proj)} and the experts have him {rank} "
                        f"(about {_n(cons['pts'])}), close enough.")]
     elif proj > 0:
-        experts = [f"No expert rank for him, so My Score starts from Sleeper's {_n(proj)}."]
+        experts = [f"No expert rank for him, so the prediction starts from Sleeper's {_n(proj)}."]
     else:
         experts = [f"Sleeper has no projection for him; the experts' {rank} is worth about {_n(base)}."]
 
@@ -90,7 +90,7 @@ def writeup(p, week=0):
     sentences, rest = [], adj
     if p.get("flag") == "Doubtful":
         why = f" ({p['injury_detail']})" if p.get("injury_detail") else ""
-        sentences.append(f"He's Doubtful{why}: My Score assumes he plays, so have a backup ready.")
+        sentences.append(f"He's Doubtful{why}: the prediction assumes he plays, so have a backup ready.")
     top = adj[0] if adj else None
     if top and abs(top["pts"]) >= BIG and abs(top["pts"]) >= abs(pull):
         word = "boost" if top["pts"] > 0 else "drag"
@@ -101,7 +101,7 @@ def writeup(p, week=0):
                               f"Start with {what}."))
         rest = adj[1:]
     sentences += experts[:1]
-    optional = experts[1:]  # "My Score keeps 60%..., so it starts at X"
+    optional = experts[1:]  # "predicted points keeps 60%..., so it starts at X"
 
     sentences += optional
     named = [a for a in rest if abs(a["pts"]) >= BIG]
@@ -110,15 +110,15 @@ def writeup(p, week=0):
     if named:
         sentences.append(pick("rest", "Also: ", "Then ", "On top of that, ")
                          + _and([f"{_noun(a)} ({_signed(a['pts'])})" for a in named])
-                         + f"{tail}, for a My Score of {_n(score)}.")
+                         + f"{tail}, for a prediction of {_n(score)}.")
     elif adj:
-        sentences.append(f"Small tweaks only ({_signed(small)}), so My Score is {_n(score)}."
-                         if small else f"My Score: {_n(score)}.")
+        sentences.append(f"Small tweaks only ({_signed(small)}), so the prediction is {_n(score)}."
+                         if small else f"Predicted: {_n(score)}.")
     else:
-        sentences.append(pick("none", f"No adjustments, so My Score is {_n(score)}.",
-                              f"Nothing else moves him: My Score {_n(score)}."))
+        sentences.append(pick("none", f"No adjustments, so the prediction is {_n(score)}.",
+                              f"Nothing else moves him: predicted {_n(score)}."))
 
-    # At most 4: drop the "starts at" sentence before the one with My Score
+    # At most 4: drop the "starts at" sentence before the one with predicted points
     while len(sentences) > 4 and optional:
         sentences.remove(optional.pop())
     r = p.get("range")
