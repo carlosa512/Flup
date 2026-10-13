@@ -575,7 +575,8 @@
     const sub = [
       `<span>${esc(gameText(p))}</span>`,
       gameChip(p, state),
-      e.new && !benched ? '<span class="chip new">New</span>' : '',
+      e.new && !benched && !(side === 'me' && sleeperNow && sleeperNow.starters.includes(e.id)) ? '<span class="chip new">New</span>' : '',
+      side === 'me' && sleeperNow && !sleeperNow.roster.has(e.id) ? '<span class="stale">No longer on your roster</span>' : '',
       benched ? '<span class="stale">Not in your Sleeper lineup</span>' : '',
       p.rest ? '<span class="stale">May rest</span>' : '',
       side === 'me' && quietInjury(p) ? `<span class="stale">${quietInjury(p) === 'never' ? 'No news' : 'No news since ' + esc(when(quietInjury(p)).split(' ')[0])}</span>` : '',
@@ -669,12 +670,19 @@
   }
 
   function changesBox(L) {
-    const moves = L.moves || [];
-    if (!L.changes.length && !moves.length) return '<p class="note done">✓ Your Sleeper lineup already matches.</p>';
+    // Against your Sleeper lineup now, once it has loaded: a change you've
+    // already made drops off, and so does one for a player you no longer have
+    const now = sleeperNow;
+    const starts = now ? new Set(now.starters) : null;
+    const slotNow = (id) => L.slots[now.starters.indexOf(id)];
+    const moves = (L.moves || []).filter((m) => !now || (now.roster.has(m.id) && slotNow(m.id) !== m.to));
+    const changes = L.changes.filter((c) => !now
+      || ((!c.in || now.roster.has(c.in)) && ((c.in && !starts.has(c.in)) || (c.out && starts.has(c.out)))));
+    if (!changes.length && !moves.length) return '<p class="note done">✓ Your Sleeper lineup already matches.</p>';
     // Slides first: they open up the slot a newcomer goes into
     const locked = (text, ids) => (ids.some(startedId)
       ? `<s>${text}</s> <span class="gone">${LOCK}game started, Sleeper has locked it</span>` : text);
-    const items = moves.map((m) => locked(`Move <b>${esc(nameOf(m.id))}</b> to ${esc(m.to)}`, [m.id])).concat(L.changes.map((c) => {
+    const items = moves.map((m) => locked(`Move <b>${esc(nameOf(m.id))}</b> to ${esc(m.to)}`, [m.id])).concat(changes.map((c) => {
       const ids = [c.in, c.out].filter(Boolean);
       if (c.in && c.out) return locked(`Start <b>${esc(nameOf(c.in))}</b> for ${esc(nameOf(c.out))}`, ids);
       if (c.in) return locked(`Start <b>${esc(nameOf(c.in))}</b> in the empty ${esc(c.slot)} slot`, ids);
@@ -787,6 +795,7 @@
           const day = new Date(f.dropped).toLocaleDateString(undefined, { weekday: 'short' });
           extra += `<span class="chip drop">Dropped ${esc(day)}: maybe on waivers</span>`;
         }
+        if (sleeperNow && sleeperNow.roster.has(f.id)) extra += '<span class="chip new">On your roster now</span>';
         const adds = Number(f.trending) || 0;
         if (adds) extra += `<span>${esc(bigCount(adds))} adds in 2 days</span>`;
         return pickRow(f, GONE[stateWord(index.get(f.id) || {})] || f.why, extra);
@@ -816,7 +825,7 @@
       html += `<p class="note">Games have started since this data (from ${esc(when(data.generated))}).
         ${live && live.opp ? 'The score card is live.' : 'Totals and win % are as of then.'} Sleeper has locked those players, so any moves for them are crossed out.</p>`;
     }
-    html += verdict(L) + changesBox(L) + lateSwapTip(L);
+    html += sleeperNote(L) + verdict(L) + changesBox(L) + lateSwapTip(L);
     html += `<h2 class="section"><span class="dot me"></span>Your lineup</h2><ul class="players lineup grp-me">${L.me.starters.map((e) => lineupRow(e, 'me')).join('')}</ul>`;
     html += closeCalls(L);
     html += pickups(L);
@@ -883,6 +892,56 @@
   // far plus predicted points x the share of his game left; win % from the totals.
 
   let live = null;  // {at, now, me, opp, win, games, defLines, gotFor}
+
+  // ---------- your Sleeper roster right now ----------
+  // A trade, a drop or a lineup change made in Sleeper since the data run
+  // shows as soon as the app opens: your roster and this week's lineup come
+  // straight from Sleeper (it lets the browser ask). Null until fetched.
+  let sleeperNow = null;  // {roster: Set of ids, starters: ids in slot order}
+  async function checkSleeper() {
+    if (!data || !data.lineup) return;
+    const lg = data.league;
+    const get = (url) => fetch(url, { cache: 'no-store' }).then((r) => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); });
+    try {
+      const [rosters, mu] = await Promise.all([
+        get(`https://api.sleeper.app/v1/league/${lg.id}/rosters`),
+        get(`https://api.sleeper.app/v1/league/${lg.id}/matchups/${data.week}`),
+      ]);
+      const r = (rosters || []).find((x) => x.roster_id === lg.my_rid);
+      const m = (mu || []).find((x) => x.roster_id === lg.my_rid);
+      if (!r || !m) return;
+      const was = sleeperNow && JSON.stringify([[...sleeperNow.roster], sleeperNow.starters]);
+      sleeperNow = { roster: new Set((r.players || []).map(String)), starters: (m.starters || []).map(String) };
+      if (JSON.stringify([[...sleeperNow.roster], sleeperNow.starters]) !== was) renderView();
+    } catch (e) {
+      // Offline or Sleeper down: the data run's roster stands
+    }
+  }
+  // What's different in Sleeper from the data run: {added, dropped, lineup}
+  function sleeperDiff(L) {
+    if (!sleeperNow) return null;
+    const was = L.roster ? new Set(L.roster) : null;
+    const added = was ? [...sleeperNow.roster].filter((id) => !was.has(id)) : [];
+    const dropped = was ? L.roster.filter((id) => !sleeperNow.roster.has(id)) : [];
+    const lineup = sleeperNow.starters.join() !== (L.current || []).join();
+    return added.length || dropped.length || lineup ? { added, dropped, lineup } : null;
+  }
+  const someone = (id) => (index.get(id) || {}).name || 'a player with no projection this week';
+  function sleeperNote(L) {
+    const d = sleeperDiff(L);
+    if (!d) return '';
+    const names = (ids) => andList(ids.map((id) => `<b>${esc(someone(id))}</b>`));
+    const did = [];
+    if (d.added.length) did.push(`added ${names(d.added)}`);
+    if (d.dropped.length) did.push(`dropped ${names(d.dropped)}`);
+    if (d.lineup) did.push('changed your lineup');
+    const next = nextRun();
+    const after = d.added.length || d.dropped.length
+      ? `; win % and the best lineup update with the next data run${next ? ` (${esc(when(next.toISOString()))})` : ''}`
+      : '';
+    return `<p class="note">Since this data (${esc(when(data.generated))}), you ${andList(did)} in Sleeper.
+      The change list below is up to date${after}.</p>`;
+  }
   const LAG_MS = 6 * 60000;
   const BELL = (z) => {  // standard normal CDF (Abramowitz-Stegun 7.1.26)
     const t = 1 / (1 + 0.3275911 * Math.abs(z) / Math.SQRT2);
@@ -1192,6 +1251,12 @@
       const p = index.get(e.id);
       parts.push(p ? playerText(p, true) : `${e.slot}: empty`);
     }
+    const d = sleeperDiff(L);
+    if (d) {
+      parts.push('', 'Since this data, in Sleeper: ' + [d.added.length ? 'added ' + d.added.map(someone).join(', ') : '',
+        d.dropped.length ? 'dropped ' + d.dropped.map(someone).join(', ') : '', d.lineup ? 'changed my lineup' : '']
+        .filter(Boolean).join('; ') + '. The recommendations above are from before that.');
+    }
     if (L.changes.length) {
       parts.push('', 'Changes from my current Sleeper lineup: ' + L.changes.map((c) =>
         (c.in ? `start ${nameOf(c.in)}` : '') + (c.in && c.out ? ' for ' : '') + (c.out ? `bench ${nameOf(c.out)}` : '')).join('; ') + '.');
@@ -1304,6 +1369,7 @@
       data = fresh;
       write(DATA_KEY, fresh);
       if (changed) { live = null; render(); }
+      checkSleeper();
       if (gamesOn()) {
         const ok = await refreshLive(manual);
         if (manual && ok) toast('Live scores updated' + (changed ? ', and new data loaded' : ''));
@@ -1346,7 +1412,7 @@
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState !== 'visible' || !data) return;
     if (hoursOld(data.generated) > 0.5) refresh(false);
-    else refreshLive(false);
+    else { refreshLive(false); checkSleeper(); }
   });
 
   data = read(DATA_KEY);

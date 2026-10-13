@@ -412,6 +412,10 @@ def build(settings, week=None, league_id=None, now=None):
                              dict(settings["lineup"], floor_pct=fc["floor_pct"],
                                   ceiling_pct=fc["ceiling_pct"]),
                              now, scoring, market)
+    if my_lineup:
+        # My whole roster (IR too) as of this run: the app compares it with
+        # Sleeper's when it opens, so trades and drops show right away
+        my_lineup["roster"] = sorted(pid for pid, rid in ctx["owners"].items() if rid == ctx["my_rid"])
 
     # Teams that may rest starters late in the season (flag only)
     rest_cfg = settings.get("rest") or {}
