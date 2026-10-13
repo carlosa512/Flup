@@ -21,7 +21,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from pipeline.build import workflow_crons  # noqa: E402
 
 
-LOOK_BACK = 3      # minutes
 HAND_OVER = 600    # seconds before a far-off slot that the next link takes over
 
 
@@ -60,10 +59,12 @@ def main():
     ap.add_argument("--wait", type=float, metavar="HOURS", help="wait for the next slot, at most this long")
     args = ap.parse_args()
     now = datetime.now(timezone.utc)
-    # A link that starts a minute or two late (runner pickup, a restart)
-    # still takes the slot it just missed; the Ticker won't start an update
-    # twice in 10 minutes
-    slot = next_slot(workflow_crons(), now - timedelta(minutes=LOOK_BACK))
+    # Always a slot still to come. (Looking back to catch one just missed
+    # made each new link re-take the slot its predecessor had just run,
+    # for minutes: 17 links in 3 minutes after 2026-10-13 11:07Z. Links
+    # hand over 10 minutes early and a restart never cuts one off, so
+    # there's nothing to catch.)
+    slot = next_slot(workflow_crons(), now)
     if slot is None:
         print("no cron lines found", file=sys.stderr)
         if args.wait:

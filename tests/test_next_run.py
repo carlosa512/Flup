@@ -58,10 +58,14 @@ def run_main(monkeypatch, capsys, now, hours=5.5):
     return capsys.readouterr().out.strip(), slept
 
 
-def test_a_link_that_starts_just_after_a_slot_still_takes_it(monkeypatch, capsys):
-    # Sunday 18:37:40Z: the 18:37 slot passed 40 seconds ago
-    out, slept = run_main(monkeypatch, capsys, datetime(2026, 10, 18, 18, 37, 40, tzinfo=UTC))
-    assert out == "due=true" and slept == [0.0]
+def test_the_link_started_right_after_a_slot_waits_for_the_next_one(monkeypatch, capsys):
+    # Seen 2026-10-13: the link started by the 11:07 one must not take 11:07
+    # again (17 links in 3 minutes did). Sunday 18:37:10Z: 18:37 just ran
+    out, slept = run_main(monkeypatch, capsys, datetime(2026, 10, 18, 18, 37, 10, tzinfo=UTC))
+    assert out == "due=true" and slept == [29 * 60 + 50]   # 19:07
+    # Tuesday 11:07:10Z: next is 12:07Z (7 AM is listed for both EDT and EST)
+    out, slept = run_main(monkeypatch, capsys, datetime(2026, 10, 13, 11, 7, 10, tzinfo=UTC))
+    assert out == "due=true" and slept == [59 * 60 + 50]
 
 
 def test_a_far_off_slot_hands_over_ten_minutes_early(monkeypatch, capsys):
