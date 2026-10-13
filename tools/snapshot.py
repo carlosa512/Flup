@@ -310,6 +310,17 @@ TEAM_FEEDS = {
 
 
 def beat_check(save, out):
+    # League-wide fantasy news accounts: two pages each, to see the format
+    # and how many posts a week they make
+    for handle in ("rotowirenfl.bsky.social", "rotoworld-fb.bsky.social"):
+        url = f"{BSKY}/app.bsky.feed.getAuthorFeed?actor={handle}&filter=posts_no_replies&limit=100"
+        status, body = save(f"news/bsky_feed_{handle.split('.')[0]}_1.json", url)
+        try:
+            cursor = json.loads(body).get("cursor") if status == 200 else None
+        except ValueError:
+            cursor = None
+        if cursor:
+            save(f"news/bsky_feed_{handle.split('.')[0]}_2.json", f"{url}&cursor={cursor}")
     for team, (club, blog, name) in TEAM_FEEDS.items():
         save(f"news/feeds/{team}_team_site.xml", f"https://www.{club}.com/rss/news")
         save(f"news/feeds/{team}_sbnation.xml", f"https://www.{blog}.com/rss/index.xml")
