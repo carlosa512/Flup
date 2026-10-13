@@ -1746,14 +1746,20 @@
   // (sw.js only changes when the app's own files do, not with each data run.)
   if ('serviceWorker' in navigator) {
     const sw = navigator.serviceWorker;
-    const hadWorker = !!sw.controller;  // none = first install, nothing old to replace
-    let shownAt = Date.now(), reloadLater = false;
+    // index.html starts watching before the stylesheets load (a takeover
+    // can happen before this file runs)
+    const early = window.flupSw || { had: !!sw.controller, changed: false };
+    let hadWorker = early.had, shownAt = Date.now(), reloadLater = false;
     const checkApp = () => sw.getRegistration().then((r) => r && r.update()).catch(() => {});
-    sw.addEventListener('controllerchange', () => {
-      if (!hadWorker) return;
+    const onChange = () => {
+      // No worker before: this page just installed one, nothing old to replace.
+      // Every takeover after that is a new version.
+      if (!hadWorker) { hadWorker = true; return; }
       if (Date.now() - shownAt < 60000) location.reload();
       else reloadLater = true;
-    });
+    };
+    sw.addEventListener('controllerchange', onChange);
+    if (early.changed) onChange();
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState !== 'visible') return;
       if (reloadLater) { location.reload(); return; }
