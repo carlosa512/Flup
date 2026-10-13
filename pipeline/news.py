@@ -8,6 +8,10 @@ article text). All free, no keys:
 - One or two beat writers per team on Bluesky (settings.toml
   [news.beat]): their posts that name the player (full name, or a last
   name no teammate shares).
+- League-wide fantasy news accounts on Bluesky (settings.toml [news]
+  league_wide: RotoWire, Rotoworld): posts that name the player in full,
+  or by a last name no other projected player has. A week of posts is a
+  few pages.
 
 Each player keeps his newest few links from the last few days; a headline
 that names him beats one that doesn't (ESPN also files league-wide
@@ -29,6 +33,8 @@ RSS = {"Pro Football Talk": "https://profootballtalk.nbcsports.com/feed/",
 BSKY_FEED = ("https://public.api.bsky.app/xrpc/app.bsky.feed.getAuthorFeed"
              "?actor={handle}&filter=posts_no_replies&limit=30")
 BSKY_POST = "https://bsky.app/profile/{handle}/post/{rkey}"
+BSKY_PAGE = ("https://public.api.bsky.app/xrpc/app.bsky.feed.getAuthorFeed"
+             "?actor={handle}&filter=posts_no_replies&limit=100")
 BEAT, AGGREGATOR = "beat reporter", "aggregator"
 TITLE_MAX = 140
 GIVE_UP = 3  # requests that fail in a row, with none working, before a source is skipped
@@ -74,7 +80,7 @@ def parse_espn(data, eid, name):
             continue
         if a.get("type") == "Rotowire":
             out.append({"title": _short(title), "source": "RotoWire (ESPN)", "tag": AGGREGATOR,
-                        "date": when, "url": ESPN_PLAYER.format(eid=eid)})
+                        "date": when, "url": ESPN_PLAYER.format(eid=eid), "page": True})
             continue
         url = _web(((a.get("links") or {}).get("web") or {}).get("href"))
         if url and (names_full(title, name) or names_last(title, _last(name), _first(name))):
@@ -98,9 +104,18 @@ def parse_rss(text, source):
     return out
 
 
-def parse_bsky(data, handle):
+def _facet_link(record):
+    """The first link in a post's text (RotoWire's posts have no link card)."""
+    for facet in record.get("facets") or []:
+        for feature in facet.get("features") or []:
+            if _web(feature.get("uri")):
+                return feature["uri"]
+    return None
+
+
+def parse_bsky(data, handle, tag=BEAT):
     """A writer's own posts (no reposts): the linked article's headline when
-    the post links one, else the post's first words."""
+    the post links one, else the post's words (links taken out)."""
     out = []
     for item in (data or {}).get("feed") or []:
         if item.get("reason"):
@@ -117,10 +132,13 @@ def parse_bsky(data, handle):
         if not _web(ext.get("uri")):
             ext = {}
         rkey = (post.get("uri") or "").rsplit("/", 1)[-1]
-        out.append({"title": _short(ext.get("title") or text), "text": text + " " + (ext.get("title") or ""),
+        url = ext.get("uri") or _facet_link(record) or BSKY_POST.format(handle=handle, rkey=rkey)
+        words = re.sub(r"https?://\S+", " ", text)
+        out.append({"title": _short(ext.get("title") or words), "text": words + " " + (ext.get("title") or ""),
                     "source": (post.get("author") or {}).get("displayName") or handle,
-                    "tag": BEAT, "date": when,
-                    "url": ext.get("uri") or BSKY_POST.format(handle=handle, rkey=rkey)})
+                    "tag": tag, "date": when, "url": url,
+                    # RotoWire links every note to the player's page
+                    **({"page": True} if "/player/" in url else {})})
     return out
 
 
@@ -177,14 +195,29 @@ def _few(names, n=3):
     return ", ".join(names[:n]) + (f" and {len(names) - n} more" if len(names) > n else "")
 
 
+def _week_of_posts(fetch_json, handle, since, pages):
+    """An account's own posts back to since, a page of 100 at a time."""
+    posts, cursor = [], None
+    for _ in range(pages):
+        data = fetch_json(BSKY_PAGE.format(handle=handle) + (f"&cursor={cursor}" if cursor else ""))
+        page = parse_bsky(data, handle, AGGREGATOR)
+        posts += [x for x in page if x["date"] >= since]
+        cursor = (data or {}).get("cursor")
+        dates = [d for d in (_when(((x.get("post") or {}).get("record") or {}).get("createdAt"))
+                             for x in (data or {}).get("feed") or []) if d]
+        if not cursor or not dates or min(dates) < since:
+            break
+    return posts
+
+
 def pick(items, name, cfg, now):
     """Newest links from the last cfg days, at most cfg max_links; ones that
     name him come first. Returned newest first."""
     since = now - timedelta(days=cfg.get("days", 7))
     seen, fresh = set(), []
     for it in sorted(items, key=lambda x: x["date"], reverse=True):
-        # RotoWire notes all link to his ESPN page: tell them apart by text
-        keys = {_words(it["title"])} | ({it["url"]} if it["source"] != "RotoWire (ESPN)" else set())
+        # RotoWire notes all link to his player page: tell them apart by text
+        keys = {_words(it["title"])} | ({it["url"]} if not it.get("page") else set())
         if not since <= it["date"] <= now + timedelta(hours=1) or keys & seen:
             continue
         seen |= keys
@@ -273,6 +306,39 @@ def collect(players, espn_ids, teammates, cfg, now, fetch_json=get_json, fetch_t
             f"Bluesky: {len(failed)} didn't load ({_few(failed)})")
     if quiet:
         notes.append(f"no posts in {cfg.get('inactive_days', 14)} days: {_few(quiet)}")
+
+    # League-wide accounts: his full name, or a last name nobody else has
+    lasts = {}
+    for names in teammates.values():
+        for n in names:
+            lasts[_last(n)] = lasts.get(_last(n), 0) + 1
+    everyone = [n for names in teammates.values() for n in names]
+    since = now - timedelta(days=cfg.get("days", 7))
+    for handle in cfg.get("league_wide") or []:
+        try:
+            posts = _week_of_posts(fetch_json, handle, since, cfg.get("league_wide_pages", 6))
+        except FetchError:
+            problems.append(f"@{handle} didn't load")
+            continue
+        notes.append(f"@{handle} {len(posts)} posts")
+        for it in posts:  # "RotoWire Fantasy Football" -> "RotoWire"
+            it["source"] = re.sub(r"\s+(Fantasy\s+)?Football$", "", it["source"])
+        for p in players:
+            if p["pos"] == "DEF":
+                continue
+            last, first = _last(p["name"]), _first(p["name"])
+            unique = lasts.get(last, 0) <= 1
+            for it in posts:
+                # RotoWire's "Terry McLaurin: Likely to have restrictions" is
+                # about him alone, not Isaiah Likely
+                who = re.match(r"\s*([A-Z][\w'’.-]*(?: [A-Z][\w'’.-]*){1,3}):\s", it["text"])
+                if who:
+                    hit = names_full(who.group(1), p["name"])
+                else:
+                    hit = names_full(it["text"], p["name"]) or (
+                        unique and last in it["text"] and names_last(it["text"], last, first, everyone))
+                if hit:
+                    found[p["id"]].append({k: v for k, v in it.items() if k != "text"})
 
     by_id = {p["id"]: p for p in players}
     news = {pid: pick(items, by_id[pid]["name"], cfg, now) for pid, items in found.items()}

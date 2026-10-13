@@ -165,6 +165,13 @@ max_links = 3
 days = 7
 # A beat writer with no posts in this many days is listed as inactive
 inactive_days = 14
+# League-wide fantasy news on Bluesky, every team (owner's pick 2026-10-13:
+# RotoWire "is gold for accuracy"). A post counts for a player when it names
+# him in full, or by a last name no other projected player has. Each run
+# reads back `days` days, up to this many pages of 100 posts per account
+# (RotoWire posts about 60 a day, Rotoworld about 50: checked 2026-10-12).
+league_wide = ["rotowirenfl.bsky.social", "rotoworld-fb.bsky.social"]
+league_wide_pages = 6
 # Links to these sites get a lock (subscription needed)
 paywalled = ["nytimes.com/athletic", "theathletic.com", "4for4.com",
              "sharpfootballanalysis.com", "fantasylife.com"]

@@ -157,7 +157,7 @@ def add_news(positions, ctx, my_lineup, rows_by_pos, cfg, now, sources):
                                      datetime.fromisoformat(now.replace("Z", "+00:00")))
     for pid, links in found.items():
         by_id[pid]["news"] = links
-    sources.append({"id": "news", "label": "News links (ESPN, PFT, RotoBaller, Bluesky)",
+    sources.append({"id": "news", "label": "News links (ESPN, RotoWire, Rotoworld, PFT, RotoBaller, beat writers)",
                     "ok": ok, "fetched": now, "detail": detail})
 
 
