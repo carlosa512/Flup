@@ -49,7 +49,8 @@ pipeline/            Python 3.11+, standard library only; `python3 -m pipeline`
   model.py           My Score: blend, capped adjustments, injury, floor/ceiling
   tiers.py           local-gap tiers; league.py rosters + settings check
   lineup.py          best lineup, game phase (pre/live/final), win %, mode
-  news.py            news links per player (ESPN, PFT, RotoBaller, Bluesky beat)
+  news.py            news links per player (ESPN, PFT, RotoBaller, Bluesky beat
+                     writers, RotoWire/Rotoworld on Bluesky)
   writeups.py        template write-ups; attaches Claude's (inputs/writeups.json)
   validate.py        rescores finished weeks vs Sleeper's official points
 site/                static app, no build step: index.html app.js app.css sw.js
@@ -163,7 +164,10 @@ iPhone 13, `timezoneId: 'America/Chicago'` (the owner's local time).
   it also files league-wide stories under each player, so stories must
   name him. RotoWire items there have no link. FantasyPros has no public
   news feed (robots.txt blocks /xml/), so it isn't used. Bluesky public
-  API needs no key; beat writers are listed in settings.toml [news.beat].
+  API needs no key; beat writers are listed in settings.toml [news.beat]
+  (checked on the runner by tools/snapshot.py beat_check). RotoWire's
+  Bluesky posts are "First Last: headline" with the link in the text
+  (facets, no card); Rotoworld's have a dlvr.it card, often last name only.
 - Images: Sleeper's CDN serves headshots at
   `sleepercdn.com/content/nfl/players/thumb/<player_id>.jpg` (a default
   silhouette for unknown ids, not a 404) and team logos at

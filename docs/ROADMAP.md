@@ -323,9 +323,31 @@ the lock everywhere for consistency):
      entries; fan sites).
    - Google News search RSS (100 items, but redirect links, so the
      paywall tag can't match; undocumented, may rate-limit).
-5. EPA: the original request says "nflverse ... routes ... EPA". nflverse
-   was dropped (routes aren't free), so EPA never came in. The owner
-   doesn't remember asking; parked unless they want it.
-6. Still open: reload once when a new version takes over (first open
-   after a deploy shows the old app), and check that the Thu/Mon-night
-   scheduled runs fire (Monday 2026-10-12, Actions history).
+5. League-wide news (owner's pick 2026-10-13, "RotoWire is gold for
+   accuracy"): RotoWire (rotowirenfl, ~60 posts a day, "Name: headline"
+   plus a link to his rotowire.com page) and Rotoworld (rotoworld-fb, ~50
+   a day, often last name only) on Bluesky, settings [news] league_wide.
+   A week back, up to 6 pages of 100. A post counts for a player when it
+   names him in full or by a last name no other projected player has; a
+   "First Last:" start counts only for that player (seen 2026-10-12:
+   "Terry McLaurin: Likely to have restrictions" isn't Isaiah Likely).
+   Checked on the real feeds against the real roster.
+6. EPA / advanced stats: reachable after all, free and keyless. nflverse
+   publishes weekly player stats on GitHub releases
+   (`nflverse-data/releases/download/stats_player/stats_player_week_<year>.csv.gz`,
+   ~350 KB for 2026 so far, updated nightly; week 5 was in on 2026-10-13):
+   passing/rushing/receiving EPA, CPOE, target share, air-yards share,
+   WOPR, RACR. Owner (2026-10-13): worth it if it helps start/sit and
+   boom/bust. Proposal for its own phase: add only what a backtest on
+   2025 shows makes My Score or the Boom/Steady labels more accurate
+   (e.g. WOPR for receivers, a defense's EPA allowed per play for
+   matchups), shown in the card's math. License to check (nflverse data
+   is believed CC-BY 4.0: credit needed). Waiting for the owner's OK.
+7. Still open: reload once when a new version takes over (first open
+   after a deploy shows the old app).
+8. Scheduled runs: GitHub keeps dropping them. Only 4 have ever run (all
+   on Sunday 2026-10-11, the first at 3:42 PM ET); the 11:45 AM inactives
+   run and 0 of the 7 Monday-night slots (to 9:40 PM ET 2026-10-12) ran.
+   The app's live card covers scores. A reliable trigger would need an
+   outside scheduler holding a GitHub token, which goes against "no keys
+   anywhere": owner's call.
