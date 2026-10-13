@@ -287,7 +287,12 @@ Decisions (owner, 2026-10-11), all built and merged:
    logos `images/team_logos/nfl/<team>.png` for DEF), no key, a grey
    silhouette while loading or when there's no photo.
 
-## Phase 5b: more polish (on `claude/phase-5-polish`, restarted from main)
+## Phase 5b: more polish (merged, PR #10, 2026-10-13)
+Ticker started by hand on main right after the merge (05:43Z).
+First handoff 2026-10-13 11:07Z worked (update.yml started on time), but a
+3-minute look-back in next_run.py made each new link re-take the slot just
+run: 17 links in 3 minutes after every slot. Fixed in PR #11 (always wait
+for a slot still to come); Ticker restarted on the fixed code.
 Owner's picks, 2026-10-12 ("Playing now" to match the starters' rows;
 the lock everywhere for consistency):
 
