@@ -20,6 +20,7 @@ ROOT = Path(__file__).resolve().parent.parent
 COMPANY_NAMES = {"rotowire": "RotoWire"}
 UPLOADS = ROOT / "inputs" / "consensus"
 CLAUDE_WRITEUPS = ROOT / "inputs" / "writeups.json"
+MAX_WEEK = 18  # the last regular-season week
 # Average weekly points a player needs before his spread of outcomes helps
 # set the position's typical floor/ceiling (keeps deep backups out of it)
 RELEVANT_MEAN = {"QB": 12, "RB": 7, "WR": 7, "TE": 5, "K": 6, "DEF": 5}
@@ -241,6 +242,23 @@ def fetch_market(lid, week):
     return market, problems
 
 
+def pick_week(st, season, scoreboard=espn.scoreboard):
+    """The week to show: Sleeper's display_week, or the next one once its
+    last game is over (Monday night). Sleeper keeps display_week on the old
+    week until about Wednesday, but lineups, trades and waivers are already
+    for the next one. Returns (week, its ESPN games if fetched, moved on)."""
+    week = int(st.get("display_week") or st["week"])
+    try:
+        games = scoreboard(season, week)
+        # ESPN files postponed and canceled games as "post" too
+        over = bool(games) and all(g["completed"] or g["state"] == "post" for g in games)
+    except FetchError:
+        games, over = None, int(st.get("week") or 0) > week  # no ESPN: Sleeper's own week
+    if over and week < MAX_WEEK:
+        return week + 1, None, True
+    return week, games, False
+
+
 def build(settings, week=None, league_id=None, now=None):
     now = now or iso()
     lid = league_id or settings["league"]["id"]
@@ -249,7 +267,10 @@ def build(settings, week=None, league_id=None, now=None):
 
     st = sleeper.state()
     season = str(st["season"])
-    week = int(week or st.get("display_week") or st["week"])
+    if week:
+        week, week_list, moved_on = int(week), None, False
+    else:
+        week, week_list, moved_on = pick_week(st, season)
 
     lg = sleeper.league(lid)
     if not lg:
@@ -264,13 +285,14 @@ def build(settings, week=None, league_id=None, now=None):
     # Vegas lines (optional: everything still works without them)
     games, game_list = {}, []
     try:
-        game_list = espn.scoreboard(season, week)
+        game_list = week_list if week_list is not None else espn.scoreboard(season, week)
         games = espn.by_team(game_list)
         lined = sum(1 for g in game_list if g["total"] is not None)
         books = sorted({g["book"] for g in game_list if g["book"]})
         sources.append({"id": "lines", "label": "Vegas lines (ESPN)", "ok": True, "fetched": now,
                         "detail": f"{lined} of {len(game_list)} games have lines"
-                                  + (f" ({', '.join(books)})" if books else "")})
+                                  + (f" ({', '.join(books)})" if books else "")
+                                  + (f"; week {week - 1} is over, so this is week {week}" if moved_on else "")})
     except FetchError as err:
         sources.append({"id": "lines", "label": "Vegas lines (ESPN)", "ok": False,
                         "fetched": now, "detail": str(err)})
