@@ -1,0 +1,769 @@
+{
+  "season": "2026",
+  "week": 5,
+  "taken_utc": "2026-10-13T16:28:56Z",
+  "files": [
+    {
+      "file": "sleeper/state.json",
+      "url": "https://api.sleeper.app/v1/state/nfl",
+      "status": 200,
+      "bytes": 211
+    },
+    {
+      "file": "sleeper/league.json",
+      "url": "https://api.sleeper.app/v1/league/1374496898462785536",
+      "status": 200,
+      "bytes": 2775
+    },
+    {
+      "file": "sleeper/users.json",
+      "url": "https://api.sleeper.app/v1/league/1374496898462785536/users",
+      "status": 200,
+      "bytes": 7316
+    },
+    {
+      "file": "sleeper/rosters.json",
+      "url": "https://api.sleeper.app/v1/league/1374496898462785536/rosters",
+      "status": 200,
+      "bytes": 8625
+    },
+    {
+      "file": "sleeper/matchups_5.json",
+      "url": "https://api.sleeper.app/v1/league/1374496898462785536/matchups/5",
+      "status": 200,
+      "bytes": 6878
+    },
+    {
+      "file": "sleeper/user_clos512.json",
+      "url": "https://api.sleeper.app/v1/user/clos512",
+      "status": 200,
+      "bytes": 411
+    },
+    {
+      "file": "sleeper/proj_5_QB.json",
+      "url": "https://api.sleeper.app/projections/nfl/2026/5?season_type=regular&position[]=QB",
+      "status": 200,
+      "bytes": 219056
+    },
+    {
+      "file": "sleeper/proj_5_RB.json",
+      "url": "https://api.sleeper.app/projections/nfl/2026/5?season_type=regular&position[]=RB",
+      "status": 200,
+      "bytes": 474155
+    },
+    {
+      "file": "sleeper/proj_5_WR.json",
+      "url": "https://api.sleeper.app/projections/nfl/2026/5?season_type=regular&position[]=WR",
+      "status": 200,
+      "bytes": 840179
+    },
+    {
+      "file": "sleeper/proj_5_TE.json",
+      "url": "https://api.sleeper.app/projections/nfl/2026/5?season_type=regular&position[]=TE",
+      "status": 200,
+      "bytes": 406053
+    },
+    {
+      "file": "sleeper/proj_5_K.json",
+      "url": "https://api.sleeper.app/projections/nfl/2026/5?season_type=regular&position[]=K",
+      "status": 200,
+      "bytes": 99063
+    },
+    {
+      "file": "sleeper/proj_5_DEF.json",
+      "url": "https://api.sleeper.app/projections/nfl/2026/5?season_type=regular&position[]=DEF",
+      "status": 200,
+      "bytes": 28908
+    },
+    {
+      "file": "sleeper/matchups_1.json",
+      "url": "https://api.sleeper.app/v1/league/1374496898462785536/matchups/1",
+      "status": 200,
+      "bytes": 6740
+    },
+    {
+      "file": "sleeper/stats_1_all.json.gz",
+      "url": "https://api.sleeper.app/stats/nfl/2026/1?season_type=regular&position[]=QB&position[]=RB&position[]=WR&position[]=TE&position[]=K&position[]=DEF",
+      "status": 200,
+      "bytes": 754617
+    },
+    {
+      "file": "sleeper/matchups_2.json",
+      "url": "https://api.sleeper.app/v1/league/1374496898462785536/matchups/2",
+      "status": 200,
+      "bytes": 6697
+    },
+    {
+      "file": "sleeper/stats_2_all.json.gz",
+      "url": "https://api.sleeper.app/stats/nfl/2026/2?season_type=regular&position[]=QB&position[]=RB&position[]=WR&position[]=TE&position[]=K&position[]=DEF",
+      "status": 200,
+      "bytes": 767410
+    },
+    {
+      "file": "sleeper/matchups_3.json",
+      "url": "https://api.sleeper.app/v1/league/1374496898462785536/matchups/3",
+      "status": 200,
+      "bytes": 6825
+    },
+    {
+      "file": "sleeper/stats_3_all.json.gz",
+      "url": "https://api.sleeper.app/stats/nfl/2026/3?season_type=regular&position[]=QB&position[]=RB&position[]=WR&position[]=TE&position[]=K&position[]=DEF",
+      "status": 200,
+      "bytes": 766980
+    },
+    {
+      "file": "sleeper/matchups_4.json",
+      "url": "https://api.sleeper.app/v1/league/1374496898462785536/matchups/4",
+      "status": 200,
+      "bytes": 6830
+    },
+    {
+      "file": "sleeper/stats_4_all.json.gz",
+      "url": "https://api.sleeper.app/stats/nfl/2026/4?season_type=regular&position[]=QB&position[]=RB&position[]=WR&position[]=TE&position[]=K&position[]=DEF",
+      "status": 200,
+      "bytes": 776075
+    },
+    {
+      "file": "sleeper/stats_2025_1_all.json.gz",
+      "url": "https://api.sleeper.app/stats/nfl/2025/1?season_type=regular&position[]=QB&position[]=RB&position[]=WR&position[]=TE&position[]=K&position[]=DEF",
+      "status": 200,
+      "bytes": 747335
+    },
+    {
+      "file": "sleeper/stats_2025_2_all.json.gz",
+      "url": "https://api.sleeper.app/stats/nfl/2025/2?season_type=regular&position[]=QB&position[]=RB&position[]=WR&position[]=TE&position[]=K&position[]=DEF",
+      "status": 200,
+      "bytes": 750013
+    },
+    {
+      "file": "sleeper/stats_2025_3_all.json.gz",
+      "url": "https://api.sleeper.app/stats/nfl/2025/3?season_type=regular&position[]=QB&position[]=RB&position[]=WR&position[]=TE&position[]=K&position[]=DEF",
+      "status": 200,
+      "bytes": 749523
+    },
+    {
+      "file": "sleeper/stats_2025_4_all.json.gz",
+      "url": "https://api.sleeper.app/stats/nfl/2025/4?season_type=regular&position[]=QB&position[]=RB&position[]=WR&position[]=TE&position[]=K&position[]=DEF",
+      "status": 200,
+      "bytes": 758149
+    },
+    {
+      "file": "sleeper/stats_2025_5_all.json.gz",
+      "url": "https://api.sleeper.app/stats/nfl/2025/5?season_type=regular&position[]=QB&position[]=RB&position[]=WR&position[]=TE&position[]=K&position[]=DEF",
+      "status": 200,
+      "bytes": 669835
+    },
+    {
+      "file": "sleeper/stats_2025_6_all.json.gz",
+      "url": "https://api.sleeper.app/stats/nfl/2025/6?season_type=regular&position[]=QB&position[]=RB&position[]=WR&position[]=TE&position[]=K&position[]=DEF",
+      "status": 200,
+      "bytes": 707611
+    },
+    {
+      "file": "sleeper/stats_2025_7_all.json.gz",
+      "url": "https://api.sleeper.app/stats/nfl/2025/7?season_type=regular&position[]=QB&position[]=RB&position[]=WR&position[]=TE&position[]=K&position[]=DEF",
+      "status": 200,
+      "bytes": 717622
+    },
+    {
+      "file": "sleeper/stats_2025_8_all.json.gz",
+      "url": "https://api.sleeper.app/stats/nfl/2025/8?season_type=regular&position[]=QB&position[]=RB&position[]=WR&position[]=TE&position[]=K&position[]=DEF",
+      "status": 200,
+      "bytes": 623580
+    },
+    {
+      "file": "sleeper/stats_2025_9_all.json.gz",
+      "url": "https://api.sleeper.app/stats/nfl/2025/9?season_type=regular&position[]=QB&position[]=RB&position[]=WR&position[]=TE&position[]=K&position[]=DEF",
+      "status": 200,
+      "bytes": 671448
+    },
+    {
+      "file": "sleeper/stats_2025_10_all.json.gz",
+      "url": "https://api.sleeper.app/stats/nfl/2025/10?season_type=regular&position[]=QB&position[]=RB&position[]=WR&position[]=TE&position[]=K&position[]=DEF",
+      "status": 200,
+      "bytes": 671785
+    },
+    {
+      "file": "sleeper/stats_2025_11_all.json.gz",
+      "url": "https://api.sleeper.app/stats/nfl/2025/11?season_type=regular&position[]=QB&position[]=RB&position[]=WR&position[]=TE&position[]=K&position[]=DEF",
+      "status": 200,
+      "bytes": 721361
+    },
+    {
+      "file": "sleeper/stats_2025_12_all.json.gz",
+      "url": "https://api.sleeper.app/stats/nfl/2025/12?season_type=regular&position[]=QB&position[]=RB&position[]=WR&position[]=TE&position[]=K&position[]=DEF",
+      "status": 200,
+      "bytes": 672416
+    },
+    {
+      "file": "sleeper/stats_2025_13_all.json.gz",
+      "url": "https://api.sleeper.app/stats/nfl/2025/13?season_type=regular&position[]=QB&position[]=RB&position[]=WR&position[]=TE&position[]=K&position[]=DEF",
+      "status": 200,
+      "bytes": 770919
+    },
+    {
+      "file": "sleeper/stats_2025_14_all.json.gz",
+      "url": "https://api.sleeper.app/stats/nfl/2025/14?season_type=regular&position[]=QB&position[]=RB&position[]=WR&position[]=TE&position[]=K&position[]=DEF",
+      "status": 200,
+      "bytes": 681042
+    },
+    {
+      "file": "sleeper/stats_2025_15_all.json.gz",
+      "url": "https://api.sleeper.app/stats/nfl/2025/15?season_type=regular&position[]=QB&position[]=RB&position[]=WR&position[]=TE&position[]=K&position[]=DEF",
+      "status": 200,
+      "bytes": 772135
+    },
+    {
+      "file": "sleeper/stats_2025_16_all.json.gz",
+      "url": "https://api.sleeper.app/stats/nfl/2025/16?season_type=regular&position[]=QB&position[]=RB&position[]=WR&position[]=TE&position[]=K&position[]=DEF",
+      "status": 200,
+      "bytes": 780015
+    },
+    {
+      "file": "sleeper/stats_2025_17_all.json.gz",
+      "url": "https://api.sleeper.app/stats/nfl/2025/17?season_type=regular&position[]=QB&position[]=RB&position[]=WR&position[]=TE&position[]=K&position[]=DEF",
+      "status": 200,
+      "bytes": 774071
+    },
+    {
+      "file": "sleeper/stats_2025_18_all.json.gz",
+      "url": "https://api.sleeper.app/stats/nfl/2025/18?season_type=regular&position[]=QB&position[]=RB&position[]=WR&position[]=TE&position[]=K&position[]=DEF",
+      "status": 200,
+      "bytes": 750192
+    },
+    {
+      "file": "sleeper/stats_2024_1_all.json.gz",
+      "url": "https://api.sleeper.app/stats/nfl/2024/1?season_type=regular&position[]=QB&position[]=RB&position[]=WR&position[]=TE&position[]=K&position[]=DEF",
+      "status": 200,
+      "bytes": 737454
+    },
+    {
+      "file": "sleeper/stats_2024_2_all.json.gz",
+      "url": "https://api.sleeper.app/stats/nfl/2024/2?season_type=regular&position[]=QB&position[]=RB&position[]=WR&position[]=TE&position[]=K&position[]=DEF",
+      "status": 200,
+      "bytes": 737956
+    },
+    {
+      "file": "sleeper/stats_2024_3_all.json.gz",
+      "url": "https://api.sleeper.app/stats/nfl/2024/3?season_type=regular&position[]=QB&position[]=RB&position[]=WR&position[]=TE&position[]=K&position[]=DEF",
+      "status": 200,
+      "bytes": 739168
+    },
+    {
+      "file": "sleeper/stats_2024_4_all.json.gz",
+      "url": "https://api.sleeper.app/stats/nfl/2024/4?season_type=regular&position[]=QB&position[]=RB&position[]=WR&position[]=TE&position[]=K&position[]=DEF",
+      "status": 200,
+      "bytes": 742352
+    },
+    {
+      "file": "sleeper/stats_2024_5_all.json.gz",
+      "url": "https://api.sleeper.app/stats/nfl/2024/5?season_type=regular&position[]=QB&position[]=RB&position[]=WR&position[]=TE&position[]=K&position[]=DEF",
+      "status": 200,
+      "bytes": 646844
+    },
+    {
+      "file": "sleeper/stats_2024_6_all.json.gz",
+      "url": "https://api.sleeper.app/stats/nfl/2024/6?season_type=regular&position[]=QB&position[]=RB&position[]=WR&position[]=TE&position[]=K&position[]=DEF",
+      "status": 200,
+      "bytes": 649695
+    },
+    {
+      "file": "sleeper/stats_2024_7_all.json.gz",
+      "url": "https://api.sleeper.app/stats/nfl/2024/7?season_type=regular&position[]=QB&position[]=RB&position[]=WR&position[]=TE&position[]=K&position[]=DEF",
+      "status": 200,
+      "bytes": 699918
+    },
+    {
+      "file": "sleeper/stats_2024_8_all.json.gz",
+      "url": "https://api.sleeper.app/stats/nfl/2024/8?season_type=regular&position[]=QB&position[]=RB&position[]=WR&position[]=TE&position[]=K&position[]=DEF",
+      "status": 200,
+      "bytes": 753717
+    },
+    {
+      "file": "sleeper/stats_2024_9_all.json.gz",
+      "url": "https://api.sleeper.app/stats/nfl/2024/9?season_type=regular&position[]=QB&position[]=RB&position[]=WR&position[]=TE&position[]=K&position[]=DEF",
+      "status": 200,
+      "bytes": 701414
+    },
+    {
+      "file": "sleeper/stats_2024_10_all.json.gz",
+      "url": "https://api.sleeper.app/stats/nfl/2024/10?season_type=regular&position[]=QB&position[]=RB&position[]=WR&position[]=TE&position[]=K&position[]=DEF",
+      "status": 200,
+      "bytes": 647300
+    },
+    {
+      "file": "sleeper/stats_2024_11_all.json.gz",
+      "url": "https://api.sleeper.app/stats/nfl/2024/11?season_type=regular&position[]=QB&position[]=RB&position[]=WR&position[]=TE&position[]=K&position[]=DEF",
+      "status": 200,
+      "bytes": 658538
+    },
+    {
+      "file": "sleeper/stats_2024_12_all.json.gz",
+      "url": "https://api.sleeper.app/stats/nfl/2024/12?season_type=regular&position[]=QB&position[]=RB&position[]=WR&position[]=TE&position[]=K&position[]=DEF",
+      "status": 200,
+      "bytes": 610689
+    },
+    {
+      "file": "sleeper/stats_2024_13_all.json.gz",
+      "url": "https://api.sleeper.app/stats/nfl/2024/13?season_type=regular&position[]=QB&position[]=RB&position[]=WR&position[]=TE&position[]=K&position[]=DEF",
+      "status": 200,
+      "bytes": 754256
+    },
+    {
+      "file": "sleeper/stats_2024_14_all.json.gz",
+      "url": "https://api.sleeper.app/stats/nfl/2024/14?season_type=regular&position[]=QB&position[]=RB&position[]=WR&position[]=TE&position[]=K&position[]=DEF",
+      "status": 200,
+      "bytes": 611462
+    },
+    {
+      "file": "sleeper/stats_2024_15_all.json.gz",
+      "url": "https://api.sleeper.app/stats/nfl/2024/15?season_type=regular&position[]=QB&position[]=RB&position[]=WR&position[]=TE&position[]=K&position[]=DEF",
+      "status": 200,
+      "bytes": 762490
+    },
+    {
+      "file": "sleeper/stats_2024_16_all.json.gz",
+      "url": "https://api.sleeper.app/stats/nfl/2024/16?season_type=regular&position[]=QB&position[]=RB&position[]=WR&position[]=TE&position[]=K&position[]=DEF",
+      "status": 200,
+      "bytes": 768155
+    },
+    {
+      "file": "sleeper/stats_2024_17_all.json.gz",
+      "url": "https://api.sleeper.app/stats/nfl/2024/17?season_type=regular&position[]=QB&position[]=RB&position[]=WR&position[]=TE&position[]=K&position[]=DEF",
+      "status": 200,
+      "bytes": 774029
+    },
+    {
+      "file": "sleeper/stats_2024_18_all.json.gz",
+      "url": "https://api.sleeper.app/stats/nfl/2024/18?season_type=regular&position[]=QB&position[]=RB&position[]=WR&position[]=TE&position[]=K&position[]=DEF",
+      "status": 200,
+      "bytes": 765910
+    },
+    {
+      "file": "sleeper/proj_2025_1_all.json.gz",
+      "url": "https://api.sleeper.app/projections/nfl/2025/1?season_type=regular&position[]=QB&position[]=RB&position[]=WR&position[]=TE&position[]=K&position[]=DEF",
+      "status": 200,
+      "bytes": 2073465
+    },
+    {
+      "file": "sleeper/proj_2025_2_all.json.gz",
+      "url": "https://api.sleeper.app/projections/nfl/2025/2?season_type=regular&position[]=QB&position[]=RB&position[]=WR&position[]=TE&position[]=K&position[]=DEF",
+      "status": 200,
+      "bytes": 2072807
+    },
+    {
+      "file": "sleeper/proj_2025_3_all.json.gz",
+      "url": "https://api.sleeper.app/projections/nfl/2025/3?season_type=regular&position[]=QB&position[]=RB&position[]=WR&position[]=TE&position[]=K&position[]=DEF",
+      "status": 200,
+      "bytes": 2068058
+    },
+    {
+      "file": "sleeper/proj_2025_4_all.json.gz",
+      "url": "https://api.sleeper.app/projections/nfl/2025/4?season_type=regular&position[]=QB&position[]=RB&position[]=WR&position[]=TE&position[]=K&position[]=DEF",
+      "status": 200,
+      "bytes": 2068404
+    },
+    {
+      "file": "sleeper/proj_2025_5_all.json.gz",
+      "url": "https://api.sleeper.app/projections/nfl/2025/5?season_type=regular&position[]=QB&position[]=RB&position[]=WR&position[]=TE&position[]=K&position[]=DEF",
+      "status": 200,
+      "bytes": 2040106
+    },
+    {
+      "file": "sleeper/proj_2025_6_all.json.gz",
+      "url": "https://api.sleeper.app/projections/nfl/2025/6?season_type=regular&position[]=QB&position[]=RB&position[]=WR&position[]=TE&position[]=K&position[]=DEF",
+      "status": 200,
+      "bytes": 2051924
+    },
+    {
+      "file": "sleeper/proj_2025_7_all.json.gz",
+      "url": "https://api.sleeper.app/projections/nfl/2025/7?season_type=regular&position[]=QB&position[]=RB&position[]=WR&position[]=TE&position[]=K&position[]=DEF",
+      "status": 200,
+      "bytes": 2062151
+    },
+    {
+      "file": "sleeper/proj_2025_8_all.json.gz",
+      "url": "https://api.sleeper.app/projections/nfl/2025/8?season_type=regular&position[]=QB&position[]=RB&position[]=WR&position[]=TE&position[]=K&position[]=DEF",
+      "status": 200,
+      "bytes": 2037353
+    },
+    {
+      "file": "sleeper/proj_2025_9_all.json.gz",
+      "url": "https://api.sleeper.app/projections/nfl/2025/9?season_type=regular&position[]=QB&position[]=RB&position[]=WR&position[]=TE&position[]=K&position[]=DEF",
+      "status": 200,
+      "bytes": 2048719
+    },
+    {
+      "file": "sleeper/proj_2025_10_all.json.gz",
+      "url": "https://api.sleeper.app/projections/nfl/2025/10?season_type=regular&position[]=QB&position[]=RB&position[]=WR&position[]=TE&position[]=K&position[]=DEF",
+      "status": 200,
+      "bytes": 2055289
+    },
+    {
+      "file": "sleeper/proj_2025_11_all.json.gz",
+      "url": "https://api.sleeper.app/projections/nfl/2025/11?season_type=regular&position[]=QB&position[]=RB&position[]=WR&position[]=TE&position[]=K&position[]=DEF",
+      "status": 200,
+      "bytes": 2069460
+    },
+    {
+      "file": "sleeper/proj_2025_12_all.json.gz",
+      "url": "https://api.sleeper.app/projections/nfl/2025/12?season_type=regular&position[]=QB&position[]=RB&position[]=WR&position[]=TE&position[]=K&position[]=DEF",
+      "status": 200,
+      "bytes": 2053763
+    },
+    {
+      "file": "sleeper/proj_2025_13_all.json.gz",
+      "url": "https://api.sleeper.app/projections/nfl/2025/13?season_type=regular&position[]=QB&position[]=RB&position[]=WR&position[]=TE&position[]=K&position[]=DEF",
+      "status": 200,
+      "bytes": 2080190
+    },
+    {
+      "file": "sleeper/proj_2025_14_all.json.gz",
+      "url": "https://api.sleeper.app/projections/nfl/2025/14?season_type=regular&position[]=QB&position[]=RB&position[]=WR&position[]=TE&position[]=K&position[]=DEF",
+      "status": 200,
+      "bytes": 2054267
+    },
+    {
+      "file": "sleeper/proj_2025_15_all.json.gz",
+      "url": "https://api.sleeper.app/projections/nfl/2025/15?season_type=regular&position[]=QB&position[]=RB&position[]=WR&position[]=TE&position[]=K&position[]=DEF",
+      "status": 200,
+      "bytes": 2086477
+    },
+    {
+      "file": "sleeper/proj_2025_16_all.json.gz",
+      "url": "https://api.sleeper.app/projections/nfl/2025/16?season_type=regular&position[]=QB&position[]=RB&position[]=WR&position[]=TE&position[]=K&position[]=DEF",
+      "status": 200,
+      "bytes": 2082522
+    },
+    {
+      "file": "sleeper/proj_2025_17_all.json.gz",
+      "url": "https://api.sleeper.app/projections/nfl/2025/17?season_type=regular&position[]=QB&position[]=RB&position[]=WR&position[]=TE&position[]=K&position[]=DEF",
+      "status": 200,
+      "bytes": 2076267
+    },
+    {
+      "file": "sleeper/proj_2025_18_all.json.gz",
+      "url": "https://api.sleeper.app/projections/nfl/2025/18?season_type=regular&position[]=QB&position[]=RB&position[]=WR&position[]=TE&position[]=K&position[]=DEF",
+      "status": 200,
+      "bytes": 2077514
+    },
+    {
+      "file": "sleeper/proj_2026_1_all.json.gz",
+      "url": "https://api.sleeper.app/projections/nfl/2026/1?season_type=regular&position[]=QB&position[]=RB&position[]=WR&position[]=TE&position[]=K&position[]=DEF",
+      "status": 200,
+      "bytes": 2083364
+    },
+    {
+      "file": "sleeper/proj_2026_2_all.json.gz",
+      "url": "https://api.sleeper.app/projections/nfl/2026/2?season_type=regular&position[]=QB&position[]=RB&position[]=WR&position[]=TE&position[]=K&position[]=DEF",
+      "status": 200,
+      "bytes": 2088150
+    },
+    {
+      "file": "sleeper/proj_2026_3_all.json.gz",
+      "url": "https://api.sleeper.app/projections/nfl/2026/3?season_type=regular&position[]=QB&position[]=RB&position[]=WR&position[]=TE&position[]=K&position[]=DEF",
+      "status": 200,
+      "bytes": 2083841
+    },
+    {
+      "file": "sleeper/proj_2026_4_all.json.gz",
+      "url": "https://api.sleeper.app/projections/nfl/2026/4?season_type=regular&position[]=QB&position[]=RB&position[]=WR&position[]=TE&position[]=K&position[]=DEF",
+      "status": 200,
+      "bytes": 2077670
+    },
+    {
+      "file": "sleeper/proj_2026_5_all.json.gz",
+      "url": "https://api.sleeper.app/projections/nfl/2026/5?season_type=regular&position[]=QB&position[]=RB&position[]=WR&position[]=TE&position[]=K&position[]=DEF",
+      "status": 200,
+      "bytes": 2067409
+    },
+    {
+      "file": "sleeper/trending_add.json",
+      "url": "https://api.sleeper.app/v1/players/nfl/trending/add?lookback_hours=48&limit=50",
+      "status": 200,
+      "bytes": 1802
+    },
+    {
+      "file": "sleeper/players_nfl.json.gz",
+      "url": "https://api.sleeper.app/v1/players/nfl",
+      "status": 200,
+      "bytes": 14661616
+    },
+    {
+      "file": "espn/scoreboard_5.json",
+      "url": "https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?seasontype=2&week=5&dates=2026",
+      "status": 200,
+      "bytes": 260178
+    },
+    {
+      "file": "espn/core_odds_example.json",
+      "url": "https://sports.core.api.espn.com/v2/sports/football/leagues/nfl/events/401872980/competitions/401872980/odds",
+      "status": 200,
+      "bytes": 6822
+    },
+    {
+      "file": "news/espn_fantasy_player_3045523.json",
+      "url": "https://site.api.espn.com/apis/fantasy/v2/games/ffl/news/players?limit=10&playerId=3045523",
+      "status": 200,
+      "bytes": 18468
+    },
+    {
+      "file": "news/espn_fantasy_player_4034949.json",
+      "url": "https://site.api.espn.com/apis/fantasy/v2/games/ffl/news/players?limit=10&playerId=4034949",
+      "status": 200,
+      "bytes": 11188
+    },
+    {
+      "file": "news/espn_fantasy_player_4239993.json",
+      "url": "https://site.api.espn.com/apis/fantasy/v2/games/ffl/news/players?limit=10&playerId=4239993",
+      "status": 200,
+      "bytes": 12279
+    },
+    {
+      "file": "news/espn_nfl_news.json",
+      "url": "https://site.api.espn.com/apis/site/v2/sports/football/nfl/news?limit=50",
+      "status": 200,
+      "bytes": 224204
+    },
+    {
+      "file": "news/espn_nfl_news_athlete_3045523.json",
+      "url": "https://site.api.espn.com/apis/site/v2/sports/football/nfl/news?athletes=3045523",
+      "status": 200,
+      "bytes": 30644
+    },
+    {
+      "file": "news/espn_athlete_news_3045523.json",
+      "url": "https://site.web.api.espn.com/apis/common/v3/sports/football/nfl/athletes/3045523/news",
+      "status": 404,
+      "bytes": 111
+    },
+    {
+      "file": "news/espn_rss.xml",
+      "url": "https://www.espn.com/espn/rss/nfl/news",
+      "status": 202,
+      "bytes": 0
+    },
+    {
+      "file": "news/pft_feed.xml",
+      "url": "https://profootballtalk.nbcsports.com/feed/",
+      "status": 200,
+      "bytes": 201902
+    },
+    {
+      "file": "news/pft_nbc.rss",
+      "url": "https://www.nbcsports.com/profootballtalk.rss",
+      "status": 200,
+      "bytes": 201902
+    },
+    {
+      "file": "news/nbc_player_news.rss",
+      "url": "https://www.nbcsports.com/fantasy/football/player-news/rss",
+      "status": 404,
+      "bytes": 478440
+    },
+    {
+      "file": "news/fantasypros_news.xml",
+      "url": "https://www.fantasypros.com/nfl/rss/news.xml",
+      "status": 404,
+      "bytes": 222219
+    },
+    {
+      "file": "news/fantasypros_player_news.xml",
+      "url": "https://www.fantasypros.com/rss/nfl/player-news.xml",
+      "status": 200,
+      "bytes": 0
+    },
+    {
+      "file": "news/cbs_nfl.rss",
+      "url": "https://www.cbssports.com/rss/headlines/nfl/",
+      "status": 200,
+      "bytes": 36184
+    },
+    {
+      "file": "news/yahoo_nfl.rss",
+      "url": "https://sports.yahoo.com/nfl/rss.xml",
+      "status": 200,
+      "bytes": 408490
+    },
+    {
+      "file": "news/rotoballer_nfl.rss",
+      "url": "https://www.rotoballer.com/category/nfl/feed",
+      "status": 200,
+      "bytes": 28134
+    },
+    {
+      "file": "news/robots/www.espn.com.txt",
+      "url": "https://www.espn.com/robots.txt",
+      "status": 200,
+      "bytes": 3223
+    },
+    {
+      "file": "news/robots/profootballtalk.nbcsports.com.txt",
+      "url": "https://profootballtalk.nbcsports.com/robots.txt",
+      "status": 200,
+      "bytes": 622840
+    },
+    {
+      "file": "news/robots/www.nbcsports.com.txt",
+      "url": "https://www.nbcsports.com/robots.txt",
+      "status": 200,
+      "bytes": 1914
+    },
+    {
+      "file": "news/robots/www.fantasypros.com.txt",
+      "url": "https://www.fantasypros.com/robots.txt",
+      "status": 200,
+      "bytes": 257
+    },
+    {
+      "file": "news/robots/www.cbssports.com.txt",
+      "url": "https://www.cbssports.com/robots.txt",
+      "status": 200,
+      "bytes": 875
+    },
+    {
+      "file": "news/robots/sports.yahoo.com.txt",
+      "url": "https://sports.yahoo.com/robots.txt",
+      "status": 200,
+      "bytes": 2167
+    },
+    {
+      "file": "news/robots/www.rotoballer.com.txt",
+      "url": "https://www.rotoballer.com/robots.txt",
+      "status": 200,
+      "bytes": 674
+    },
+    {
+      "file": "news/robots/bsky.app.txt",
+      "url": "https://bsky.app/robots.txt",
+      "status": 200,
+      "bytes": 441
+    },
+    {
+      "file": "news/bsky_pack_3lasn45dohl2n.json",
+      "url": "https://public.api.bsky.app/xrpc/app.bsky.graph.getList?list=at://did:plc:pgxejfwpltr73b6amkirahwd/app.bsky.graph.list/3lasn45b4da2l&limit=100",
+      "status": 200,
+      "bytes": 73469
+    },
+    {
+      "file": "news/bsky_pack_3moleluakei24.json",
+      "url": "https://public.api.bsky.app/xrpc/app.bsky.graph.getList?list=at://did:plc:nbzyzqrzjx7ydz2vwxv3j7uw/app.bsky.graph.list/3moleltiton2x&limit=100",
+      "status": 200,
+      "bytes": 26073
+    },
+    {
+      "file": "news/bsky_profile.rss",
+      "url": "https://bsky.app/profile/davebirkett.bsky.social/rss",
+      "status": 200,
+      "bytes": 12976
+    },
+    {
+      "file": "phase5/standings_2026.json",
+      "url": "https://site.api.espn.com/apis/v2/sports/football/nfl/standings?season=2026",
+      "status": 200,
+      "bytes": 157388
+    },
+    {
+      "file": "phase5/standings_2025.json",
+      "url": "https://site.api.espn.com/apis/v2/sports/football/nfl/standings?season=2025",
+      "status": 200,
+      "bytes": 163853
+    },
+    {
+      "file": "news/bsky_feed_rotowirenfl_1.json",
+      "url": "https://public.api.bsky.app/xrpc/app.bsky.feed.getAuthorFeed?actor=rotowirenfl.bsky.social&filter=posts_no_replies&limit=100",
+      "status": 200,
+      "bytes": 107170
+    },
+    {
+      "file": "news/bsky_feed_rotowirenfl_2.json",
+      "url": "https://public.api.bsky.app/xrpc/app.bsky.feed.getAuthorFeed?actor=rotowirenfl.bsky.social&filter=posts_no_replies&limit=100&cursor=2026-10-11T22:14:16Z",
+      "status": 200,
+      "bytes": 106604
+    },
+    {
+      "file": "news/bsky_feed_rotoworld-fb_1.json",
+      "url": "https://public.api.bsky.app/xrpc/app.bsky.feed.getAuthorFeed?actor=rotoworld-fb.bsky.social&filter=posts_no_replies&limit=100",
+      "status": 200,
+      "bytes": 199382
+    },
+    {
+      "file": "news/bsky_feed_rotoworld-fb_2.json",
+      "url": "https://public.api.bsky.app/xrpc/app.bsky.feed.getAuthorFeed?actor=rotoworld-fb.bsky.social&filter=posts_no_replies&limit=100&cursor=2026-10-11T15:50:39Z",
+      "status": 200,
+      "bytes": 194754
+    },
+    {
+      "file": "news/feeds/ATL_team_site.xml",
+      "url": "https://www.atlantafalcons.com/rss/news",
+      "status": 200,
+      "bytes": 40138
+    },
+    {
+      "file": "news/feeds/ATL_sbnation.xml",
+      "url": "https://www.thefalcoholic.com/rss/index.xml",
+      "status": 200,
+      "bytes": 107722
+    },
+    {
+      "file": "news/feeds/ATL_google_news.xml",
+      "url": "https://news.google.com/rss/search?q=%22Atlanta%20Falcons%22%20when:2d&hl=en-US&gl=US&ceid=US:en",
+      "status": 200,
+      "bytes": 133953
+    },
+    {
+      "file": "news/feeds/DAL_team_site.xml",
+      "url": "https://www.dallascowboys.com/rss/news",
+      "status": 200,
+      "bytes": 116932
+    },
+    {
+      "file": "news/feeds/DAL_sbnation.xml",
+      "url": "https://www.bloggingtheboys.com/rss/index.xml",
+      "status": 200,
+      "bytes": 75178
+    },
+    {
+      "file": "news/feeds/DAL_google_news.xml",
+      "url": "https://news.google.com/rss/search?q=%22Dallas%20Cowboys%22%20when:2d&hl=en-US&gl=US&ceid=US:en",
+      "status": 200,
+      "bytes": 140853
+    },
+    {
+      "file": "news/feeds/LAC_team_site.xml",
+      "url": "https://www.chargers.com/rss/news",
+      "status": 200,
+      "bytes": 109367
+    },
+    {
+      "file": "news/feeds/LAC_sbnation.xml",
+      "url": "https://www.boltsfromtheblue.com/rss/index.xml",
+      "status": 200,
+      "bytes": 63597
+    },
+    {
+      "file": "news/feeds/LAC_google_news.xml",
+      "url": "https://news.google.com/rss/search?q=%22Los%20Angeles%20Chargers%22%20when:2d&hl=en-US&gl=US&ceid=US:en",
+      "status": 200,
+      "bytes": 125154
+    },
+    {
+      "file": "news/feeds/TEN_team_site.xml",
+      "url": "https://www.tennesseetitans.com/rss/news",
+      "status": 200,
+      "bytes": 17973
+    },
+    {
+      "file": "news/feeds/TEN_sbnation.xml",
+      "url": "https://www.musiccitymiracles.com/rss/index.xml",
+      "status": 200,
+      "bytes": 44877
+    },
+    {
+      "file": "news/feeds/TEN_google_news.xml",
+      "url": "https://news.google.com/rss/search?q=%22Tennessee%20Titans%22%20when:2d&hl=en-US&gl=US&ceid=US:en",
+      "status": 200,
+      "bytes": 135410
+    }
+  ]
+}

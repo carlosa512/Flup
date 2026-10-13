@@ -1,0 +1,37 @@
+[
+  {
+    "url": "https://api.sleeper.app/v1/state/nfl",
+    "status": 200,
+    "allow_origin": "*",
+    "cache_control": "public, s-maxage=60, stale-while-revalidate=180, stale-if-error=600"
+  },
+  {
+    "url": "https://api.sleeper.app/v1/league/1374496898462785536/matchups/5",
+    "status": 200,
+    "allow_origin": "*",
+    "cache_control": "public, s-maxage=60, stale-while-revalidate=300, stale-if-error=600"
+  },
+  {
+    "url": "https://api.sleeper.app/stats/nfl/2026/5?season_type=regular&position[]=QB",
+    "status": 200,
+    "allow_origin": "*",
+    "cache_control": "public, s-maxage=300, stale-while-revalidate=600, stale-if-error=600"
+  },
+  {
+    "url": "https://api.sleeper.app/projections/nfl/2026/5?season_type=regular&position[]=QB",
+    "status": 200,
+    "allow_origin": "*",
+    "cache_control": "public, s-maxage=600, stale-while-revalidate=600, stale-if-error=600"
+  },
+  {
+    "url": "https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?seasontype=2&week=5&dates=2026",
+    "status": 200,
+    "allow_origin": "*",
+    "cache_control": "max-age=6"
+  },
+  {
+    "url": "https://site.api.espn.com/apis/fantasy/v2/games/ffl/news/players?limit=1",
+    "status": 500,
+    "allow_origin": "*"
+  }
+]

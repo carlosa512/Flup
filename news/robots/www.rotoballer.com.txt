@@ -1,0 +1,19 @@
+User-agent: *
+Disallow: /wp-admin/
+Disallow: /wp-admin/admin-ajax.php
+Disallow: /tag/
+Disallow: /api/rbapps
+
+Sitemap: https://www.rotoballer.com/sitemap.xml
+
+Sitemap: https://www.rotoballer.com/google-news-sitemap.xml
+
+Sitemap: https://www.rotoballer.com/wp-content/uploads/sitemaps/nfl_tools_index.xml
+
+Sitemap: https://www.rotoballer.com/rankings-combos-sitemap.xml
+
+# Updated 2026-06-30:
+#  - Removed dead Sitemap: /wp-sitemap.xml (WP core sitemaps are disabled -> 404).
+#  - Repointed the Google News sitemap to its real URL /google-news-sitemap.xml
+#    (gnews-sitemap plugin rewrite); the old /wp-content/uploads/sitemaps/
+#    google_news_sitemap_index.xml path 404s.

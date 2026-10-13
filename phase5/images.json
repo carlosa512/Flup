@@ -1,0 +1,107 @@
+[
+ {
+  "url": "https://sleepercdn.com/content/nfl/players/thumb/11581.jpg",
+  "plain": {
+   "status": 200,
+   "type": "image/jpeg",
+   "bytes": 57909,
+   "cache": "public, max-age=2678400"
+  },
+  "from_site": {
+   "status": 200,
+   "type": "image/jpeg",
+   "bytes": 57909,
+   "cache": "public, max-age=2678400"
+  }
+ },
+ {
+  "url": "https://sleepercdn.com/content/nfl/players/thumb/11604.jpg",
+  "plain": {
+   "status": 200,
+   "type": "image/jpeg",
+   "bytes": 24538,
+   "cache": "public, max-age=2678400"
+  },
+  "from_site": {
+   "status": 200,
+   "type": "image/jpeg",
+   "bytes": 24538,
+   "cache": "public, max-age=2678400"
+  }
+ },
+ {
+  "url": "https://sleepercdn.com/content/nfl/players/thumb/12490.jpg",
+  "plain": {
+   "status": 200,
+   "type": "image/jpeg",
+   "bytes": 27762,
+   "cache": "public, max-age=2678400"
+  },
+  "from_site": {
+   "status": 200,
+   "type": "image/jpeg",
+   "bytes": 27762,
+   "cache": "public, max-age=2678400"
+  }
+ },
+ {
+  "url": "https://sleepercdn.com/content/nfl/players/11581.jpg",
+  "plain": {
+   "status": 200,
+   "type": "image/jpeg",
+   "bytes": 82504,
+   "cache": "public, max-age=2678400"
+  },
+  "from_site": {
+   "status": 200,
+   "type": "image/jpeg",
+   "bytes": 82504,
+   "cache": "public, max-age=2678400"
+  }
+ },
+ {
+  "url": "https://sleepercdn.com/content/nfl/players/thumb/0.jpg",
+  "plain": {
+   "status": 200,
+   "type": "image/jpeg",
+   "bytes": 9709,
+   "cache": "public, max-age=2678400"
+  },
+  "from_site": {
+   "status": 200,
+   "type": "image/jpeg",
+   "bytes": 9709,
+   "cache": "public, max-age=2678400"
+  }
+ },
+ {
+  "url": "https://sleepercdn.com/images/team_logos/nfl/hou.png",
+  "plain": {
+   "status": 200,
+   "type": "image/png",
+   "bytes": 7927,
+   "cache": "public, max-age=2678400"
+  },
+  "from_site": {
+   "status": 200,
+   "type": "image/png",
+   "bytes": 7927,
+   "cache": "public, max-age=2678400"
+  }
+ },
+ {
+  "url": "https://sleepercdn.com/images/team_logos/nfl/was.png",
+  "plain": {
+   "status": 200,
+   "type": "image/png",
+   "bytes": 14722,
+   "cache": "public, max-age=2678400"
+  },
+  "from_site": {
+   "status": 200,
+   "type": "image/png",
+   "bytes": 14722,
+   "cache": "public, max-age=2678400"
+  }
+ }
+]

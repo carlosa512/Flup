@@ -1,0 +1,470 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/">
+  <channel>
+    <title>News</title>
+    <description>Latest News</description>
+    <atom:link href="https://www.atlantafalcons.com/rss/news" rel="self" type="application/rss+xml" />
+    <link>https://www.atlantafalcons.com</link>
+    <language>en-US</language>
+    <image>
+      <title>News</title>
+      <url>https://static.nfl.com/static/content/public/static/wildcat/assets/img/logos/teams/ATL.svg</url>
+      <link>https://www.atlantafalcons.com</link>
+    </image>
+      <item>
+        <title><![CDATA[Tracking the NFC South: Buccaneers pick up division's only win in Week 5]]></title>
+          <description><![CDATA[The Panthers gained a half-game lead in the NFC South after the Falcons' Sunday night loss.]]></description>
+        <link>https://www.atlantafalcons.com/news/tracking-nfc-south-week-5-buccaneers-falcons-panthers-saints</link>
+        <pubDate>Tue, 13 Oct 2026 11:26:41 GMT</pubDate>
+        <guid isPermaLink="false">69a5a0b0-1eab-4060-8cd3-9f3e34451b40</guid>
+        <source url="https://www.atlantafalcons.com/rss/news">News</source>
+          <media:content url="https://static.clubs.nfl.com/image/upload/t_editorial_landscape_12_desktop/falcons/kxta48u5wjtdjs54fsh4.png" />
+          <enclosure url="https://static.clubs.nfl.com/image/upload/t_editorial_landscape_12_desktop/falcons/kxta48u5wjtdjs54fsh4.jpg" length="0" type="image/jpeg"></enclosure>
+            <media:keywords>
+              <![CDATA[News, tracking the nfc south, Will McFadden, Baltimore Ravens at Atlanta Falcons (2026-REG-5), Drake London, Jessie Bates III]]>
+            </media:keywords>
+      </item>
+      <item>
+        <title><![CDATA[Falcons focused on closing out future games: 'You've got to put them away']]></title>
+          <description><![CDATA[After Sunday night's overtime loss to the Ravens, players and coaches explained the importance of not letting good opponents off the mat.]]></description>
+        <link>https://www.atlantafalcons.com/news/falcons-ravens-sunday-close-out-games-bijan-robinson</link>
+        <pubDate>Mon, 12 Oct 2026 21:36:51 GMT</pubDate>
+        <guid isPermaLink="false">3069d77d-038d-4903-8f2b-8f57dc999fc7</guid>
+        <source url="https://www.atlantafalcons.com/rss/news">News</source>
+          <media:content url="https://static.clubs.nfl.com/image/upload/t_editorial_landscape_12_desktop/falcons/w7heje8lie03ju5mkmwt.jpg" />
+          <enclosure url="https://static.clubs.nfl.com/image/upload/t_editorial_landscape_12_desktop/falcons/w7heje8lie03ju5mkmwt.jpg" length="0" type="image/jpeg"></enclosure>
+            <media:keywords>
+              <![CDATA[News, Baltimore Ravens at Atlanta Falcons (2026-REG-5), Bijan Robinson, Chris Lindstrom, Jessie Bates III, michael penix jr.]]>
+            </media:keywords>
+      </item>
+      <item>
+        <title><![CDATA[Third-down deep shots, key lessons learned and more notes from Ravens vs. Falcons]]></title>
+          <description><![CDATA[Catching you up on the news, notes and quotes from the Falcons' game against the Baltimore Ravens]]></description>
+        <link>https://www.atlantafalcons.com/news/falcons-ravens-game-notes-injuries-quotes-stats</link>
+        <pubDate>Mon, 12 Oct 2026 18:13:35 GMT</pubDate>
+        <guid isPermaLink="false">b6b4a28e-4481-41ad-b06c-784647dc15eb</guid>
+        <source url="https://www.atlantafalcons.com/rss/news">News</source>
+          <media:content url="https://static.clubs.nfl.com/image/upload/t_editorial_landscape_12_desktop/falcons/lfbc09tryovs2jllpb24.png" />
+          <enclosure url="https://static.clubs.nfl.com/image/upload/t_editorial_landscape_12_desktop/falcons/lfbc09tryovs2jllpb24.jpg" length="0" type="image/jpeg"></enclosure>
+            <media:keywords>
+              <![CDATA[News, Early Bird Report, Will McFadden, kevin stefanski, Gervon Dexter Sr., Brandon Dorlus, Bijan Robinson, Drake London, Chris Lindstrom, Baltimore Ravens at Atlanta Falcons (2026-REG-5)]]>
+            </media:keywords>
+      </item>
+      <item>
+        <title><![CDATA[Michael Penix Jr.: 'I hated it. I hated that I couldn't get back in that game.']]></title>
+          <description><![CDATA[Penix suffered an injury to his ribs in the final moments of regulation in the Falcons' Sunday Night Football loss to the Ravens.]]></description>
+        <link>https://www.atlantafalcons.com/news/michael-penix-jr-sunday-night-football-rib-injury</link>
+        <pubDate>Mon, 12 Oct 2026 05:10:03 GMT</pubDate>
+        <guid isPermaLink="false">63d39cf3-0f58-4490-b914-24f41f91853e</guid>
+        <source url="https://www.atlantafalcons.com/rss/news">News</source>
+          <media:content url="https://static.clubs.nfl.com/image/upload/t_editorial_landscape_12_desktop/falcons/y79z81oo5l1jjkif4nas.jpg" />
+          <enclosure url="https://static.clubs.nfl.com/image/upload/t_editorial_landscape_12_desktop/falcons/y79z81oo5l1jjkif4nas.jpg" length="0" type="image/jpeg"></enclosure>
+            <media:keywords>
+              <![CDATA[News, Baltimore Ravens at Atlanta Falcons (2026-REG-5), sunday night football, Michael Penix Jr.]]>
+            </media:keywords>
+      </item>
+      <item>
+        <title><![CDATA[Game Breakdown: What happened in Falcons vs. Ravens]]></title>
+          <description><![CDATA[The main takeaways and observations from Atlanta's Sunday Night Football game against the Baltimore Ravens.]]></description>
+        <link>https://www.atlantafalcons.com/news/game-breakdown-what-happened-in-falcons-vs-ravens</link>
+        <pubDate>Mon, 12 Oct 2026 03:46:29 GMT</pubDate>
+        <guid isPermaLink="false">c8357d16-df18-4198-8490-bd8fbf5b1fab</guid>
+        <source url="https://www.atlantafalcons.com/rss/news">News</source>
+          <media:content url="https://static.clubs.nfl.com/image/upload/t_editorial_landscape_12_desktop/falcons/btgxbattnxrubuigqyhj.png" />
+          <enclosure url="https://static.clubs.nfl.com/image/upload/t_editorial_landscape_12_desktop/falcons/btgxbattnxrubuigqyhj.jpg" length="0" type="image/jpeg"></enclosure>
+            <media:keywords>
+              <![CDATA[News, Game Breakdown, Baltimore Ravens at Atlanta Falcons (2026-REG-5), Jessie Bates III, Michael Penix Jr., Bijan Robinson, Drake London, Jake Matthews]]>
+            </media:keywords>
+      </item>
+      <item>
+        <title><![CDATA[Atlanta Falcons Week 5 inactives vs. Baltimore Ravens on Sunday Night Football]]></title>
+          <description><![CDATA[Falcons make a decision on LT Jake Matthews, ILB Divine Deablo and DE Samson Ebukam.]]></description>
+        <link>https://www.atlantafalcons.com/news/atlanta-falcons-week-5-inactives-vs-baltimore-ravens-on-sunday-night-football</link>
+        <pubDate>Sun, 11 Oct 2026 22:50:30 GMT</pubDate>
+        <guid isPermaLink="false">515a04ff-6724-4ca2-b603-4fa06d378848</guid>
+        <source url="https://www.atlantafalcons.com/rss/news">News</source>
+          <media:content url="https://static.clubs.nfl.com/image/upload/t_editorial_landscape_12_desktop/falcons/vwodoscv39etbmt8fhkr.jpg" />
+          <enclosure url="https://static.clubs.nfl.com/image/upload/t_editorial_landscape_12_desktop/falcons/vwodoscv39etbmt8fhkr.jpg" length="0" type="image/jpeg"></enclosure>
+            <media:keywords>
+              <![CDATA[News, Inactives, Baltimore Ravens at Atlanta Falcons (2026-REG-5), Jake Matthews, Divine Deablo, Samson Ebukam, Za'Darius Smith]]>
+            </media:keywords>
+      </item>
+      <item>
+        <title><![CDATA[Where to watch Baltimore Ravens vs. Atlanta Falcons]]></title>
+          <description><![CDATA[All the information you need to watch, stream or listen to the Ravens vs. Falcons game on Sunday night]]></description>
+        <link>https://www.atlantafalcons.com/news/where-watch-atlanta-falcons-baltimore-ravens-stream-tv-radio-snf-nbc</link>
+        <pubDate>Sun, 11 Oct 2026 19:24:00 GMT</pubDate>
+        <guid isPermaLink="false">e49facdb-cec2-4bfc-a185-169119ad4cf4</guid>
+        <source url="https://www.atlantafalcons.com/rss/news">News</source>
+          <media:content url="https://static.clubs.nfl.com/image/upload/t_editorial_landscape_12_desktop/falcons/gtvtsjg3qylhsz1ei4kg.jpg" />
+          <enclosure url="https://static.clubs.nfl.com/image/upload/t_editorial_landscape_12_desktop/falcons/gtvtsjg3qylhsz1ei4kg.jpg" length="0" type="image/jpeg"></enclosure>
+            <media:keywords>
+              <![CDATA[News, How to Watch, Will McFadden, Baltimore Ravens at Atlanta Falcons (2026-REG-5)]]>
+            </media:keywords>
+      </item>
+      <item>
+        <title><![CDATA[Falcons place LB Yasir Abdullah on IR, sign S Jammie Robinson]]></title>
+          <description><![CDATA[Plus, the Falcons have used a standard practice squad elevation on Bralen Trice and Drake Jackson.]]></description>
+        <link>https://www.atlantafalcons.com/news/falcons-place-yasir-abdullah-on-ir-sign-jammie-robinson</link>
+        <pubDate>Sat, 10 Oct 2026 19:59:05 GMT</pubDate>
+        <guid isPermaLink="false">7c5bd5b6-ba8d-43a8-b35b-16c621bf4d65</guid>
+        <source url="https://www.atlantafalcons.com/rss/news">News</source>
+          <media:content url="https://static.clubs.nfl.com/image/upload/t_editorial_landscape_12_desktop/falcons/vhwrnvljl2cztvotzdcn.jpg" />
+          <enclosure url="https://static.clubs.nfl.com/image/upload/t_editorial_landscape_12_desktop/falcons/vhwrnvljl2cztvotzdcn.jpg" length="0" type="image/jpeg"></enclosure>
+            <media:keywords>
+              <![CDATA[News, Transactions, Baltimore Ravens at Atlanta Falcons (2026-REG-5), Yasir Abdullah, Jammie Robinson, Bralen Trice, Drake Jackson]]>
+            </media:keywords>
+      </item>
+      <item>
+        <title><![CDATA[Falcons News Now: Top headlines for Falcons Sunday Night Football matchup with the Baltimore Ravens]]></title>
+          <description><![CDATA[Your one-stop shop for all the Atlanta Falcons news you may have missed this week.]]></description>
+        <link>https://www.atlantafalcons.com/news/falcons-news-now-top-headlines-falcons-sunday-night-football-baltimore-ravens</link>
+        <pubDate>Fri, 09 Oct 2026 19:01:00 GMT</pubDate>
+        <guid isPermaLink="false">3123a53c-a57a-4aa3-95d0-4ab2d4417192</guid>
+        <source url="https://www.atlantafalcons.com/rss/news">News</source>
+          <media:content url="https://static.clubs.nfl.com/image/upload/t_editorial_landscape_12_desktop/falcons/hyesfqls4h2arowoivze.png" />
+          <enclosure url="https://static.clubs.nfl.com/image/upload/t_editorial_landscape_12_desktop/falcons/hyesfqls4h2arowoivze.jpg" length="0" type="image/jpeg"></enclosure>
+            <media:keywords>
+              <![CDATA[News, Falcons News Now, Bijan Robinson, Lamar Jackson, Baltimore Ravens at Atlanta Falcons (2026-REG-5), sunday night football]]>
+            </media:keywords>
+      </item>
+      <item>
+        <title><![CDATA[Lamar Jackson ruled out for 'Sunday Night Football' game vs. Falcons]]></title>
+          <description><![CDATA[Atlanta will not face the two-time MVP when it takes on the Baltimore Ravens with hopes of winning its third consecutive game.]]></description>
+        <link>https://www.atlantafalcons.com/news/lamar-jackson-ruled-out-sunday-night-football-ravens-vs-falcons</link>
+        <pubDate>Fri, 09 Oct 2026 18:30:47 GMT</pubDate>
+        <guid isPermaLink="false">4ddc1b2b-cf3b-4fe3-bf81-8fc7312aa82e</guid>
+        <source url="https://www.atlantafalcons.com/rss/news">News</source>
+          <media:content url="https://static.clubs.nfl.com/image/upload/t_editorial_landscape_12_desktop/falcons/es0l2hmhohssltmkszgd.jpg" />
+          <enclosure url="https://static.clubs.nfl.com/image/upload/t_editorial_landscape_12_desktop/falcons/es0l2hmhohssltmkszgd.jpg" length="0" type="image/jpeg"></enclosure>
+            <media:keywords>
+              <![CDATA[News, Will McFadden, Baltimore Ravens at Atlanta Falcons (2026-REG-5)]]>
+            </media:keywords>
+      </item>
+      <item>
+        <title><![CDATA[Falcons injury report: Za'Darius Smith, Jake Matthews questionable vs. Ravens]]></title>
+          <description><![CDATA[Two other defensive starters are also listed as questionable for Sunday night's game.]]></description>
+        <link>https://www.atlantafalcons.com/news/falcons-injury-report-vs-ravens-za-darius-smith-jake-matthews</link>
+        <pubDate>Fri, 09 Oct 2026 17:08:12 GMT</pubDate>
+        <guid isPermaLink="false">886ba580-0c24-4e03-9e1a-eed670c60c7c</guid>
+        <source url="https://www.atlantafalcons.com/rss/news">News</source>
+          <media:content url="https://static.clubs.nfl.com/image/upload/t_editorial_landscape_12_desktop/falcons/g96wao3pagmnewereuxe.jpg" />
+          <enclosure url="https://static.clubs.nfl.com/image/upload/t_editorial_landscape_12_desktop/falcons/g96wao3pagmnewereuxe.jpg" length="0" type="image/jpeg"></enclosure>
+            <media:keywords>
+              <![CDATA[News, Emory Injury Report, Jake Matthews, Divine Deablo, Samson Ebukam, Za'Darius Smith, Will McFadden]]>
+            </media:keywords>
+      </item>
+      <item>
+        <title><![CDATA[NFL Expert Picks: Who will win in Week 5, Falcons or Ravens? ]]></title>
+          <description><![CDATA[The Falcons have balled out in prime time the last two weeks and now return home for a big matchup against the Baltimore Ravens. Can they keep their hot streak going?]]></description>
+        <link>https://www.atlantafalcons.com/news/nfl-expert-picks-week-5-falcons-ravens</link>
+        <pubDate>Fri, 09 Oct 2026 15:02:42 GMT</pubDate>
+        <guid isPermaLink="false">c081da53-bf0c-49bb-8ebe-14f7be92ba83</guid>
+        <source url="https://www.atlantafalcons.com/rss/news">News</source>
+          <media:content url="https://static.clubs.nfl.com/image/upload/t_editorial_landscape_12_desktop/falcons/qjqpawox8f5t8uvwdoat.jpg" />
+          <enclosure url="https://static.clubs.nfl.com/image/upload/t_editorial_landscape_12_desktop/falcons/qjqpawox8f5t8uvwdoat.jpg" length="0" type="image/jpeg"></enclosure>
+            <media:keywords>
+              <![CDATA[News, Expert Picks, Will McFadden, Baltimore Ravens at Atlanta Falcons (2026-REG-5)]]>
+            </media:keywords>
+      </item>
+      <item>
+        <title><![CDATA[Plan your game day: Atlanta Falcons vs. Baltimore Ravens on Sunday Night Football]]></title>
+          <description><![CDATA[Wear red. Be loud. Check out all of the fan activations happening in and around Mercedes-Benz Stadium this Sunday.]]></description>
+        <link>https://www.atlantafalcons.com/news/plan-your-game-day-atlanta-falcons-vs-baltimore-ravens-on-sunday-night-football</link>
+        <pubDate>Thu, 08 Oct 2026 20:44:22 GMT</pubDate>
+        <guid isPermaLink="false">5055a71a-96e6-49dd-986f-6cde243a2c07</guid>
+        <source url="https://www.atlantafalcons.com/rss/news">News</source>
+          <media:content url="https://static.clubs.nfl.com/image/upload/t_editorial_landscape_12_desktop/falcons/u50lavuyvglqwmukj4rg.png" />
+          <enclosure url="https://static.clubs.nfl.com/image/upload/t_editorial_landscape_12_desktop/falcons/u50lavuyvglqwmukj4rg.jpg" length="0" type="image/jpeg"></enclosure>
+            <media:keywords>
+              <![CDATA[News, Baltimore Ravens at Atlanta Falcons (2026-REG-5), dirty bird, ring of honor, john abraham]]>
+            </media:keywords>
+      </item>
+      <item>
+        <title><![CDATA[Falcons injury report: ILB Divine Deablo, DE Samson Ebukam added to report]]></title>
+          <description><![CDATA[LT Jake Matthews' practice status updated.]]></description>
+        <link>https://www.atlantafalcons.com/news/falcons-injury-report-ilb-divine-deablo-de-samson-ebukam-added-to-report</link>
+        <pubDate>Thu, 08 Oct 2026 19:29:15 GMT</pubDate>
+        <guid isPermaLink="false">326213c2-aa05-47cd-8441-5eeaa13d4756</guid>
+        <source url="https://www.atlantafalcons.com/rss/news">News</source>
+          <media:content url="https://static.clubs.nfl.com/image/upload/t_editorial_landscape_12_desktop/falcons/sqkdy9ao00v2k2437iqr.jpg" />
+          <enclosure url="https://static.clubs.nfl.com/image/upload/t_editorial_landscape_12_desktop/falcons/sqkdy9ao00v2k2437iqr.jpg" length="0" type="image/jpeg"></enclosure>
+            <media:keywords>
+              <![CDATA[News, Emory Injury Report, Jake Matthews, Divine Deablo, Samson Ebukam]]>
+            </media:keywords>
+      </item>
+      <item>
+        <title><![CDATA[The Paradox of The Predator: John Abraham inducted into the Atlanta Falcons Ring of Honor]]></title>
+          <description><![CDATA[John Abraham is about to take his place in the Atlanta Falcons’ Ring of Honor. But for The Predator, the hunt never really ended.]]></description>
+        <link>https://www.atlantafalcons.com/news/paradox-of-the-predator-john-abraham-atlanta-falcons-ring-of-honor</link>
+        <pubDate>Thu, 08 Oct 2026 10:00:12 GMT</pubDate>
+        <guid isPermaLink="false">ec6c7272-03bd-428b-a46e-4a542384d4c6</guid>
+        <source url="https://www.atlantafalcons.com/rss/news">News</source>
+          <media:content url="https://static.clubs.nfl.com/image/upload/t_editorial_landscape_12_desktop/falcons/mbpwmet6fjva4rcz5wip.jpg" />
+          <enclosure url="https://static.clubs.nfl.com/image/upload/t_editorial_landscape_12_desktop/falcons/mbpwmet6fjva4rcz5wip.jpg" length="0" type="image/jpeg"></enclosure>
+            <media:keywords>
+              <![CDATA[News, ring of honor, john abraham, girls flag football, matt ryan, jonathon babineaux, Ray Hamilton, mike smith, Arthur Blank]]>
+            </media:keywords>
+      </item>
+      <item>
+        <title><![CDATA[Michael Penix Jr.'s presence, Robinsons run wild and more from Falcons' win vs. Saints]]></title>
+          <description><![CDATA[Catching you up on the news, notes and quotes from the Falcons' win against the New Orleans Saints]]></description>
+        <link>https://www.atlantafalcons.com/news/michael-penix-jr-bijan-robinson-brian-robinson-falcons-saints</link>
+        <pubDate>Wed, 07 Oct 2026 20:43:21 GMT</pubDate>
+        <guid isPermaLink="false">49cd78f2-fad1-4c81-896e-5f13bb141e0d</guid>
+        <source url="https://www.atlantafalcons.com/rss/news">News</source>
+          <media:content url="https://static.clubs.nfl.com/image/upload/t_editorial_landscape_12_desktop/falcons/dmg0qoznp0wyazey75g0.png" />
+          <enclosure url="https://static.clubs.nfl.com/image/upload/t_editorial_landscape_12_desktop/falcons/dmg0qoznp0wyazey75g0.jpg" length="0" type="image/jpeg"></enclosure>
+            <media:keywords>
+              <![CDATA[News, Early Bird Report, Will McFadden, kevin stefanski, Gervon Dexter Sr., Brandon Dorlus, Bijan Robinson, Drake London]]>
+            </media:keywords>
+      </item>
+      <item>
+        <title><![CDATA[Falcons injury report: Atlanta releases estimated list as Week 5 begins]]></title>
+          <description><![CDATA[The Falcons conducted a walkthrough Wednesday.]]></description>
+        <link>https://www.atlantafalcons.com/news/falcons-injury-report-atlanta-releases-estimated-list-as-week-5-begins</link>
+        <pubDate>Wed, 07 Oct 2026 20:37:20 GMT</pubDate>
+        <guid isPermaLink="false">8529ac2c-e23e-4008-8b98-c3c6f1f45034</guid>
+        <source url="https://www.atlantafalcons.com/rss/news">News</source>
+          <media:content url="https://static.clubs.nfl.com/image/upload/t_editorial_landscape_12_desktop/falcons/wrnfceaesbrcvs3qzrlo.jpg" />
+          <enclosure url="https://static.clubs.nfl.com/image/upload/t_editorial_landscape_12_desktop/falcons/wrnfceaesbrcvs3qzrlo.jpg" length="0" type="image/jpeg"></enclosure>
+            <media:keywords>
+              <![CDATA[News, Emory Injury Report, Jake Matthews, Za'Darius Smith]]>
+            </media:keywords>
+      </item>
+      <item>
+        <title><![CDATA[Atlanta Falcons Week 5 depth chart vs. Baltimore Ravens]]></title>
+          <description><![CDATA[The Falcons will conclude their three consecutive prime-time slate with their Week 5 Sunday Night Football matchup with the Ravens.]]></description>
+        <link>https://www.atlantafalcons.com/news/atlanta-falcons-week-5-depth-chart-vs-baltimore-ravens</link>
+        <pubDate>Tue, 06 Oct 2026 19:57:47 GMT</pubDate>
+        <guid isPermaLink="false">b9b8a7f1-7542-4d3f-a529-3be654d21de6</guid>
+        <source url="https://www.atlantafalcons.com/rss/news">News</source>
+          <media:content url="https://static.clubs.nfl.com/image/upload/t_editorial_landscape_12_desktop/falcons/l8oi2yt7gauanjkcri1i.jpg" />
+          <enclosure url="https://static.clubs.nfl.com/image/upload/t_editorial_landscape_12_desktop/falcons/l8oi2yt7gauanjkcri1i.jpg" length="0" type="image/jpeg"></enclosure>
+            <media:keywords>
+              <![CDATA[News, Depth Chart, Atlanta Falcons at New Orleans Saints (2026-REG-4)]]>
+            </media:keywords>
+      </item>
+      <item>
+        <title><![CDATA[Tracking the NFC South: Falcons keep pace with Panthers after dominant win vs. Saints]]></title>
+          <description><![CDATA[Atlanta and Carolina put together impressive performances in prime time and share a joint lead in the division.]]></description>
+        <link>https://www.atlantafalcons.com/news/tracking-the-nfc-south-falcons-beat-saints-panthers-bucs</link>
+        <pubDate>Tue, 06 Oct 2026 13:58:48 GMT</pubDate>
+        <guid isPermaLink="false">b8dae8f8-7274-4faa-ab9c-52e547bab0fb</guid>
+        <source url="https://www.atlantafalcons.com/rss/news">News</source>
+          <media:content url="https://static.clubs.nfl.com/image/upload/t_editorial_landscape_12_desktop/falcons/bmv1olxstaeq48djftgx.png" />
+          <enclosure url="https://static.clubs.nfl.com/image/upload/t_editorial_landscape_12_desktop/falcons/bmv1olxstaeq48djftgx.jpg" length="0" type="image/jpeg"></enclosure>
+            <media:keywords>
+              <![CDATA[News, tracking the nfc south, Will McFadden, Bijan Robinson, Brian Robinson, C.J. Henderson, Atlanta Falcons at New Orleans Saints (2026-REG-4)]]>
+            </media:keywords>
+      </item>
+      <item>
+        <title><![CDATA[Week 5 NFL Power Rankings Roundup: Falcons on the move after MNF win]]></title>
+          <description><![CDATA[San Francisco 49ers claim top spots across the board.]]></description>
+        <link>https://www.atlantafalcons.com/news/week-5-nfl-power-rankings-roundup-falcons-on-the-move-after-mnf-win</link>
+        <pubDate>Tue, 06 Oct 2026 13:40:29 GMT</pubDate>
+        <guid isPermaLink="false">92f35247-22fe-4451-98fb-ca9a87f1028f</guid>
+        <source url="https://www.atlantafalcons.com/rss/news">News</source>
+          <media:content url="https://static.clubs.nfl.com/image/upload/t_editorial_landscape_12_desktop/falcons/o491bbdpghcbcht73d20.jpg" />
+          <enclosure url="https://static.clubs.nfl.com/image/upload/t_editorial_landscape_12_desktop/falcons/o491bbdpghcbcht73d20.jpg" length="0" type="image/jpeg"></enclosure>
+            <media:keywords>
+              <![CDATA[News, Power Rankings, Drake London, Bijan Robinson, Michael Penix Jr.]]>
+            </media:keywords>
+      </item>
+      <item>
+        <title><![CDATA[Game Breakdown: What happened in Falcons vs. Saints]]></title>
+          <description><![CDATA[The main takeaways and observations from Atlanta's Monday Night Football game against New Orleans in the Superdome.]]></description>
+        <link>https://www.atlantafalcons.com/news/game-breakdown-what-happened-in-falcons-vs-saints</link>
+        <pubDate>Tue, 06 Oct 2026 03:27:27 GMT</pubDate>
+        <guid isPermaLink="false">8b067f04-ce6b-4a57-83a5-14e27495758b</guid>
+        <source url="https://www.atlantafalcons.com/rss/news">News</source>
+          <media:content url="https://static.clubs.nfl.com/image/upload/t_editorial_landscape_12_desktop/falcons/s465o905iodw3gy1zjmr.png" />
+          <enclosure url="https://static.clubs.nfl.com/image/upload/t_editorial_landscape_12_desktop/falcons/s465o905iodw3gy1zjmr.jpg" length="0" type="image/jpeg"></enclosure>
+            <media:keywords>
+              <![CDATA[News, Postgame Breakdown, Atlanta Falcons at New Orleans Saints (2026-REG-4), Bijan Robinson, Drake London, Michael Penix Jr., C.J. Henderson]]>
+            </media:keywords>
+      </item>
+      <item>
+        <title><![CDATA[Atlanta Falcons Week 4 inactives vs. New Orleans Saints on Monday Night Football]]></title>
+          <description><![CDATA[ILB Divine Deablo and DE Samson Ebukam's game status revealed.]]></description>
+        <link>https://www.atlantafalcons.com/news/atlanta-falcons-week-4-inactives-vs-new-orleans-saints-on-monday-night-football</link>
+        <pubDate>Mon, 05 Oct 2026 22:44:11 GMT</pubDate>
+        <guid isPermaLink="false">07670669-f3e0-41e4-8060-b7f113da7bac</guid>
+        <source url="https://www.atlantafalcons.com/rss/news">News</source>
+          <media:content url="https://static.clubs.nfl.com/image/upload/t_editorial_landscape_12_desktop/falcons/aks3mrk5qzwiiegeaoah.jpg" />
+          <enclosure url="https://static.clubs.nfl.com/image/upload/t_editorial_landscape_12_desktop/falcons/aks3mrk5qzwiiegeaoah.jpg" length="0" type="image/jpeg"></enclosure>
+            <media:keywords>
+              <![CDATA[News, Inactives, Atlanta Falcons at New Orleans Saints (2026-REG-4), monday night football, Divine Deablo, Samson Ebukam]]>
+            </media:keywords>
+      </item>
+      <item>
+        <title><![CDATA[Falcons elevate Jammie Robinson for Saints game]]></title>
+          <description><![CDATA[Robinson blocked a punt near the end of the first quarter against the Saints in Week 18 last season.]]></description>
+        <link>https://www.atlantafalcons.com/news/falcons-elevate-jammie-robinson-for-saints-game</link>
+        <pubDate>Mon, 05 Oct 2026 19:59:07 GMT</pubDate>
+        <guid isPermaLink="false">988e98b4-8506-4366-896f-a0e9f06522bc</guid>
+        <source url="https://www.atlantafalcons.com/rss/news">News</source>
+          <media:content url="https://static.clubs.nfl.com/image/upload/t_editorial_landscape_12_desktop/falcons/eh47xf8nbzdwiqfotifq.png" />
+          <enclosure url="https://static.clubs.nfl.com/image/upload/t_editorial_landscape_12_desktop/falcons/eh47xf8nbzdwiqfotifq.jpg" length="0" type="image/jpeg"></enclosure>
+            <media:keywords>
+              <![CDATA[News, Transactions, jammie robinson, Atlanta Falcons at New Orleans Saints (2026-REG-4)]]>
+            </media:keywords>
+      </item>
+      <item>
+        <title><![CDATA[The deeper connection fueling Atlanta's defensive line evolution]]></title>
+          <description><![CDATA[The Falcons’ defensive front looks different than it did in 2025, but the early results are hard to ignore.]]></description>
+        <link>https://www.atlantafalcons.com/news/atlanta-falcons-defensive-line-evolution-jeff-ulbrich</link>
+        <pubDate>Mon, 05 Oct 2026 15:52:04 GMT</pubDate>
+        <guid isPermaLink="false">2dc969a2-5de4-4ead-a387-55ca58c07205</guid>
+        <source url="https://www.atlantafalcons.com/rss/news">News</source>
+          <media:content url="https://static.clubs.nfl.com/image/upload/t_editorial_landscape_12_desktop/falcons/w4uhpf0upkiw2gsuh888.jpg" />
+          <enclosure url="https://static.clubs.nfl.com/image/upload/t_editorial_landscape_12_desktop/falcons/w4uhpf0upkiw2gsuh888.jpg" length="0" type="image/jpeg"></enclosure>
+            <media:keywords>
+              <![CDATA[News, Will McFadden, Atlanta Falcons at New Orleans Saints (2026-REG-4), Za'Darius Smith, Maason Smith, Brandon Dorlus, Cameron Thomas, zach harrison, Samson Ebukam, LaCale London, Jeff Ulbrich, Jeff Ulbrich]]>
+            </media:keywords>
+      </item>
+      <item>
+        <title><![CDATA[Where to watch Atlanta Falcons vs. New Orleans Saints]]></title>
+          <description><![CDATA[All the information you need to watch, stream or listen to the Falcons vs. Saints game on Monday night.]]></description>
+        <link>https://www.atlantafalcons.com/news/where-watch-atlanta-falcons-new-orleans-saints-stream-tv-radio-mnf-espn</link>
+        <pubDate>Mon, 05 Oct 2026 15:15:00 GMT</pubDate>
+        <guid isPermaLink="false">687a20c4-6267-4532-b3b3-2d215d0f270b</guid>
+        <source url="https://www.atlantafalcons.com/rss/news">News</source>
+          <media:content url="https://static.clubs.nfl.com/image/upload/t_editorial_landscape_12_desktop/falcons/cttpzjmdedzuhxcbbmxg.jpg" />
+          <enclosure url="https://static.clubs.nfl.com/image/upload/t_editorial_landscape_12_desktop/falcons/cttpzjmdedzuhxcbbmxg.jpg" length="0" type="image/jpeg"></enclosure>
+            <media:keywords>
+              <![CDATA[News, How to Watch, Will McFadden, Atlanta Falcons at New Orleans Saints (2026-REG-4)]]>
+            </media:keywords>
+      </item>
+      <item>
+        <title><![CDATA[Falcons News Now: Top headlines for Falcons Monday Night Football matchup with Saints]]></title>
+          <description><![CDATA[Your one-stop shop for all the Atlanta Falcons news you may have missed this week.]]></description>
+        <link>https://www.atlantafalcons.com/news/falcons-news-now-headlines-saints-monday-night-football</link>
+        <pubDate>Sat, 03 Oct 2026 18:00:23 GMT</pubDate>
+        <guid isPermaLink="false">a7bbced2-ae4d-44f5-a073-a00a323e6310</guid>
+        <source url="https://www.atlantafalcons.com/rss/news">News</source>
+          <media:content url="https://static.clubs.nfl.com/image/upload/t_editorial_landscape_12_desktop/falcons/lpfuquvsakrexyr4wz9k.png" />
+          <enclosure url="https://static.clubs.nfl.com/image/upload/t_editorial_landscape_12_desktop/falcons/lpfuquvsakrexyr4wz9k.jpg" length="0" type="image/jpeg"></enclosure>
+            <media:keywords>
+              <![CDATA[News, Falcons News Now, Bijan Robinson, Michael Penix Jr., Atlanta Falcons at New Orleans Saints (2026-REG-4), monday night football, Drake London, Gervon Dexter Sr.]]>
+            </media:keywords>
+      </item>
+      <item>
+        <title><![CDATA[Falcons injury report: Two defensive starters questionable ahead of Monday Night Football]]></title>
+          <description><![CDATA[No player has been ruled out, however.]]></description>
+        <link>https://www.atlantafalcons.com/news/falcons-injury-report-monday-night-football-saints-divine-deablo-samson-ebukam</link>
+        <pubDate>Sat, 03 Oct 2026 17:02:19 GMT</pubDate>
+        <guid isPermaLink="false">8491b31c-b34c-484c-aa2a-a0b777673e51</guid>
+        <source url="https://www.atlantafalcons.com/rss/news">News</source>
+          <media:content url="https://static.clubs.nfl.com/image/upload/t_editorial_landscape_12_desktop/falcons/scdnulaboxrfj8nm2mho.jpg" />
+          <enclosure url="https://static.clubs.nfl.com/image/upload/t_editorial_landscape_12_desktop/falcons/scdnulaboxrfj8nm2mho.jpg" length="0" type="image/jpeg"></enclosure>
+            <media:keywords>
+              <![CDATA[News, Emory Injury Report, Atlanta Falcons at New Orleans Saints (2026-REG-4), Divine Deablo, Samson Ebukam]]>
+            </media:keywords>
+      </item>
+      <item>
+        <title><![CDATA[Falcons injury report: 4 starters limited in second practice before Saints game]]></title>
+          <description><![CDATA[The team had four key defenders log a limited session on Friday, but that shouldn't be cause for alarm.]]></description>
+        <link>https://www.atlantafalcons.com/news/falcons-injury-report-starters-limited-saints</link>
+        <pubDate>Fri, 02 Oct 2026 19:45:01 GMT</pubDate>
+        <guid isPermaLink="false">0fab28df-23c5-4d52-9cee-120208ce07e8</guid>
+        <source url="https://www.atlantafalcons.com/rss/news">News</source>
+          <media:content url="https://static.clubs.nfl.com/image/upload/t_editorial_landscape_12_desktop/falcons/nahkduv0n9ziyljm5p4i.png" />
+          <enclosure url="https://static.clubs.nfl.com/image/upload/t_editorial_landscape_12_desktop/falcons/nahkduv0n9ziyljm5p4i.jpg" length="0" type="image/jpeg"></enclosure>
+            <media:keywords>
+              <![CDATA[News, Emory Injury Report, Atlanta Falcons at New Orleans Saints (2026-REG-4), Samson Ebukam, Divine Deablo, Za'Darius Smith, Kendal Daniels, Will McFadden]]>
+            </media:keywords>
+      </item>
+      <item>
+        <title><![CDATA[No Cinderella Story: The making of Harold Perkins Jr.]]></title>
+          <description><![CDATA[From Hurricane Katrina to an ACL injury, the Falcons rookie linebacker arrives hardened and determined, shaped by everything that tried to derail him.]]></description>
+        <link>https://www.atlantafalcons.com/news/no-cinderella-story-the-making-of-harold-perkins-jr</link>
+        <pubDate>Fri, 02 Oct 2026 16:00:00 GMT</pubDate>
+        <guid isPermaLink="false">cbef9696-5a26-431b-8a59-cf8dde9b2c3d</guid>
+        <source url="https://www.atlantafalcons.com/rss/news">News</source>
+          <media:content url="https://static.clubs.nfl.com/image/upload/t_editorial_landscape_12_desktop/falcons/b7bo64rhgfxsodayvp7n.jpg" />
+          <enclosure url="https://static.clubs.nfl.com/image/upload/t_editorial_landscape_12_desktop/falcons/b7bo64rhgfxsodayvp7n.jpg" length="0" type="image/jpeg"></enclosure>
+            <media:keywords>
+              <![CDATA[News, Harold Perkins Jr., LSU, hurricane katrina, new orleans]]>
+            </media:keywords>
+      </item>
+      <item>
+        <title><![CDATA[NFL Expert Picks: Who will win in Week 4, Falcons or Saints? ]]></title>
+          <description><![CDATA[The Falcons will reignite their rivalry with the New Orleans Saints on Monday night.]]></description>
+        <link>https://www.atlantafalcons.com/news/nfl-expert-picks-week-4-falcons-saints</link>
+        <pubDate>Fri, 02 Oct 2026 15:21:49 GMT</pubDate>
+        <guid isPermaLink="false">cedaf17a-ec20-42c5-b410-28b3db8d341a</guid>
+        <source url="https://www.atlantafalcons.com/rss/news">News</source>
+          <media:content url="https://static.clubs.nfl.com/image/upload/t_editorial_landscape_12_desktop/falcons/gqdyszj3n29eqnxf2fcz.jpg" />
+          <enclosure url="https://static.clubs.nfl.com/image/upload/t_editorial_landscape_12_desktop/falcons/gqdyszj3n29eqnxf2fcz.jpg" length="0" type="image/jpeg"></enclosure>
+            <media:keywords>
+              <![CDATA[News, Expert Picks, Will McFadden, Atlanta Falcons at New Orleans Saints (2026-REG-4)]]>
+            </media:keywords>
+      </item>
+      <item>
+        <title><![CDATA[Atlanta mourns the loss of Falcons legend Jeff Van Note]]></title>
+          <description><![CDATA[For 18 seasons, Van Note anchored the Falcons offensive line. He was inducted into the organization's Ring of Honor in 2006.]]></description>
+        <link>https://www.atlantafalcons.com/news/atlanta-mourns-the-loss-of-falcons-legend-jeff-van-note</link>
+        <pubDate>Fri, 02 Oct 2026 12:59:26 GMT</pubDate>
+        <guid isPermaLink="false">3deee916-9dbe-4574-a353-0f7b9c368fcd</guid>
+        <source url="https://www.atlantafalcons.com/rss/news">News</source>
+          <media:content url="https://static.clubs.nfl.com/image/upload/t_editorial_landscape_12_desktop/falcons/igpk5hyqryazcpzkm5td.jpg" />
+          <enclosure url="https://static.clubs.nfl.com/image/upload/t_editorial_landscape_12_desktop/falcons/igpk5hyqryazcpzkm5td.jpg" length="0" type="image/jpeg"></enclosure>
+            <media:keywords>
+              <![CDATA[News, jeff van note, ring of honor, Arthur M. Blank]]>
+            </media:keywords>
+      </item>
+      <item>
+        <title><![CDATA[Falcons injury report: Samson Ebukam returns to practice as Week 4 prep begins]]></title>
+          <description><![CDATA[Ebukam missed Week 3's prime-time game with a hamstring injury.]]></description>
+        <link>https://www.atlantafalcons.com/news/falcons-injury-report-samson-ebukam-returns-to-practice-as-week-4-prep-begins</link>
+        <pubDate>Thu, 01 Oct 2026 19:56:11 GMT</pubDate>
+        <guid isPermaLink="false">f27d2aab-9355-44cc-b0d9-f94fbb42eb55</guid>
+        <source url="https://www.atlantafalcons.com/rss/news">News</source>
+          <media:content url="https://static.clubs.nfl.com/image/upload/t_editorial_landscape_12_desktop/falcons/a9ri7ekimcj35ttmfffi.jpg" />
+          <enclosure url="https://static.clubs.nfl.com/image/upload/t_editorial_landscape_12_desktop/falcons/a9ri7ekimcj35ttmfffi.jpg" length="0" type="image/jpeg"></enclosure>
+            <media:keywords>
+              <![CDATA[News, Emory Injury Report, Atlanta Falcons at New Orleans Saints (2026-REG-4), Samson Ebukam, Divine Deablo, Za'Darius Smith]]>
+            </media:keywords>
+      </item>
+      <item>
+        <title><![CDATA[Atlanta Falcons partner with Good Sports to increase youth sports equity across Georgia]]></title>
+          <description><![CDATA[During this year’s Hometown Huddle, presented by American Family Insurance, Falcons players filled 180 boxes with brand-new sports equipment to assist the Georgia Recreation and Park Association.]]></description>
+        <link>https://www.atlantafalcons.com/news/atlanta-falcons-hometown-huddle-good-sports-georgia-youth</link>
+        <pubDate>Thu, 01 Oct 2026 16:40:34 GMT</pubDate>
+        <guid isPermaLink="false">de47afea-54e9-41d6-aefc-1e502b504854</guid>
+        <source url="https://www.atlantafalcons.com/rss/news">News</source>
+          <media:content url="https://static.clubs.nfl.com/image/upload/t_editorial_landscape_12_desktop/falcons/urug8zw3asd7inj6sdmv.jpg" />
+          <enclosure url="https://static.clubs.nfl.com/image/upload/t_editorial_landscape_12_desktop/falcons/urug8zw3asd7inj6sdmv.jpg" length="0" type="image/jpeg"></enclosure>
+            <media:keywords>
+              <![CDATA[News, Community, hometown huddle, Will McFadden]]>
+            </media:keywords>
+      </item>
+      <item>
+        <title><![CDATA[Falcons, DT Gervon Dexter Sr. agree to terms on four-year contract extension]]></title>
+          <description><![CDATA[Back in August, Atlanta sent DB Clark Phillips III and a 2027 fifth-round pick to the Chicago Bears to acquire Dexter.]]></description>
+        <link>https://www.atlantafalcons.com/news/falcons-dt-gervon-dexter-sr-agree-to-terms-on-four-year-contract-extension</link>
+        <pubDate>Wed, 30 Sep 2026 22:18:50 GMT</pubDate>
+        <guid isPermaLink="false">638dc5a6-c72d-4def-809f-914f976ed3ed</guid>
+        <source url="https://www.atlantafalcons.com/rss/news">News</source>
+          <media:content url="https://static.clubs.nfl.com/image/upload/t_editorial_landscape_12_desktop/falcons/hd8auzsztvqh66y7rmal.png" />
+          <enclosure url="https://static.clubs.nfl.com/image/upload/t_editorial_landscape_12_desktop/falcons/hd8auzsztvqh66y7rmal.jpg" length="0" type="image/jpeg"></enclosure>
+            <media:keywords>
+              <![CDATA[News, Transactions, Gervon Dexter Sr., Contract Extension]]>
+            </media:keywords>
+      </item>
+      <item>
+        <title><![CDATA[Bijan Robinson named NFC Offensive Player of the Week]]></title>
+          <description><![CDATA[Through the first three weeks, Robinson leads the league with 467 scrimmage yards, a good start for the man who led the NFL in that very category last season]]></description>
+        <link>https://www.atlantafalcons.com/news/bijan-robinson-nfc-offensive-player-week-packers</link>
+        <pubDate>Wed, 30 Sep 2026 16:00:12 GMT</pubDate>
+        <guid isPermaLink="false">81632c83-2abb-4f32-b9eb-5ebae8f1ced9</guid>
+        <source url="https://www.atlantafalcons.com/rss/news">News</source>
+          <media:content url="https://static.clubs.nfl.com/image/upload/t_editorial_landscape_12_desktop/falcons/swkuhhcieuupfbmfcp3t.jpg" />
+          <enclosure url="https://static.clubs.nfl.com/image/upload/t_editorial_landscape_12_desktop/falcons/swkuhhcieuupfbmfcp3t.jpg" length="0" type="image/jpeg"></enclosure>
+            <media:keywords>
+              <![CDATA[News, Bijan Robinson, Will McFadden, NFC Offensive Player of Week]]>
+            </media:keywords>
+      </item>
+  </channel>
+</rss>
