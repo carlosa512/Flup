@@ -572,11 +572,15 @@
     const lv = on && !benched ? lvr : null;
     const st = on ? lvr.state : e.state;  // benched or not, his game is on or over
     const state = st === 'final' ? 'Played' : st === 'live' ? 'Live' : startedSince(p) ? 'Started' : '';
+    // New: in the best lineup but not starting in Sleeper (as of the data
+    // run, or right now once your Sleeper lineup has loaded)
+    const now = side === 'me' ? sleeperFor() : null;
+    const isNew = !benched && (now ? now.roster.has(e.id) && !now.starters.includes(e.id) : e.new);
     const sub = [
       `<span>${esc(gameText(p))}</span>`,
       gameChip(p, state),
-      e.new && !benched && !(side === 'me' && sleeperNow && sleeperNow.starters.includes(e.id)) ? '<span class="chip new">New</span>' : '',
-      side === 'me' && sleeperNow && !sleeperNow.roster.has(e.id) ? '<span class="stale">No longer on your roster</span>' : '',
+      isNew ? '<span class="chip new">New</span>' : '',
+      now && !now.roster.has(e.id) ? '<span class="stale">No longer on your roster</span>' : '',
       benched ? '<span class="stale">Not in your Sleeper lineup</span>' : '',
       p.rest ? '<span class="stale">May rest</span>' : '',
       side === 'me' && quietInjury(p) ? `<span class="stale">${quietInjury(p) === 'never' ? 'No news' : 'No news since ' + esc(when(quietInjury(p)).split(' ')[0])}</span>` : '',
@@ -594,7 +598,7 @@
       why = `${pts(e.actual)} so far, ${Math.round(e.left * 100)}% of the game left`;
     }
     const isOpen = open.has(p.id);
-    return `<li class="player ${e.new ? 'new' : ''}" data-id="${esc(p.id)}">
+    return `<li class="player ${isNew ? 'new' : ''}" data-id="${esc(p.id)}">
       <button type="button" class="row lu" aria-expanded="${isOpen}">
         ${slot}
         <span class="nm">${face(p)}${esc(p.name)}${inj}</span>
@@ -669,15 +673,73 @@
     </div>`;
   }
 
+  // Positions each slot takes (as SLOT_POSITIONS in pipeline/lineup.py)
+  const SLOT_TAKES = { FLEX: ['RB', 'WR', 'TE'], WRRB_FLEX: ['WR', 'RB'], REC_FLEX: ['WR', 'TE'], SUPER_FLEX: ['QB', 'RB', 'WR', 'TE'] };
+  const takes = (slot, pos) => (SLOT_TAKES[slot] || [slot]).includes(pos);
+  // What to change in Sleeper: the data run's list until your Sleeper
+  // roster has loaded, or while nothing has changed there since. Otherwise
+  // the best lineup against the lineup you have now:
+  // 1. each starter it wants who isn't starting takes a seat it doesn't want
+  //    (one his position fits first);
+  // 2. any other seat it doesn't want gets your best free player for it if
+  //    he's predicted higher (say you dropped who the data run picked);
+  // 3. an empty slot gets your best free player for it, or a starter slides
+  //    over from a FLEX to make room.
+  // The same starters in other slots score the same, so that's a match.
+  // Players whose game has started are locked and left alone.
+  function todo(L) {
+    const now = sleeperFor();
+    const d = now && sleeperDiff(L);
+    if (!now || !d) return { moves: L.moves || [], changes: L.changes };
+    const locked = (id) => !!(id && index.get(id) && (gameState(index.get(id)) || startedSince(index.get(id))));
+    const score = (id) => (index.get(id) || {}).score || 0;
+    const best = L.me.starters.map((e) => e.id).filter((id) => id && now.roster.has(id) && !locked(id));
+    const wanted = new Set(best);
+    const starting = new Set(now.starters.filter((id) => id && id !== '0'));
+    const seats = now.starters.map((id, i) => ({ id: id && id !== '0' ? id : null, slot: L.slots[i] }))
+      .filter((seat) => !seat.id || (!wanted.has(seat.id) && !locked(seat.id)));
+    const moves = [], changes = [];
+    for (const id of best.filter((x) => !starting.has(x))) {
+      const pos = (index.get(id) || {}).pos;
+      const k = Math.max(0, seats.findIndex((seat) => takes(seat.slot, pos)));
+      const seat = seats.splice(k, 1)[0];
+      if (seat) changes.push({ in: id, out: seat.id, slot: seat.slot });
+    }
+    const free = [...now.roster].map((id) => index.get(id)).filter((p) => p && !starting.has(p.id)
+      && !wanted.has(p.id) && !/^(Doubtful|Out|IR|PUP|Sus|NA)$/i.test(p.injury || '') && !locked(p.id))
+      .sort((x, y) => y.score - x.score);
+    const take = (slot, beat) => {
+      const k = free.findIndex((p) => takes(slot, p.pos) && p.score > beat);
+      return k < 0 ? null : free.splice(k, 1)[0].id;
+    };
+    for (const seat of seats) {
+      if (seat.id) {
+        const id = take(seat.slot, score(seat.id));
+        if (id) changes.push({ in: id, out: seat.id, slot: seat.slot });
+        continue;
+      }
+      let id = take(seat.slot, -Infinity);
+      if (!id) {
+        // Slide a starter who fits this slot out of a FLEX-type one, if a
+        // free player fits the FLEX
+        const j = now.starters.findIndex((x, i) => x && x !== '0' && !locked(x) && SLOT_TAKES[L.slots[i]]
+          && takes(seat.slot, (index.get(x) || {}).pos) && free.some((p) => takes(L.slots[i], p.pos)));
+        if (j >= 0) {
+          moves.push({ id: now.starters[j], to: seat.slot });
+          changes.push({ in: take(L.slots[j], -Infinity), out: null, slot: L.slots[j] });
+          continue;
+        }
+      }
+      changes.push({ in: id, out: null, slot: seat.slot });
+    }
+    return { moves, changes };
+  }
+  const changeText = (c) => (c.in && c.out ? `start ${nameOf(c.in)} for ${nameOf(c.out)}`
+    : c.in ? `start ${nameOf(c.in)} in the empty ${c.slot} slot`
+      : c.out ? `bench ${nameOf(c.out)}` : `fill the empty ${c.slot} slot (no healthy player left for it)`);
+
   function changesBox(L) {
-    // Against your Sleeper lineup now, once it has loaded: a change you've
-    // already made drops off, and so does one for a player you no longer have
-    const now = sleeperNow;
-    const starts = now ? new Set(now.starters) : null;
-    const slotNow = (id) => L.slots[now.starters.indexOf(id)];
-    const moves = (L.moves || []).filter((m) => !now || (now.roster.has(m.id) && slotNow(m.id) !== m.to));
-    const changes = L.changes.filter((c) => !now
-      || ((!c.in || now.roster.has(c.in)) && ((c.in && !starts.has(c.in)) || (c.out && starts.has(c.out)))));
+    const { moves, changes } = todo(L);
     if (!changes.length && !moves.length) return '<p class="note done">✓ Your Sleeper lineup already matches.</p>';
     // Slides first: they open up the slot a newcomer goes into
     const locked = (text, ids) => (ids.some(startedId)
@@ -686,6 +748,7 @@
       const ids = [c.in, c.out].filter(Boolean);
       if (c.in && c.out) return locked(`Start <b>${esc(nameOf(c.in))}</b> for ${esc(nameOf(c.out))}`, ids);
       if (c.in) return locked(`Start <b>${esc(nameOf(c.in))}</b> in the empty ${esc(c.slot)} slot`, ids);
+      if (!c.out) return `Your ${esc(c.slot)} slot is empty, and no healthy player you have fits it`;
       return locked(`Bench ${esc(nameOf(c.out))}: no healthy player to put in`, ids);
     }));
     const n = items.length;
@@ -714,8 +777,9 @@
   }
 
   function closeCalls(L) {
+    const now = sleeperFor();
     const calls = (L.close_calls || []).filter((c) => index.get(c.start) && index.get(c.bench)
-      && !startedId(c.start) && !startedId(c.bench));
+      && !startedId(c.start) && !startedId(c.bench) && (!now || (now.roster.has(c.start) && now.roster.has(c.bench))));
     if (!calls.length) return '';
     const how = {
       'upside score': 'predicted points moved halfway up to the ceiling, because you\'re the underdog',
@@ -780,7 +844,8 @@
     const bench = L.bench_flex || [];
     const fas = L.free_agents || [];
     if (bench.length) {
-      const avail = bench.filter((b) => !startedId(b.id));
+      const now = sleeperFor();
+      const avail = bench.filter((b) => !startedId(b.id) && (!now || now.roster.has(b.id)));
       if (avail.length) {
         html += `<h2 class="section"><span class="dot bench"></span>Bench options</h2><ul class="players lineup grp-bench">${avail.map((b) =>
           pickRow(b, b.why)).join('')}</ul>`;
@@ -795,7 +860,7 @@
           const day = new Date(f.dropped).toLocaleDateString(undefined, { weekday: 'short' });
           extra += `<span class="chip drop">Dropped ${esc(day)}: maybe on waivers</span>`;
         }
-        if (sleeperNow && sleeperNow.roster.has(f.id)) extra += '<span class="chip new">On your roster now</span>';
+        if (sleeperFor() && sleeperFor().roster.has(f.id)) extra += '<span class="chip new">On your roster now</span>';
         const adds = Number(f.trending) || 0;
         if (adds) extra += `<span>${esc(bigCount(adds))} adds in 2 days</span>`;
         return pickRow(f, GONE[stateWord(index.get(f.id) || {})] || f.why, extra);
@@ -897,10 +962,10 @@
   // A trade, a drop or a lineup change made in Sleeper since the data run
   // shows as soon as the app opens: your roster and this week's lineup come
   // straight from Sleeper (it lets the browser ask). Null until fetched.
-  let sleeperNow = null;  // {roster: Set of ids, starters: ids in slot order}
+  let sleeperNow = null;  // {roster: Set of ids, starters: ids in slot order, generated}
   async function checkSleeper() {
     if (!data || !data.lineup) return;
-    const lg = data.league;
+    const lg = data.league, generated = data.generated;
     const get = (url) => fetch(url, { cache: 'no-store' }).then((r) => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); });
     try {
       const [rosters, mu] = await Promise.all([
@@ -909,16 +974,19 @@
       ]);
       const r = (rosters || []).find((x) => x.roster_id === lg.my_rid);
       const m = (mu || []).find((x) => x.roster_id === lg.my_rid);
-      if (!r || !m) return;
-      const was = sleeperNow && JSON.stringify([[...sleeperNow.roster], sleeperNow.starters]);
-      sleeperNow = { roster: new Set((r.players || []).map(String)), starters: (m.starters || []).map(String) };
-      if (JSON.stringify([[...sleeperNow.roster], sleeperNow.starters]) !== was) renderView();
+      if (!r || !m || data.generated !== generated) return;  // newer data came in meanwhile
+      const was = sleeperNow && JSON.stringify([[...sleeperNow.roster], sleeperNow.starters, sleeperNow.generated]);
+      sleeperNow = { roster: new Set((r.players || []).map(String)), starters: (m.starters || []).map(String), generated };
+      if (JSON.stringify([[...sleeperNow.roster], sleeperNow.starters, generated]) !== was) renderView();
     } catch (e) {
       // Offline or Sleeper down: the data run's roster stands
     }
   }
+  // Your Sleeper roster as fetched for this data (null until then)
+  const sleeperFor = () => (sleeperNow && data && sleeperNow.generated === data.generated ? sleeperNow : null);
   // What's different in Sleeper from the data run: {added, dropped, lineup}
   function sleeperDiff(L) {
+    const sleeperNow = sleeperFor();
     if (!sleeperNow) return null;
     const was = L.roster ? new Set(L.roster) : null;
     const added = was ? [...sleeperNow.roster].filter((id) => !was.has(id)) : [];
@@ -1247,9 +1315,10 @@
   function lineupPrompt() {
     const L = data.lineup;
     const parts = [promptHeader(), '', 'MY LINEUP (as the dashboard recommends):'];
+    const now = sleeperFor();
     for (const e of L.me.starters) {
       const p = index.get(e.id);
-      parts.push(p ? playerText(p, true) : `${e.slot}: empty`);
+      parts.push(p ? playerText(p, true) + (now && !now.roster.has(e.id) ? '  (no longer on my roster)' : '') : `${e.slot}: empty`);
     }
     const d = sleeperDiff(L);
     if (d) {
@@ -1257,9 +1326,10 @@
         d.dropped.length ? 'dropped ' + d.dropped.map(someone).join(', ') : '', d.lineup ? 'changed my lineup' : '']
         .filter(Boolean).join('; ') + '. The recommendations above are from before that.');
     }
-    if (L.changes.length) {
-      parts.push('', 'Changes from my current Sleeper lineup: ' + L.changes.map((c) =>
-        (c.in ? `start ${nameOf(c.in)}` : '') + (c.in && c.out ? ' for ' : '') + (c.out ? `bench ${nameOf(c.out)}` : '')).join('; ') + '.');
+    const { moves, changes } = todo(L);
+    if (moves.length || changes.length) {
+      parts.push('', 'Changes from my current Sleeper lineup: '
+        + moves.map((m) => `move ${nameOf(m.id)} to ${m.to}`).concat(changes.map(changeText)).join('; ') + '.');
     }
     if ((L.close_calls || []).length) {
       parts.push('', 'Close calls: ' + L.close_calls.map((c) => `${nameOf(c.start)} ${plain(c.values[0])} vs ${nameOf(c.bench)} ${plain(c.values[1])} (${c.measure})`).join('; ') + '.');
@@ -1368,7 +1438,7 @@
       const changed = !data || fresh.generated !== data.generated;
       data = fresh;
       write(DATA_KEY, fresh);
-      if (changed) { live = null; render(); }
+      if (changed) { live = null; sleeperNow = null; render(); }
       checkSleeper();
       if (gamesOn()) {
         const ok = await refreshLive(manual);
