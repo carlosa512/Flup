@@ -570,7 +570,7 @@
     const slot = multi && p0
       ? `<span class="slot flex"><small>${esc(SLOT_SHORT[e.slot] || e.slot)}</small>${esc(p0.pos)}</span>`
       : `<span class="slot">${esc(SLOT_SHORT[e.slot] || e.slot)}</span>`;
-    const canSwap = side === 'me' && swappable(e);
+    const canSwap = side === 'me' && swappable(e, i);
     const swap = canSwap ? swapButton(e, i) : side === 'me' && e.id ? lockMark(e) : '';
     const list = canSwap && swapOpen === i ? swapList(data.lineup, i) : '';
     if (!e.id) {
@@ -650,38 +650,87 @@
   const shownStarters = (L) => L.me.starters.map((e, i) => entryFor(L, i, swaps.get(i)));
   // Sleeper locks a player at kickoff, so a swap with someone whose game
   // has started (in or out) can't be made any more: it's dropped
+  // Also dropped: a swap whose player has left my roster since (a free
+  // agent is fine), or who now shows in two slots (dropping one swap can
+  // put its suggested starter back where another swap also put him)
   function pruneSwaps(L) {
-    for (const [i, id] of swaps) {
-      const e = L.me.starters[i], p = index.get(id);
-      if (!e || !p || !swappable(e) || stateWord(p)) swaps.delete(i);
+    const now = sleeperFor(), mine = now ? now.roster : new Set(L.roster || L.current || []);
+    for (let again = true; again;) {
+      again = false;
+      const shown = shownStarters(L);
+      for (const [i, id] of swaps) {
+        const e = L.me.starters[i], p = index.get(id);
+        const left = p && p.roster != null && !mine.has(id);
+        const twice = shown.some((x, j) => j !== i && x.id === id);
+        if (!e || !p || !swappable(e, i) || stateWord(p) || left || twice) {
+          swaps.delete(i);
+          again = true;
+          break;
+        }
+      }
     }
-    if (swapOpen != null && !swappable(shownStarters(L)[swapOpen] || {})) swapOpen = null;
+    if (swapOpen != null && !swappable(shownStarters(L)[swapOpen] || {}, swapOpen)) swapOpen = null;
   }
 
-  // An empty slot, or a starter whose game hasn't started (Sleeper locks
-  // a slot at kickoff)
-  function swappable(e) {
+  // My Sleeper lineup right now, in slot order: the live fetch, else the
+  // roster check, else the data run's
+  function seatsNow(L) {
+    return (live && live.me ? live.me.m.starters : sleeperFor() ? sleeperFor().starters : L.current) || [];
+  }
+  // Sleeper's player in slot i if his game is on or over (he's locked there)
+  function lockedIn(L, i) {
+    const id = seatsNow(L)[i];
+    if (!id || id === '0') return null;
+    const r = live && live.me ? live.me.rows.find((x) => x.id === id) : null;
+    return (r && (r.state === 'live' || r.state === 'final')) || startedId(id) || gameState(index.get(id) || {}) ? id : null;
+  }
+  // An empty slot, or a starter whose game hasn't started, in a slot
+  // Sleeper hasn't locked with someone else (Sleeper locks at kickoff)
+  function swappable(e, i) {
+    if (i != null && data.lineup) {
+      const held = lockedIn(data.lineup, i);
+      if (held && held !== e.id) return false;
+    }
     if (!e.id) return true;
     const p = index.get(e.id);
     return !!p && e.state !== 'live' && e.state !== 'final' && !stateWord(p);
   }
 
-  // My total and spread for a lineup. The data run's numbers changed by
-  // each swap (so no swaps = the card's numbers); during games, the live
-  // numbers of the recommended lineup instead.
+  // My total and spread for a lineup. Before games: the data run's
+  // numbers changed by each swap (so no swaps = the card's numbers).
+  // During games, slot by slot what would really count: a player Sleeper
+  // has locked in the slot (live numbers); else the lineup shown, unless
+  // its player can't get in any more (his game started while he sat, or
+  // he's locked in another slot), and then whoever Sleeper has there now.
+  // With the suggested lineup set in Sleeper, that's the live card's total.
   function myNumbers(L, entries) {
-    const liveOn = !!(live && live.opp);
-    let total = liveOn ? 0 : L.me.total, v = liveOn ? 0 : L.me.sd * L.me.sd;
-    if (liveOn) {
-      for (const e of L.me.starters) { const r = rowNow(e, 'me'); total += r.pts; v += r.sd * r.sd; }
+    if (!(live && live.opp)) {
+      let total = L.me.total, v = L.me.sd * L.me.sd;
+      entries.forEach((e, i) => {
+        if (!e.tried) return;
+        const a = rowNow(e, 'me'), b = rowNow(L.me.starters[i], 'me');
+        total += a.pts - b.pts;
+        v += a.sd * a.sd - b.sd * b.sd;
+      });
+      return { total, sd: Math.sqrt(Math.max(0, v)) };
     }
+    const seats = seatsNow(L), rows = live.me.rows;
+    const rowOf = (id) => (id && id !== '0' ? rows.find((x) => x.id === id) || null : null);
+    let total = 0, v = 0;
     entries.forEach((e, i) => {
-      if (!e.tried) return;
-      const a = rowNow(e, 'me'), b = rowNow(L.me.starters[i], 'me');
-      total += a.pts - b.pts;
-      v += a.sd * a.sd - b.sd * b.sd;
+      const held = lockedIn(L, i);
+      let val;
+      if (held) val = rowOf(held) || { pts: 0, sd: 0 };
+      else if (!e.id) val = { pts: 0, sd: 0 };
+      else {
+        const r = rowNow(e, 'me');
+        const elsewhere = seats.some((x, j) => j !== i && x === e.id && lockedIn(L, j));
+        val = r.benched || elsewhere ? rowOf(seats[i]) || { pts: 0, sd: 0 } : r;
+      }
+      total += val.pts;
+      v += val.sd * val.sd;
     });
-    return { total, sd: Math.sqrt(Math.max(0, v)) };
+    return { total, sd: Math.sqrt(v) };
   }
   function oppNumbers(L) {
     if (live && live.opp) return { total: live.opp.total, sd: live.opp.sd };
@@ -705,7 +754,8 @@
     const using = new Set(entries.map((e) => e.id).filter(Boolean));
     const now = sleeperFor();
     const mine = now ? now.roster : new Set(L.roster || L.current || []);
-    const ok = (p) => p && !using.has(p.id) && takes(slot, p.pos) && p.opp && !p.note
+    const ir = new Set((now ? now.reserve : L.reserve) || []);  // in the IR slot: can't start
+    const ok = (p) => p && !using.has(p.id) && !ir.has(p.id) && takes(slot, p.pos) && p.opp && !p.note
       && !(p.flag && p.flag !== 'Doubtful') && !stateWord(p);
     const byScore = (a, b) => b.score - a.score || a.name.localeCompare(b.name);
     const bench = [...mine].map((id) => index.get(id)).filter(ok).sort(byScore);
@@ -720,6 +770,10 @@
     const p = index.get(e.id);
     return `<span class="swap-btn locked" role="img" aria-label="${esc(p ? p.name : 'He')} is locked: his game has started">${LOCK}</span>`;
   }
+
+  // Dropped in this league lately, so maybe still on waivers (the data
+  // run checks this for the free agents it lists)
+  const waiverDrop = (L, id) => !!((L.free_agents || []).find((f) => f.id === id) || {}).dropped;
 
   // Full roster: every spot but IR is taken, so adding a free agent means
   // dropping someone. Sleeper's roster now if it has loaded, else the data
@@ -740,7 +794,9 @@
 
   function swapList(L, i) {
     const entries = shownStarters(L), cur = entries[i];
-    const opp = oppNumbers(L), me = myNumbers(L, entries), win = winOf(me, opp);
+    const opp = oppNumbers(L), me = myNumbers(L, entries);
+    // No swap on: the card's own number (worked out again here it can round 1% apart)
+    const win = entries.some((e) => e.tried) ? winOf(me, opp) : baseWin(L);
     const lean = L.mode === 'underdog' ? 'ceiling' : L.mode === 'favored' ? 'floor' : null;
     const curP = cur.id ? index.get(cur.id) : null;
     const leanOf = (p) => (lean && p.range ? ` · ${lean} ${pts(p.range[lean])}` : '');
@@ -768,7 +824,7 @@
     if (fas.length) {
       const full = rosterFull(L);
       html += `<p class="swap-group">Free agents</p>${full ? '<p class="swap-note">Your roster is full: adding one means dropping someone.</p>' : ''}
-        <ul class="swap-opts">${fas.map((p) => option(p)).join('')}</ul>`;
+        <ul class="swap-opts">${fas.map((p) => option(p, waiverDrop(L, p.id) ? ' · dropped lately: maybe on waivers' : '')).join('')}</ul>`;
     }
     return html + '</div>';
   }
@@ -909,11 +965,26 @@
     const seats = now.starters.map((id, i) => ({ id: id && id !== '0' ? id : null, slot: L.slots[i] }))
       .filter((seat) => !seat.id || (!wanted.has(seat.id) && !locked(seat.id)));
     const moves = [], changes = [];
+    const posOf = (id) => (index.get(id) || {}).pos;
     for (const id of best.filter((x) => !starting.has(x))) {
-      const pos = (index.get(id) || {}).pos;
-      const k = Math.max(0, seats.findIndex((seat) => takes(seat.slot, pos)));
+      const pos = posOf(id), add = pickup(id) ? { add: true } : {};
+      let k = seats.findIndex((seat) => takes(seat.slot, pos));
+      if (k < 0) {
+        // No open seat fits him (a WR when the open seat is TE): slide a kept
+        // starter from a seat he fits into the open one first
+        const j = now.starters.findIndex((x, si) => x && x !== '0' && wanted.has(x) && !locked(x)
+          && takes(L.slots[si], pos) && seats.some((seat) => takes(seat.slot, posOf(x))));
+        if (j >= 0) {
+          const mover = now.starters[j];
+          const freed = seats.splice(seats.findIndex((seat) => takes(seat.slot, posOf(mover))), 1)[0];
+          moves.push({ id: mover, to: freed.slot });
+          changes.push({ in: id, out: freed.id, slot: L.slots[j], ...add });
+          continue;
+        }
+        k = 0;
+      }
       const seat = seats.splice(k, 1)[0];
-      if (seat) changes.push({ in: id, out: seat.id, slot: seat.slot, ...(pickup(id) ? { add: true } : {}) });
+      if (seat) changes.push({ in: id, out: seat.id, slot: seat.slot, ...add });
     }
     const free = [...now.roster].map((id) => index.get(id)).filter((p) => p && !starting.has(p.id)
       && !wanted.has(p.id) && !/^(Doubtful|Out|IR|PUP|Sus|NA)$/i.test(p.injury || '') && !locked(p.id))
@@ -959,7 +1030,9 @@
     const items = moves.map((m) => locked(`Move <b>${esc(nameOf(m.id))}</b> to ${esc(m.to)}`, [m.id])).concat(changes.map((c) => {
       const ids = [c.in, c.out].filter(Boolean);
       if (c.add) {
-        const drop = rosterFull(L) ? ' (drop someone to make room)' : '';
+        const notes = [waiverDrop(L, c.in) ? 'dropped lately: may need a waiver claim' : '',
+          rosterFull(L) ? 'drop someone to make room' : ''].filter(Boolean);
+        const drop = notes.length ? ` (${notes.join('; ')})` : '';
         return locked(`Add free agent <b>${esc(nameOf(c.in))}</b>${drop}, then start him ${c.out ? 'for ' + esc(nameOf(c.out)) : 'in the empty ' + esc(c.slot) + ' slot'}`, ids);
       }
       if (c.in && c.out) return locked(`Start <b>${esc(nameOf(c.in))}</b> for ${esc(nameOf(c.out))}`, ids);
@@ -1114,7 +1187,7 @@
     pruneSwaps(L);
     html += sleeperNote(L) + verdict(L) + changesBox(L) + lateSwapTip(L);
     const shown = shownStarters(L);
-    const hint = !swaps.size && shown.some(swappable) ? `<span class="hint">${SWAP_ICON}to try a swap</span>` : '';
+    const hint = !swaps.size && shown.some((e, i) => swappable(e, i)) ? `<span class="hint">${SWAP_ICON}to try a swap</span>` : '';
     html += `${tryBar(L)}<h2 class="section"><span class="dot me"></span>Your lineup${hint}</h2>
       <ul class="players lineup grp-me">${shown.map((e, i) => lineupRow(e, 'me', i)).join('')}</ul>`;
     html += closeCalls(L);
