@@ -60,9 +60,11 @@ inputs/consensus/    optional FantasyPros CSV uploads (weekNN_pos.csv)
 inputs/writeups.json Claude's write-ups from /writeups (pushed straight to main)
 .claude/commands/    writeups.md: the owner's /writeups command
 tests/               pytest; test_real_snapshot.py runs only with FLUP_REPLAY
-.github/workflows/   update.yml (scheduled data runs + deploy), snapshot.yml (dev)
+.github/workflows/   update.yml (data runs + deploy), ticker.yml (keeps runs
+                     coming), snapshot.yml (dev)
 tools/               snapshot.py (dev raw capture + news/CORS probe), make_icons.py,
-                     check_writeups.py (/writeups must pass it before pushing)
+                     check_writeups.py (/writeups must pass it before pushing),
+                     next_run.py (next update.yml slot, for ticker.yml)
 ```
 
 Data format: `site/data/latest.json`, `"version": 3` (field list in
@@ -113,6 +115,13 @@ iPhone 13, `timezoneId: 'America/Chicago'` (the owner's local time).
   tests/, inputs/, settings.toml, requirements*.txt or update.yml
   (docs-only pushes don't run it). Tests run first; a failed run publishes
   nothing.
+- ticker.yml (from main only) is a chain that doesn't depend on GitHub's
+  scheduler: each link waits for the next update.yml cron slot
+  (tools/next_run.py), starts update.yml, then starts the next link
+  (GITHUB_TOKEN may trigger workflow_dispatch; free on this public repo).
+  A cron every 3 h restarts it if broken; cancel-in-progress keeps one link.
+  It only starts once ticker.yml is on main (Run workflow > Ticker, or wait
+  for the restart cron). On a claude/** push it only checks next_run.py.
 - `main` publishes the gh-pages root; `claude/**` publishes gh-pages
   `/preview/` and overwrites `dev-raw`; each keeps the other's files.
 - Scheduled runs only happen from `main`, so preview data never refreshes on

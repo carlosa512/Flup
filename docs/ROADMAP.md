@@ -360,7 +360,13 @@ the lock everywhere for consistency):
    on Sunday 2026-10-11, the first at 3:42 PM ET); the 11:45 AM inactives
    run and 0 of the 7 Monday-night slots (to 9:40 PM ET 2026-10-12) ran.
    The app's live card covers scores. Owner's OK (2026-10-13) for two
-   keyless fixes: the app checks your Sleeper roster/lineup against the
-   data on open, and each data run starts the next one itself (GitHub's
-   built-in token may trigger "Run workflow"; the repo is public, so
-   runner time is free).
+   keyless fixes, both built:
+   - The app checks Sleeper on open/refresh (rosters + this week's
+     matchup, browser fetch): "Since this data, you added X, dropped Y and
+     changed your lineup in Sleeper". The change list drops changes already
+     made or for players no longer on the roster; "New" chips follow
+     Sleeper's lineup now; a free agent you picked up says "On your roster
+     now"; Copy for Claude mentions it. Data has `lineup.roster` (all my
+     player ids, IR too) for this.
+   - ticker.yml: a chain of runs that each wait for the next update.yml
+     slot and start it (see CLAUDE.md). Starts once on main.
