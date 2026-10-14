@@ -376,7 +376,7 @@ the lock everywhere for consistency):
    - ticker.yml: a chain of runs that each wait for the next update.yml
      slot and start it (see CLAUDE.md). Starts once on main.
 
-## Phase 6: try a swap (on `claude/elegant-galileo-qyg5so`)
+## Phase 6: try a swap (merged, PR #12, 2026-10-14)
 Owner's ask (2026-10-13): move a player in the lineup (say Croskey-Merritt
 over Judkins) and see the points and win % change; drag handles or an
 inline dropdown, Claude's pick. "Lock players who have started playing or
@@ -421,7 +421,12 @@ DEF → a free agent, Undo), on the 2026-10-11 3:32 PM live capture (9 locked
 starters, only the late-game WR swappable; the swap dropped at his
 kickoff), and a fake deploy (one automatic reload, none without a change).
 
-## Phase 7: advanced data (built on `claude/elegant-galileo-qyg5so`)
+## Phase 7: advanced data (merged, PR #12, 2026-10-14)
+Merged by Claude at the owner's request ("push this to the live site and
+merge anything you need to"); the live site deployed from main at 16:15Z
+(sw.js version 52e2604569b8). Phones still on the old app need one more
+close-and-reopen this time; from now on the app reloads itself.
+
 Owner (2026-10-13): "go ahead and start that next step" (nflverse EPA etc.,
 added only if a backtest shows it helps start/sit or boom/bust).
 
