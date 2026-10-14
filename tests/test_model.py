@@ -403,10 +403,11 @@ def test_adjustment_positions_switch_them_off():
     assert model._on({}, "RB")  # no list: every position
 
 
-def test_settings_turn_off_usage_and_rb_wr_matchup():
-    # The 2025 backtest (docs/BACKTEST.md): usage didn't help, nor matchup for RB/WR
+def test_settings_turn_off_usage_and_matchup_except_te():
+    # The 2025 backtest (docs/BACKTEST.md): usage didn't help, and matchup held
+    # up in both halves only for TEs
     assert ADJ["usage"]["positions"] == []
-    assert set(ADJ["matchup"]["positions"]) == {"QB", "TE", "K", "DEF"}
+    assert ADJ["matchup"]["positions"] == ["TE"]
 
 
 # ---------- WOPR (Steady for tight ends) ----------

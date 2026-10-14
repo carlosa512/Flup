@@ -84,10 +84,13 @@ spread_pass = 0.02        # points per point of spread (trailing teams throw mor
 cap = 1.5
 
 # Points the opponent allows to the position vs the league average.
-# Not for RBs and WRs (2026-10-13): in the 2025 backtest it flipped
-# direction between the two halves of the season for them (docs/BACKTEST.md).
+# Only for TEs: in the 2025 backtest (docs/BACKTEST.md) it flipped
+# direction between the two halves of the season for RBs, WRs, kickers and
+# defenses, and didn't lower QBs' average miss in either half (RB/WR off
+# 2026-10-13; QB/K/DEF off 2026-10-14, owner's call). List positions here
+# to turn it back on.
 [adjust.matchup]
-positions = ["QB", "TE", "K", "DEF"]
+positions = ["TE"]
 weight = 0.30
 shrink_games = 4          # an opponent's numbers count half at this many games, more after
 cap = 1.5

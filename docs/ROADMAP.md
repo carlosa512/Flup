@@ -376,7 +376,7 @@ the lock everywhere for consistency):
    - ticker.yml: a chain of runs that each wait for the next update.yml
      slot and start it (see CLAUDE.md). Starts once on main.
 
-## Phase 6: try a swap (on `claude/elegant-galileo-qyg5so`)
+## Phase 6: try a swap (merged, PR #12, 2026-10-14)
 Owner's ask (2026-10-13): move a player in the lineup (say Croskey-Merritt
 over Judkins) and see the points and win % change; drag handles or an
 inline dropdown, Claude's pick. "Lock players who have started playing or
@@ -421,7 +421,12 @@ DEF → a free agent, Undo), on the 2026-10-11 3:32 PM live capture (9 locked
 starters, only the late-game WR swappable; the swap dropped at his
 kickoff), and a fake deploy (one automatic reload, none without a change).
 
-## Phase 7: advanced data (built on `claude/elegant-galileo-qyg5so`)
+## Phase 7: advanced data (merged, PR #12, 2026-10-14)
+Merged by Claude at the owner's request ("push this to the live site and
+merge anything you need to"); the live site deployed from main at 16:15Z
+(sw.js version 52e2604569b8). Phones still on the old app need one more
+close-and-reopen this time; from now on the app reloads itself.
+
 Owner (2026-10-13): "go ahead and start that next step" (nflverse EPA etc.,
 added only if a backtest shows it helps start/sit or boom/bust).
 
@@ -460,8 +465,10 @@ After (fixed close-call pairs): average miss 5.30 → 5.27 and 5.13 → 5.09,
 close calls 53.2% → 54.2% and 55.4% → 55.6%; 2026 weeks 2-4 better too.
 Spread of miss ÷ sd 0.95-1.12 (was 1.14-1.33).
 
-Open, for the owner: matchup for QB, K and DEF fails the same both-halves
-test (docs/BACKTEST.md section 2); still on.
+Matchup for QB, K and DEF failed the same both-halves test (docs/BACKTEST.md
+section 2); the owner turned it off on 2026-10-14 ("yes turn it off"), so
+matchup is TE-only. Small effect: average miss a touch lower in both halves
+of 2025, close calls about the same (QBs better, DEFs a bit worse in 2026).
 
 ## Pre-PR review (2026-10-13)
 A multi-agent review (4 reviewers, a skeptic each) of the branch confirmed

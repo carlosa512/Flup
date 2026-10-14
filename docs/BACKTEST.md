@@ -63,14 +63,19 @@ points, per half (1 = right size, 0 = no help, negative = wrong way):
 | Matchup, RB | +0.38 | −1.16 | flips | off |
 | Matchup, WR | −1.28 | +0.43 | flips | off |
 | Matchup, TE | +1.30 | +0.09 | helps (close calls up both halves) | on |
-| Matchup, QB | +0.39 | +1.17 | slope holds; average miss no better | on, owner to decide |
-| Matchup, K | −0.57 | +1.17 | flips | on, owner to decide |
-| Matchup, DEF | −0.57 | +0.66 | flips; average miss worse both halves | on, owner to decide |
+| Matchup, QB | +0.39 | +1.17 | slope holds; average miss no better | off (2026-10-14) |
+| Matchup, K | −0.57 | +1.17 | flips | off (2026-10-14) |
+| Matchup, DEF | −0.57 | +0.66 | flips; average miss worse both halves | off (2026-10-14) |
 | Game environment, QB/RB/WR/TE | +0.67 to +1.24 | +0.33 to +0.84 | helps | on |
 | Game environment, K/DEF | −1.04 / −0.22 | +0.46 / +0.45 | unclear | on |
 
 QB, K and DEF matchup fail the same test that turned it off for RB/WR (QB
-on average miss, K and DEF on both); they stay on until the owner decides.
+on average miss, K and DEF on both); the owner turned them off on
+2026-10-14, so matchup is now used for TEs only. The effect was small: 2025
+average miss 5.270 → 5.262 and 5.088 → 5.085 (QB 8.32 → 8.30, DEF 4.82 →
+4.79); close calls 54.2% → 54.6% and 55.6% → 55.2%; 2026 weeks 2-4 the
+same average miss, close calls 53.8% → 53.6% (QBs 54.1% → 56.1%, DEFs
+55.4% → 52.7% on 630 pairs).
 
 ### 3. The return man rule pointed the wrong way
 
@@ -145,7 +150,8 @@ about 71%.
 ## Built (owner's OK, 2026-10-13)
 
 `settings.toml`: `[adjust.usage] positions = []`, `[adjust.matchup]
-positions = ["QB", "TE", "K", "DEF"]`, `[adjust.returns] extra = 1.0`,
+positions = ["TE"]` (QB/K/DEF turned off 2026-10-14, after the table
+below), `[adjust.returns] extra = 1.0`,
 `cap = 1.0`, `[floor_ceiling] stretch = 1.2`, `[labels] wopr_positions =
 []` (off, see 5).
 
