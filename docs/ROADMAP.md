@@ -359,8 +359,8 @@ the lock everywhere for consistency):
    7 PM and Thursday ~9 AM Eastern.
 8. Built: "My Score" is now "Predicted" ("predicted points", "the
    prediction" in sentences), on cards, write-ups and Copy for Claude.
-9. Still open: reload once when a new version takes over (first open
-   after a deploy shows the old app).
+9. Built in Phase 6 (below): the app reloads once when a new version
+   takes over (index.html catches a takeover before app.js runs).
 10. Scheduled runs: GitHub keeps dropping them. Only 4 have ever run (all
    on Sunday 2026-10-11, the first at 3:42 PM ET); the 11:45 AM inactives
    run and 0 of the 7 Monday-night slots (to 9:40 PM ET 2026-10-12) ran.
@@ -375,3 +375,102 @@ the lock everywhere for consistency):
      player ids, IR too) for this.
    - ticker.yml: a chain of runs that each wait for the next update.yml
      slot and start it (see CLAUDE.md). Starts once on main.
+
+## Phase 6: try a swap (on `claude/elegant-galileo-qyg5so`)
+Owner's ask (2026-10-13): move a player in the lineup (say Croskey-Merritt
+over Judkins) and see the points and win % change; drag handles or an
+inline dropdown, Claude's pick. "Lock players who have started playing or
+played from being moved."
+
+Built (tap, not drag: dragging on a phone fights scrolling, and a list can
+show each option's effect before you pick):
+1. A ⇅ button beside each of my starters opens the players who could take
+   his slot: my healthy bench players whose game hasn't started (the
+   suggested starter first, marked, if he's been swapped out), then the 3
+   best free agents (with "Your roster is full: adding one means dropping
+   someone" when it is; owner found "add him in Sleeper first" read
+   weird; `lineup.reserve` = my IR ids, for that). Each shows his predicted
+   points and "+1.5 pts → 38% to win" (plus his ceiling/floor in underdog/
+   favored mode). An empty slot gets the button too.
+2. Locked: a starter whose game is on, over or past kickoff shows a padlock
+   instead of the button; players whose game started are never options; a
+   swap is dropped when a game in it kicks off.
+3. Picking one swaps him in (amber dashed edge, "Your swap" chip, "Instead
+   of X: +1.5 pts"). A bar above the lineup (sticky while scrolling) shows
+   "With your swap: 38% to win", "Suggested 37% · you 114.5 (+1.5) vs
+   125.1", the math behind a tap, and Undo. Picking the suggested player
+   again undoes that slot.
+4. The math: my total = the card's total − his points + the new player's;
+   spread = √(card's sd² − his sd² + new sd²); win % on the bell curve as
+   the card. During games the suggested lineup's live numbers are the
+   base. Nothing is saved: new data or Undo clears it; nothing changes in
+   Sleeper.
+5. "Make N changes in Sleeper" follows the lineup shown (a free agent:
+   "Add free agent X (drop someone to make room), then start him for Y");
+   the late-swap tip hides and
+   bench options skip anyone in the lineup shown while a swap is on; Copy
+   for Claude adds "I'M CONSIDERING: ..." with both win %s.
+6. Leftover 9 fixed: when a new app version takes over, the page reloads
+   once (right away if just opened or brought back, else next time it's
+   shown). Opening the app, coming back to it and the refresh button check
+   for a new version. sw.js's version is now a hash of the app's own files
+   (update.yml), so data runs alone don't trigger it; the worker fetches the
+   new files past the browser's cache.
+Tested: Playwright at iPhone 13 on week 6 data (Judkins → Croskey-Merritt,
+DEF → a free agent, Undo), on the 2026-10-11 3:32 PM live capture (9 locked
+starters, only the late-game WR swappable; the swap dropped at his
+kickoff), and a fake deploy (one automatic reload, none without a change).
+
+## Phase 7: advanced data (built on `claude/elegant-galileo-qyg5so`)
+Owner (2026-10-13): "go ahead and start that next step" (nflverse EPA etc.,
+added only if a backtest shows it helps start/sit or boom/bust).
+
+Built: `tools/backtest.py` (dev only) rebuilds Predicted week by week for a
+past season from Sleeper's stored pre-game projections and checks it
+against real results, out of sample; tools/snapshot.py now also saves
+every finished week's projections and the season before last's stats.
+Full results and method: [docs/BACKTEST.md](BACKTEST.md).
+
+Findings (2025): nflverse's EPA, CPOE, aDOT, RACR etc. don't make Predicted
+more accurate (Sleeper's projection already has it). WOPR spots reliable
+pass catchers (TEs clearly), and it can be worked out from Sleeper's own
+targets and air yards: no new source needed. Bigger wins are fixes to the
+current model: usage trend and RB/WR matchup don't help; the return man
+rule points the wrong way; the spread (sd, floor, ceiling) is about 1.2×
+too narrow, so win % is a bit too sure.
+
+Owner picked all four (2026-10-13); built, each in settings.toml with the
+backtest numbers in a comment, then corrected after the pre-PR review:
+1. Usage trend off (`[adjust.usage] positions = []`), matchup off for RB/WR
+   (`[adjust.matchup] positions`). model._on.
+2. Return men (returned lately): the projection's return points count
+   again, up to +1.0 (`extra = 1.0`, `cap = 1.0`); nothing added when it has
+   none (was +0.3, or recent yards). The review found uncapped doubling
+   over-predicted heavy returners (Turpin 11.2); 1.0 kept return men
+   unbiased in both halves of 2025 and in 2026.
+3. Spread × 1.2 (`[floor_ceiling] stretch`, model.stretch): sd, floor and
+   ceiling. Labels compare the unstretched range, so they mean what they
+   did. Week 6: win % 37% → 39%.
+4. TE Steady from WOPR: built but **off** (`[labels] wopr_positions = []`).
+   After the review fix (Sleeper's air yards count catches only, so a
+   game's share is kept to 0-100% and tiny team totals skipped; history.py),
+   it didn't beat the floor rule in both halves. Players get `wopr` only for
+   listed positions; the card line and legend show only then.
+After (fixed close-call pairs): average miss 5.30 → 5.27 and 5.13 → 5.09,
+close calls 53.2% → 54.2% and 55.4% → 55.6%; 2026 weeks 2-4 better too.
+Spread of miss ÷ sd 0.95-1.12 (was 1.14-1.33).
+
+Open, for the owner: matchup for QB, K and DEF fails the same both-halves
+test (docs/BACKTEST.md section 2); still on.
+
+## Pre-PR review (2026-10-13)
+A multi-agent review (4 reviewers, a skeptic each) of the branch confirmed
+17 findings, all fixed: 7 in "try a swap" (live math dropped a locked
+Sleeper starter; a pruned swap could double a player; a player who left
+the roster stayed; Sleeper steps that can't be done; IR players offered;
+1% rounding; waiver flag), 2 in the reload (a takeover before app.js ran
+was missed; a page that installed the worker ignored later updates), 3 in
+the model (return cap, WOPR air yards, Copy for Claude's floor/ceiling
+text), 5 in the backtest tool/docs (close-call pairs, K/DEF rows, WOPR
+rounding, RB AUC, sd check).
+

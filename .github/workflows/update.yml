@@ -97,7 +97,10 @@ jobs:
         env:
           REPO: https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git
         run: |
-          sed -i "s/__BUILD__/${GITHUB_SHA::7}-${GITHUB_RUN_ID}/" site/sw.js
+          # The shell's version is a hash of the app's own files, so a data
+          # run alone doesn't make phones install a "new" app (and reload)
+          BUILD=$(cd site && cat index.html app.css app.js manifest.webmanifest icons/* | sha256sum | cut -c1-12)
+          sed -i "s/__BUILD__/$BUILD/" site/sw.js
           PUB="$RUNNER_TEMP/publish"
           git clone -q --depth 1 --branch gh-pages "$REPO" "$PUB" 2>/dev/null || mkdir -p "$PUB"
           rm -rf "$PUB/.git"

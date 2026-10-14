@@ -82,6 +82,22 @@ def main():
         save(f"sleeper/stats_{prev_season}_{past}_all.json",
              f"{SLEEPER}/stats/nfl/{prev_season}/{past}?season_type=regular&"
              + "&".join(f"position[]={p}" for p in POSITIONS), gz=True)
+    # Backtests: Sleeper's own weekly projections for every finished week,
+    # last season and this one, to test new inputs (nflverse EPA, WOPR...)
+    # against what Sleeper already projected (this week too: once it is
+    # over, it can be compared with a copy saved before the games)
+    # The season before last too: backtesting last season needs its
+    # "last season" for floor/ceiling and QB habits
+    prev2 = str(int(season) - 2)
+    for past in range(1, 19):
+        save(f"sleeper/stats_{prev2}_{past}_all.json",
+             f"{SLEEPER}/stats/nfl/{prev2}/{past}?season_type=regular&"
+             + "&".join(f"position[]={p}" for p in POSITIONS), gz=True)
+    for yr, last in ((prev_season, 18), (season, int(week))):
+        for past in range(1, last + 1):
+            save(f"sleeper/proj_{yr}_{past}_all.json",
+                 f"{SLEEPER}/projections/nfl/{yr}/{past}?season_type=regular&"
+                 + "&".join(f"position[]={p}" for p in POSITIONS), gz=True)
     save("sleeper/trending_add.json",
          f"{SLEEPER}/v1/players/nfl/trending/add?lookback_hours=48&limit=50")
     save("sleeper/players_nfl.json", f"{SLEEPER}/v1/players/nfl", gz=True)

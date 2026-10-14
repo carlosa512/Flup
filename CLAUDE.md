@@ -55,6 +55,7 @@ pipeline/            Python 3.11+, standard library only; `python3 -m pipeline`
   writeups.py        template write-ups; attaches Claude's (inputs/writeups.json)
   validate.py        rescores finished weeks vs Sleeper's official points
 site/                static app, no build step: index.html app.js app.css sw.js
+                     (app.js: Lineup with "try a swap", Tiers, live scores)
 settings.toml        every weight/cap/threshold (the owner edits this)
 inputs/consensus/    optional FantasyPros CSV uploads (weekNN_pos.csv)
 inputs/writeups.json Claude's write-ups from /writeups (pushed straight to main)
@@ -63,6 +64,8 @@ tests/               pytest; test_real_snapshot.py runs only with FLUP_REPLAY
 .github/workflows/   update.yml (data runs + deploy), ticker.yml (keeps runs
                      coming), snapshot.yml (dev)
 tools/               snapshot.py (dev raw capture + news/CORS probe), make_icons.py,
+                     backtest.py (rebuilds Predicted for a past season and checks it:
+                     docs/BACKTEST.md),
                      check_writeups.py (/writeups must pass it before pushing),
                      next_run.py (next update.yml slot, for ticker.yml)
 ```
@@ -133,9 +136,10 @@ iPhone 13, `timezoneId: 'America/Chicago'` (the owner's local time).
   `actions_run_trigger` can do it; the owner granted the Claude app
   Actions access on 2026-10-11 after a 403).
 - The service worker serves the cached shell first, so the first open after
-  a deploy shows the previous app once. GitHub Pages also caches files for
-  ~10 minutes, so right after a deploy the owner may need to wait a few
-  minutes, close the app fully and open it twice.
+  a deploy shows the previous app for a moment, then reloads itself once
+  into the new one. sw.js's version is a hash of the app's own files, so
+  data-only runs don't trigger that. GitHub Pages caches files for ~10
+  minutes, so right after a deploy the new app can take a few minutes.
 
 ## Gotchas already learned (don't relearn them)
 
@@ -157,6 +161,18 @@ iPhone 13, `timezoneId: 'America/Chicago'` (the owner's local time).
 - Shrinkage is n/(n+k): a number counts half at k, never fully.
 - The scoring engine matches Sleeper's official points 755/755 (weeks 1-4,
   2026). Any scoring change must keep test_real_snapshot.py passing.
+- Sleeper keeps each past week's last pre-game projection (re-fetched week 5
+  matched a game-day copy for every game already started, 2026-10-13), so
+  tools/backtest.py can rebuild Predicted for past weeks without hindsight.
+  Players' projected punt return yards are `pr_yd` (`def_pr_yd` is DEF only).
+- Model changes go through tools/backtest.py first (both halves of 2025
+  must improve; 2026 weeks are a last check). Found 2026-10-13: nflverse
+  EPA/CPOE add nothing over Sleeper's projection; usage trend and RB/WR
+  matchup are off; return men get their projected return points again, up
+  to +1.0; ranges are stretched 1.2x; WOPR-based TE Steady is built but off.
+- Sleeper's `rec_air_yd` is air yards on catches only (it goes negative on
+  screens), not all targets like nflverse's; history.py keeps a game's air
+  share to 0-100% and skips team totals under 50.
 - Thursday games are already played by the weekend; players show "Played"
   (game_status from ESPN). Projections still exist for them, and their
   actual points are in this week's Sleeper matchups (`players_points`).

@@ -476,6 +476,29 @@ def test_labels_against_the_position_usual():
     assert lineup.label(player("c", "WR", 10, floor=6, ceiling=16), RATIOS, usual) == ""
 
 
+def test_te_steady_comes_from_wopr():
+    cfg = {"boom": 1.05, "steady": 1.10, "wopr_positions": ["TE"], "wopr_steady": 0.45}
+    # A big share of the passing game: Steady, even with a boom-sized ceiling
+    assert lineup.label(player("a", "TE", 10, floor=5, ceiling=17, wopr=0.5), RATIOS, cfg) == "Steady"
+    # Under the cutoff: no Steady from his floor, but Boom still can come
+    assert lineup.label(player("b", "TE", 10, floor=6.8, ceiling=16, wopr=0.3), RATIOS, cfg) == ""
+    assert lineup.label(player("c", "TE", 10, floor=6, ceiling=17, wopr=0.3), RATIOS, cfg) == "Boom"
+    # No WOPR yet (under 3 games): the floor rule
+    assert lineup.label(player("d", "TE", 10, floor=6.8, ceiling=16), RATIOS, cfg) == "Steady"
+    # WRs keep the floor rule
+    assert lineup.label(player("e", "WR", 10, floor=5, ceiling=16, wopr=0.7), RATIOS, cfg) == ""
+
+
+def test_labels_compare_the_range_before_its_stretch():
+    # The same players with ranges stretched 1.2x from the score get the same labels
+    usual, s = {"boom": 1.05, "steady": 1.10}, 1.2
+    def stretched(pid, floor, ceiling):
+        return player(pid, "WR", 10, floor=10 - s * (10 - floor), ceiling=10 + s * (ceiling - 10))
+    assert lineup.label(stretched("a", 6, 17), RATIOS, usual, stretch=s) == "Boom"
+    assert lineup.label(stretched("b", 6.8, 16), RATIOS, usual, stretch=s) == "Steady"
+    assert lineup.label(stretched("c", 6, 16), RATIOS, usual, stretch=s) == ""
+
+
 def test_free_agent_who_beats_a_starter_comes_first():
     fa = [player("fa1", "WR", 9.5, roster=None, ceiling=16), player("fa2", "RB", 6, roster=None),
           player("fa3", "K", 7, roster=None), player("fa4", "K", 9, roster=None)]

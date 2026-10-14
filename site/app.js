@@ -448,6 +448,11 @@
     let html = `<div class="score-head"><b class="big">${pts(p.score)}</b>`;
     if (r) html += `<span>${r.if_plays ? 'If he plays: ' : ''}Floor ${pts(r.floor)} · Ceiling ${pts(r.ceiling)}</span>`;
     html += '</div>';
+    if (p.wopr != null) {
+      const cut = (data.settings.labels || {}).wopr_steady;
+      html += `<p class="muted">WOPR ${Number(p.wopr).toFixed(3)} this season: his share of the team's targets (×1.5) and air yards on catches (×0.7)${
+        cut != null ? `. ◆ Steady takes ${num(cut)}+` : ''}.</p>`;
+    }
     if (p.flag === 'Doubtful') html += '<p class="warn">Doubtful: likely sits. Have a backup ready.</p>';
     if (p.rest) html += `<p class="warn">${esc(p.rest)}</p>`;
     const c = p.cons;
@@ -545,48 +550,64 @@
   const startedId = (id) => startedSince(index.get(id));
   const nameOf = (id) => (index.get(id) || {}).name || 'Unknown player';
 
-  function lineupRow(e, side) {
+  // A lineup row's numbers now. Once his game is on or over, the live fetch
+  // is fresher than the data run. A recommended starter whose game has
+  // started but who is still on the Sleeper bench is locked out: his points
+  // don't count.
+  function rowNow(e, side) {
+    const lvr = liveFor(e.id, side);
+    const on = !!(lvr && (lvr.state === 'live' || lvr.state === 'final'));
+    const sideNow = live && live[side];
+    const benched = !!(on && sideNow && !sideNow.rows.some((r) => r.id === e.id));
+    const lv = on && !benched ? lvr : null;
+    return { lvr, on, benched, lv, pts: benched ? 0 : lv ? lv.pts : e.pts, sd: benched ? 0 : lv ? lv.sd : e.sd };
+  }
+
+  // i: the slot's place in my lineup (my side only), for the swap button
+  function lineupRow(e, side, i) {
     const multi = !SINGLE.has(e.slot);
     const p0 = e.id ? index.get(e.id) : null;
     const slot = multi && p0
       ? `<span class="slot flex"><small>${esc(SLOT_SHORT[e.slot] || e.slot)}</small>${esc(p0.pos)}</span>`
       : `<span class="slot">${esc(SLOT_SHORT[e.slot] || e.slot)}</span>`;
+    const canSwap = side === 'me' && swappable(e, i);
+    const swap = canSwap ? swapButton(e, i) : side === 'me' && e.id ? lockMark(e) : '';
+    const list = canSwap && swapOpen === i ? swapList(data.lineup, i) : '';
     if (!e.id) {
       const why = side === 'me' ? 'No healthy player with a game for this slot.' : 'Nobody in this slot.';
-      return `<li class="player empty-slot"><div class="row lu">${slot}<span class="nm">Empty</span>
-        <span class="pts">${pts(0)}</span><span class="sub">${why}</span></div></li>`;
+      return `<li class="player empty-slot${swap ? ' can-swap' : ''}"><div class="row lu">${slot}<span class="nm">Empty</span>
+        <span class="pts">${pts(0)}</span><span class="sub">${why}</span></div>${swap}${list}</li>`;
     }
     const p = index.get(e.id);
     if (!p) {
-      return `<li class="player"><div class="row lu">${slot}<span class="nm">Unknown player</span>
-        <span class="pts">${pts(e.pts)}</span><span class="sub">Not in this week's projections</span></div></li>`;
+      return `<li class="player${swap ? ' can-swap' : ''}"><div class="row lu">${slot}<span class="nm">Unknown player</span>
+        <span class="pts">${pts(e.pts)}</span><span class="sub">Not in this week's projections</span></div>${swap}${list}</li>`;
     }
     const inj = p.injury ? `<span class="inj ${injClass(p.injury)}" title="${esc(p.injury)}">${esc(injShort(p.injury))}</span>` : '';
-    // Once his game is on or over, the live fetch is fresher than the data run.
-    // A recommended starter whose game has started but who is still on the
-    // Sleeper bench is locked out: his points don't count.
-    const lvr = liveFor(e.id, side);
-    const on = lvr && (lvr.state === 'live' || lvr.state === 'final');
-    const sideNow = live && live[side];
-    const benched = !!(on && sideNow && !sideNow.rows.some((r) => r.id === e.id));
-    const lv = on && !benched ? lvr : null;
+    const { lvr, on, benched, lv } = rowNow(e, side);
     const st = on ? lvr.state : e.state;  // benched or not, his game is on or over
     const state = st === 'final' ? 'Played' : st === 'live' ? 'Live' : startedSince(p) ? 'Started' : '';
     // New: in the best lineup but not starting in Sleeper (as of the data
-    // run, or right now once your Sleeper lineup has loaded)
+    // run, or right now once your Sleeper lineup has loaded). A swap you're
+    // trying gets its own chip instead.
     const now = side === 'me' ? sleeperFor() : null;
-    const isNew = !benched && (now ? now.roster.has(e.id) && !now.starters.includes(e.id) : e.new);
+    const isNew = !e.tried && !benched && (now ? now.roster.has(e.id) && !now.starters.includes(e.id) : e.new);
     const sub = [
       `<span>${esc(gameText(p))}</span>`,
       gameChip(p, state),
+      e.tried ? '<span class="chip try">Your swap</span>' : '',
       isNew ? '<span class="chip new">New</span>' : '',
-      now && !now.roster.has(e.id) ? '<span class="stale">No longer on your roster</span>' : '',
+      e.tried && p.roster == null ? '<span class="chip fa">Free agent</span>' : '',
+      now && !e.tried && !now.roster.has(e.id) ? '<span class="stale">No longer on your roster</span>' : '',
       benched ? '<span class="stale">Not in your Sleeper lineup</span>' : '',
       p.rest ? '<span class="stale">May rest</span>' : '',
       side === 'me' && quietInjury(p) ? `<span class="stale">${quietInjury(p) === 'never' ? 'No news' : 'No news since ' + esc(when(quietInjury(p)).split(' ')[0])}</span>` : '',
     ].join('');
     let why = side === 'me' ? e.why || '' : '';
-    if (benched) {
+    if (e.tried) {
+      const was = data.lineup.me.starters[i];
+      why = was.id ? `Instead of ${nameOf(was.id)}: ${signedPts(e.pts - rowNow(was, 'me').pts)} pts` : 'In the empty slot';
+    } else if (benched) {
       why = `Still on your Sleeper bench, so his ${pts(lvr.got)} pts don't count`
         + (e.replaces ? ` (${nameOf(e.replaces)} plays instead).` : '.');
     } else if (lv && lv.state === 'live') {
@@ -598,14 +619,254 @@
       why = `${pts(e.actual)} so far, ${Math.round(e.left * 100)}% of the game left`;
     }
     const isOpen = open.has(p.id);
-    return `<li class="player ${isNew ? 'new' : ''}" data-id="${esc(p.id)}">
+    const cls = [isNew ? 'new' : '', e.tried ? 'tried' : '', swap ? 'can-swap' : ''].filter(Boolean).join(' ');
+    return `<li class="player ${cls}" data-id="${esc(p.id)}">
       <button type="button" class="row lu" aria-expanded="${isOpen}">
         ${slot}
         <span class="nm">${face(p)}${esc(p.name)}${inj}</span>
         <span class="pts${benched ? ' nocount' : ''}">${pts(benched ? lvr.got : lv ? lv.pts : e.pts)}</span>
         <span class="sub">${sub}</span>
         ${why ? `<span class="why">${esc(why)}</span>` : ''}
-      </button>${isOpen ? detail(p) : ''}</li>`;
+      </button>${swap}${list}${isOpen ? detail(p) : ''}</li>`;
+  }
+
+  // ---------- try a swap ----------
+  // Swap any of my starters whose game hasn't started for a bench player or
+  // a free agent, and see the points and win % change before deciding.
+  // It's only on this page: nothing changes in Sleeper until the moves are
+  // made there (the change list follows the lineup shown). New data clears it.
+
+  const swaps = new Map();  // slot index in my lineup -> player id tried there
+  let swapOpen = null;      // slot index whose list of options is open
+  const SWAP_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4v16M4 8l4-4 4 4M16 20V4M12 16l4 4 4-4"/></svg>';
+
+  // Slot i with player id in it: the data run's starter, or a tried one
+  // (a player whose game hasn't started counts his predicted points)
+  function entryFor(L, i, id) {
+    const e = L.me.starters[i], p = id ? index.get(id) : null;
+    if (!p || id === e.id) return e;
+    return { slot: e.slot, id, pts: p.score, sd: fullSd(p), state: 'pre', actual: null, left: 1, tried: true };
+  }
+  const shownStarters = (L) => L.me.starters.map((e, i) => entryFor(L, i, swaps.get(i)));
+  // Sleeper locks a player at kickoff, so a swap with someone whose game
+  // has started (in or out) can't be made any more: it's dropped
+  // Also dropped: a swap whose player has left my roster since (a free
+  // agent is fine), or who now shows in two slots (dropping one swap can
+  // put its suggested starter back where another swap also put him)
+  function pruneSwaps(L) {
+    const now = sleeperFor(), mine = now ? now.roster : new Set(L.roster || L.current || []);
+    for (let again = true; again;) {
+      again = false;
+      const shown = shownStarters(L);
+      for (const [i, id] of swaps) {
+        const e = L.me.starters[i], p = index.get(id);
+        const left = p && p.roster != null && !mine.has(id);
+        const twice = shown.some((x, j) => j !== i && x.id === id);
+        if (!e || !p || !swappable(e, i) || stateWord(p) || left || twice) {
+          swaps.delete(i);
+          again = true;
+          break;
+        }
+      }
+    }
+    if (swapOpen != null && !swappable(shownStarters(L)[swapOpen] || {}, swapOpen)) swapOpen = null;
+  }
+
+  // My Sleeper lineup right now, in slot order: the live fetch, else the
+  // roster check, else the data run's
+  function seatsNow(L) {
+    return (live && live.me ? live.me.m.starters : sleeperFor() ? sleeperFor().starters : L.current) || [];
+  }
+  // Sleeper's player in slot i if his game is on or over (he's locked there)
+  function lockedIn(L, i) {
+    const id = seatsNow(L)[i];
+    if (!id || id === '0') return null;
+    const r = live && live.me ? live.me.rows.find((x) => x.id === id) : null;
+    return (r && (r.state === 'live' || r.state === 'final')) || startedId(id) || gameState(index.get(id) || {}) ? id : null;
+  }
+  // An empty slot, or a starter whose game hasn't started, in a slot
+  // Sleeper hasn't locked with someone else (Sleeper locks at kickoff)
+  function swappable(e, i) {
+    if (i != null && data.lineup) {
+      const held = lockedIn(data.lineup, i);
+      if (held && held !== e.id) return false;
+    }
+    if (!e.id) return true;
+    const p = index.get(e.id);
+    return !!p && e.state !== 'live' && e.state !== 'final' && !stateWord(p);
+  }
+
+  // My total and spread for a lineup. Before games: the data run's
+  // numbers changed by each swap (so no swaps = the card's numbers).
+  // During games, slot by slot what would really count: a player Sleeper
+  // has locked in the slot (live numbers); else the lineup shown, unless
+  // its player can't get in any more (his game started while he sat, or
+  // he's locked in another slot), and then whoever Sleeper has there now.
+  // With the suggested lineup set in Sleeper, that's the live card's total.
+  function myNumbers(L, entries) {
+    if (!(live && live.opp)) {
+      let total = L.me.total, v = L.me.sd * L.me.sd;
+      entries.forEach((e, i) => {
+        if (!e.tried) return;
+        const a = rowNow(e, 'me'), b = rowNow(L.me.starters[i], 'me');
+        total += a.pts - b.pts;
+        v += a.sd * a.sd - b.sd * b.sd;
+      });
+      return { total, sd: Math.sqrt(Math.max(0, v)) };
+    }
+    const seats = seatsNow(L), rows = live.me.rows;
+    const rowOf = (id) => (id && id !== '0' ? rows.find((x) => x.id === id) || null : null);
+    let total = 0, v = 0;
+    entries.forEach((e, i) => {
+      const held = lockedIn(L, i);
+      let val;
+      if (held) val = rowOf(held) || { pts: 0, sd: 0 };
+      else if (!e.id) val = { pts: 0, sd: 0 };
+      else {
+        const r = rowNow(e, 'me');
+        const elsewhere = seats.some((x, j) => j !== i && x === e.id && lockedIn(L, j));
+        val = r.benched || elsewhere ? rowOf(seats[i]) || { pts: 0, sd: 0 } : r;
+      }
+      total += val.pts;
+      v += val.sd * val.sd;
+    });
+    return { total, sd: Math.sqrt(v) };
+  }
+  function oppNumbers(L) {
+    if (live && live.opp) return { total: live.opp.total, sd: live.opp.sd };
+    return L.opp ? { total: L.opp.total, sd: L.opp.sd } : null;
+  }
+  function winOf(me, opp) {
+    if (!opp) return null;
+    const comb = Math.sqrt(me.sd * me.sd + opp.sd * opp.sd);
+    return comb > 0 ? BELL((me.total - opp.total) / comb) : me.total > opp.total ? 1 : me.total < opp.total ? 0 : 0.5;
+  }
+  // The recommended lineup's win %: the card's number unless games are on
+  function baseWin(L) {
+    return live && live.opp ? winOf(myNumbers(L, L.me.starters), oppNumbers(L)) : L.win;
+  }
+
+  // Who could go in slot i: my healthy players whose game hasn't started
+  // (the recommended starter first if he's been swapped out), then the 3
+  // best free agents who could start
+  function swapOptions(L, entries, i) {
+    const slot = entries[i].slot;
+    const using = new Set(entries.map((e) => e.id).filter(Boolean));
+    const now = sleeperFor();
+    const mine = now ? now.roster : new Set(L.roster || L.current || []);
+    const ir = new Set((now ? now.reserve : L.reserve) || []);  // in the IR slot: can't start
+    const ok = (p) => p && !using.has(p.id) && !ir.has(p.id) && takes(slot, p.pos) && p.opp && !p.note
+      && !(p.flag && p.flag !== 'Doubtful') && !stateWord(p);
+    const byScore = (a, b) => b.score - a.score || a.name.localeCompare(b.name);
+    const bench = [...mine].map((id) => index.get(id)).filter(ok).sort(byScore);
+    const back = L.me.starters[i].id;
+    bench.sort((a, b) => (b.id === back) - (a.id === back));
+    const fas = [...index.values()].filter((p) => p.roster == null && !mine.has(p.id) && ok(p)).sort(byScore).slice(0, 3);
+    return { bench, fas };
+  }
+
+  // His game is on or over: Sleeper has locked him in his slot
+  function lockMark(e) {
+    const p = index.get(e.id);
+    return `<span class="swap-btn locked" role="img" aria-label="${esc(p ? p.name : 'He')} is locked: his game has started">${LOCK}</span>`;
+  }
+
+  // Dropped in this league lately, so maybe still on waivers (the data
+  // run checks this for the free agents it lists)
+  const waiverDrop = (L, id) => !!((L.free_agents || []).find((f) => f.id === id) || {}).dropped;
+
+  // Full roster: every spot but IR is taken, so adding a free agent means
+  // dropping someone. Sleeper's roster now if it has loaded, else the data
+  // run's. Null when the data doesn't say (older data without reserve).
+  function rosterFull(L) {
+    const now = sleeperFor();
+    const ids = now ? [...now.roster] : L.roster, ir = now ? now.reserve : L.reserve;
+    if (!ids || !ir) return null;
+    const spots = (data.league.roster_positions || []).filter((s) => !/^(IR|TAXI)$/.test(s)).length;
+    return ids.filter((id) => !ir.includes(id)).length >= spots;
+  }
+
+  function swapButton(e, i) {
+    const p = e.id ? index.get(e.id) : null;
+    return `<button type="button" class="swap-btn" data-swap="${i}" aria-expanded="${swapOpen === i}"
+      aria-label="${p ? 'Swap ' + esc(p.name) : 'Fill the empty ' + esc(e.slot) + ' slot'}">${SWAP_ICON}</button>`;
+  }
+
+  function swapList(L, i) {
+    const entries = shownStarters(L), cur = entries[i];
+    const opp = oppNumbers(L), me = myNumbers(L, entries);
+    // No swap on: the card's own number (worked out again here it can round 1% apart)
+    const win = entries.some((e) => e.tried) ? winOf(me, opp) : baseWin(L);
+    const lean = L.mode === 'underdog' ? 'ceiling' : L.mode === 'favored' ? 'floor' : null;
+    const curP = cur.id ? index.get(cur.id) : null;
+    const leanOf = (p) => (lean && p.range ? ` · ${lean} ${pts(p.range[lean])}` : '');
+    const option = (p, mark) => {
+      const trial = entries.slice();
+      trial[i] = entryFor(L, i, p.id);
+      const n = myNumbers(L, trial), w = winOf(n, opp), d = n.total - me.total;
+      const dir = w != null ? Math.round(w * 100) - Math.round(win * 100) : Math.round(d * 10);
+      const inj = p.injury ? `<span class="inj ${injClass(p.injury)}" title="${esc(p.injury)}">${esc(injShort(p.injury))}</span>` : '';
+      return `<li><button type="button" class="swap-opt${p.roster == null ? ' fa' : ''}" data-pick="${i}" data-id="${esc(p.id)}">
+        <span class="slot">${esc(p.pos)}</span>
+        <span class="nm">${face(p)}${esc(p.name)}${inj}</span>
+        <span class="pts">${pts(p.score)}</span>
+        <span class="eff ${dir > 0 ? 'up' : dir < 0 ? 'down' : 'same'}">${signedPts(d)} pts${w != null ? ` → ${pct(w)} to win` : ''}${esc(leanOf(p))}${mark || ''}</span>
+      </button></li>`;
+    };
+    const { bench, fas } = swapOptions(L, entries, i);
+    const back = L.me.starters[i].id;
+    let html = `<div class="swap-list"><p class="swap-head">${curP
+      ? `Swap <b>${esc(curP.name)}</b> (${pts(cur.pts)} pts${esc(leanOf(curP))}) for:`
+      : `Fill the empty <b>${esc(cur.slot)}</b> slot with:`}${win != null ? ` <span>now ${pct(win)} to win</span>` : ''}</p>`;
+    html += bench.length
+      ? `<ul class="swap-opts">${bench.map((p) => option(p, p.id === back ? ' · suggested' : '')).join('')}</ul>`
+      : `<p class="swap-none">Nobody on your bench can play ${esc(cur.slot)} this week.</p>`;
+    if (fas.length) {
+      const full = rosterFull(L);
+      html += `<p class="swap-group">Free agents</p>${full ? '<p class="swap-note">Your roster is full: adding one means dropping someone.</p>' : ''}
+        <ul class="swap-opts">${fas.map((p) => option(p, waiverDrop(L, p.id) ? ' · dropped lately: maybe on waivers' : '')).join('')}</ul>`;
+    }
+    return html + '</div>';
+  }
+
+  // The bar over my lineup while a swap is on: the new win % and total
+  // against the recommended lineup's, the math behind a tap, and Undo
+  function tryBar(L) {
+    if (!swaps.size) return '';
+    const entries = shownStarters(L), base = myNumbers(L, L.me.starters), me = myNumbers(L, entries);
+    const opp = oppNumbers(L), win = winOf(me, opp), was = baseWin(L);
+    const n = entries.filter((e) => e.tried).length;
+    const d = me.total - base.total;
+    const head = win != null
+      ? `<b class="${Math.round(win * 100) > Math.round(was * 100) ? 'up' : Math.round(win * 100) < Math.round(was * 100) ? 'down' : ''}">${pct(win)} to win</b>`
+      : `<b>${pts(me.total)} pts</b>`;
+    const sub = (win != null ? `Suggested ${pct(was)} · you ` : 'You ') + `${pts(me.total)} (${signedPts(d)})${opp ? ` vs ${pts(opp.total)}` : ''}`;
+    // The math: each swap's points out and in, spreads as a square root of
+    // the sum of squares, then the bell curve
+    const outIn = entries.map((e, i) => {
+      if (!e.tried) return null;
+      const o = L.me.starters[i], ro = rowNow(o, 'me');
+      return { out: o.id ? nameOf(o.id) : 'the empty slot', outPts: ro.pts, outSd: ro.sd, in: nameOf(e.id), inPts: e.pts, inSd: e.sd };
+    }).filter(Boolean);
+    let math = `<p>You ${pts(base.total)}${outIn.map((s) => ` − ${pts(s.outPts)} (${esc(s.out)}) + ${pts(s.inPts)} (${esc(s.in)})`).join('')}
+      = <b>${pts(me.total)}</b>. Give or take √(${pts(base.sd)}²${outIn.map((s) => ` − ${pts(s.outSd)}² + ${pts(s.inSd)}²`).join('')}) = ${pts(me.sd)}.</p>`;
+    if (win != null) {
+      const comb = Math.sqrt(me.sd * me.sd + opp.sd * opp.sd), diff = me.total - opp.total;
+      math += comb > 0
+        ? `<p>Win: (${pts(me.total)} − ${pts(opp.total)}) ÷ √(${pts(me.sd)}² + ${pts(opp.sd)}²) = ${(diff < 0 ? '−' : '') + Math.abs(diff / comb).toFixed(2)} on the bell curve → <b>${pct(win)}</b>, against ${pct(was)} for the suggested lineup.</p>`
+        : `<p>Win: ${pct(win)}, against ${pct(was)} for the suggested lineup.</p>`;
+    }
+    if (live && live.opp) math += '<p class="muted">Games are on: both totals use the live numbers, and the suggested lineup is counted as shown here (your Sleeper lineup may differ).</p>';
+    if (L.mode !== 'even') {
+      math += `<p class="muted">The suggested lineup leans toward ${L.mode === 'underdog' ? 'ceilings' : 'floors'} (see "How this is worked out" above); win % here only sees averages and spread.</p>`;
+    }
+    math += '<p class="muted">Only on this page: nothing changes in Sleeper until you make the moves there.</p>';
+    return `<div class="tryline"><div class="tryline-in">
+      <div class="tryline-txt"><p class="tryline-head">With your swap${n > 1 ? 's' : ''}: ${head}</p>
+        <p class="tryline-sub">${sub}</p></div>
+      <button type="button" class="undo-btn" data-unswap="all">Undo</button>
+      <details class="every" data-k="trymath"><summary>How this is worked out</summary><div class="math-text">${math}</div></details>
+    </div></div>`;
   }
 
   function lineupMath(L, liveShown) {
@@ -687,23 +948,43 @@
   //    over from a FLEX to make room.
   // The same starters in other slots score the same, so that's a match.
   // Players whose game has started are locked and left alone.
+  // While a swap is on, "the best lineup" is the one shown with the swap,
+  // against Sleeper's lineup now (or as of the data run until it loads); a
+  // free agent in it must be added first (add: true).
   function todo(L) {
-    const now = sleeperFor();
-    const d = now && sleeperDiff(L);
-    if (!now || !d) return { moves: L.moves || [], changes: L.changes };
+    const tried = swaps.size > 0;
+    const now = sleeperFor() || (tried ? { roster: new Set(L.roster || L.current || []), starters: L.current || [] } : null);
+    if (!now || (!tried && !sleeperDiff(L))) return { moves: L.moves || [], changes: L.changes };
     const locked = (id) => !!(id && index.get(id) && (gameState(index.get(id)) || startedSince(index.get(id))));
     const score = (id) => (index.get(id) || {}).score || 0;
-    const best = L.me.starters.map((e) => e.id).filter((id) => id && now.roster.has(id) && !locked(id));
+    const pickup = (id) => !now.roster.has(id) && (index.get(id) || {}).roster == null;
+    const best = shownStarters(L).filter((e) => e.id && (now.roster.has(e.id) || (e.tried && pickup(e.id))) && !locked(e.id))
+      .map((e) => e.id);
     const wanted = new Set(best);
     const starting = new Set(now.starters.filter((id) => id && id !== '0'));
     const seats = now.starters.map((id, i) => ({ id: id && id !== '0' ? id : null, slot: L.slots[i] }))
       .filter((seat) => !seat.id || (!wanted.has(seat.id) && !locked(seat.id)));
     const moves = [], changes = [];
+    const posOf = (id) => (index.get(id) || {}).pos;
     for (const id of best.filter((x) => !starting.has(x))) {
-      const pos = (index.get(id) || {}).pos;
-      const k = Math.max(0, seats.findIndex((seat) => takes(seat.slot, pos)));
+      const pos = posOf(id), add = pickup(id) ? { add: true } : {};
+      let k = seats.findIndex((seat) => takes(seat.slot, pos));
+      if (k < 0) {
+        // No open seat fits him (a WR when the open seat is TE): slide a kept
+        // starter from a seat he fits into the open one first
+        const j = now.starters.findIndex((x, si) => x && x !== '0' && wanted.has(x) && !locked(x)
+          && takes(L.slots[si], pos) && seats.some((seat) => takes(seat.slot, posOf(x))));
+        if (j >= 0) {
+          const mover = now.starters[j];
+          const freed = seats.splice(seats.findIndex((seat) => takes(seat.slot, posOf(mover))), 1)[0];
+          moves.push({ id: mover, to: freed.slot });
+          changes.push({ in: id, out: freed.id, slot: L.slots[j], ...add });
+          continue;
+        }
+        k = 0;
+      }
       const seat = seats.splice(k, 1)[0];
-      if (seat) changes.push({ in: id, out: seat.id, slot: seat.slot });
+      if (seat) changes.push({ in: id, out: seat.id, slot: seat.slot, ...add });
     }
     const free = [...now.roster].map((id) => index.get(id)).filter((p) => p && !starting.has(p.id)
       && !wanted.has(p.id) && !/^(Doubtful|Out|IR|PUP|Sus|NA)$/i.test(p.injury || '') && !locked(p.id))
@@ -734,30 +1015,39 @@
     }
     return { moves, changes };
   }
-  const changeText = (c) => (c.in && c.out ? `start ${nameOf(c.in)} for ${nameOf(c.out)}`
+  const changeText = (c) => (c.add ? `add free agent ${nameOf(c.in)}${rosterFull(data.lineup) ? ' (dropping someone to make room)' : ''} and start him ${c.out ? 'for ' + nameOf(c.out) : 'in the empty ' + c.slot + ' slot'}`
+    : c.in && c.out ? `start ${nameOf(c.in)} for ${nameOf(c.out)}`
     : c.in ? `start ${nameOf(c.in)} in the empty ${c.slot} slot`
       : c.out ? `bench ${nameOf(c.out)}` : `fill the empty ${c.slot} slot (no healthy player left for it)`);
 
   function changesBox(L) {
     const { moves, changes } = todo(L);
-    if (!changes.length && !moves.length) return '<p class="note done">✓ Your Sleeper lineup already matches.</p>';
+    const yours = swaps.size ? ' with your swap' + (swaps.size > 1 ? 's' : '') : '';
+    if (!changes.length && !moves.length) return `<p class="note done">✓ Your Sleeper lineup already matches${yours ? ' this lineup' + yours : ''}.</p>`;
     // Slides first: they open up the slot a newcomer goes into
     const locked = (text, ids) => (ids.some(startedId)
       ? `<s>${text}</s> <span class="gone">${LOCK}game started, Sleeper has locked it</span>` : text);
     const items = moves.map((m) => locked(`Move <b>${esc(nameOf(m.id))}</b> to ${esc(m.to)}`, [m.id])).concat(changes.map((c) => {
       const ids = [c.in, c.out].filter(Boolean);
+      if (c.add) {
+        const notes = [waiverDrop(L, c.in) ? 'dropped lately: may need a waiver claim' : '',
+          rosterFull(L) ? 'drop someone to make room' : ''].filter(Boolean);
+        const drop = notes.length ? ` (${notes.join('; ')})` : '';
+        return locked(`Add free agent <b>${esc(nameOf(c.in))}</b>${drop}, then start him ${c.out ? 'for ' + esc(nameOf(c.out)) : 'in the empty ' + esc(c.slot) + ' slot'}`, ids);
+      }
       if (c.in && c.out) return locked(`Start <b>${esc(nameOf(c.in))}</b> for ${esc(nameOf(c.out))}`, ids);
       if (c.in) return locked(`Start <b>${esc(nameOf(c.in))}</b> in the empty ${esc(c.slot)} slot`, ids);
       if (!c.out) return `Your ${esc(c.slot)} slot is empty, and no healthy player you have fits it`;
       return locked(`Bench ${esc(nameOf(c.out))}: no healthy player to put in`, ids);
     }));
     const n = items.length;
-    return `<div class="note todo"><b>Make ${n} change${n > 1 ? 's' : ''} in Sleeper</b>
+    return `<div class="note todo"><b>Make ${n} change${n > 1 ? 's' : ''} in Sleeper${yours ? ' for this lineup' + yours : ''}</b>
       <ul>${items.map((t) => `<li>${t}</li>`).join('')}</ul></div>`;
   }
 
   function lateSwapTip(L) {
     const t = L.late_swap;
+    if (swaps.size) return '';  // its moves are for the suggested starters
     // Gone once the first player it moves has kicked off (Sleeper has locked him)
     if (!t || !t.moves.length || (t.deadline && Date.now() >= new Date(t.deadline).getTime())) return '';
     const moves = t.moves.map((m) => `<b>${esc(nameOf(m.id))}</b> to ${esc(m.to)}`);
@@ -811,7 +1101,7 @@
   }
   function labelChip(l) {
     if (l === 'Boom') return '<span class="chip label boom" title="Ceiling well above usual for his position">▲ Boom</span>';
-    if (l === 'Steady') return '<span class="chip label steady" title="Floor well above usual for his position">◆ Steady</span>';
+    if (l === 'Steady') return '<span class="chip label steady" title="Reliable: few duds (see the note below)">◆ Steady</span>';
     return '';
   }
 
@@ -845,7 +1135,8 @@
     const fas = L.free_agents || [];
     if (bench.length) {
       const now = sleeperFor();
-      const avail = bench.filter((b) => !startedId(b.id) && (!now || now.roster.has(b.id)));
+      const using = new Set(shownStarters(L).map((e) => e.id));
+      const avail = bench.filter((b) => !startedId(b.id) && (!now || now.roster.has(b.id)) && !using.has(b.id));
       if (avail.length) {
         html += `<h2 class="section"><span class="dot bench"></span>Bench options</h2><ul class="players lineup grp-bench">${avail.map((b) =>
           pickRow(b, b.why)).join('')}</ul>`;
@@ -868,8 +1159,11 @@
     }
     // Phones can't show hover tips, so the labels are explained once in words
     if (bench.concat(fas).some((x) => x.label)) {
+      const lb = data.settings.labels || {};
+      const te = (lb.wopr_positions || []).includes('TE') && lb.wopr_steady != null
+        ? ` (tight ends: WOPR ${num(lb.wopr_steady)}+, a big share of his team's targets and air yards)` : '';
       html += `<p class="legend"><b>▲ Boom</b>: ceiling well above the usual for his position.
-        <b>◆ Steady</b>: floor well above the usual.</p>`;
+        <b>◆ Steady</b>: floor well above the usual${te}.</p>`;
     }
     return html;
   }
@@ -890,8 +1184,12 @@
       html += `<p class="note">Games have started since this data (from ${esc(when(data.generated))}).
         ${live && live.opp ? 'The score card is live.' : 'Totals and win % are as of then.'} Sleeper has locked those players, so any moves for them are crossed out.</p>`;
     }
+    pruneSwaps(L);
     html += sleeperNote(L) + verdict(L) + changesBox(L) + lateSwapTip(L);
-    html += `<h2 class="section"><span class="dot me"></span>Your lineup</h2><ul class="players lineup grp-me">${L.me.starters.map((e) => lineupRow(e, 'me')).join('')}</ul>`;
+    const shown = shownStarters(L);
+    const hint = !swaps.size && shown.some((e, i) => swappable(e, i)) ? `<span class="hint">${SWAP_ICON}to try a swap</span>` : '';
+    html += `${tryBar(L)}<h2 class="section"><span class="dot me"></span>Your lineup${hint}</h2>
+      <ul class="players lineup grp-me">${shown.map((e, i) => lineupRow(e, 'me', i)).join('')}</ul>`;
     html += closeCalls(L);
     html += pickups(L);
     if (L.opp) {
@@ -976,7 +1274,8 @@
       const m = (mu || []).find((x) => x.roster_id === lg.my_rid);
       if (!r || !m || data.generated !== generated) return;  // newer data came in meanwhile
       const was = sleeperNow && JSON.stringify([[...sleeperNow.roster], sleeperNow.starters, sleeperNow.generated]);
-      sleeperNow = { roster: new Set((r.players || []).map(String)), starters: (m.starters || []).map(String), generated };
+      sleeperNow = { roster: new Set((r.players || []).map(String)), starters: (m.starters || []).map(String),
+        reserve: (r.reserve || []).map(String), generated };
       if (JSON.stringify([[...sleeperNow.roster], sleeperNow.starters, generated]) !== was) renderView();
     } catch (e) {
       // Offline or Sleeper down: the data run's roster stands
@@ -1261,8 +1560,10 @@
     }
     const b = data.settings.blend || {}, fc = data.settings.floor_ceiling || {};
     const share = (x) => Math.round(100 * x / ((b.projection || 0) + (b.consensus || 0) || 1));
+    const wider = fc.stretch && fc.stretch !== 1
+      ? `, then spread ${num(fc.stretch)}x as far from Predicted (past scores alone came out too narrow in a backtest); the sd used for win chance is widened the same way` : '';
     lines.push(`Predicted = ${share(b.projection)}% Sleeper projection (rescored in my scoring) + ${share(b.consensus)}% FantasyPros consensus rank turned into points, `
-      + `plus small capped adjustments. Floor/ceiling = ${fc.floor_pct}th/${fc.ceiling_pct}th percentile of his weekly scores, scaled to this week.`);
+      + `plus small capped adjustments. Floor/ceiling = ${fc.floor_pct}th/${fc.ceiling_pct}th percentile of his weekly scores, scaled to this week${wider}.`);
     return lines.join('\n');
   }
 
@@ -1326,9 +1627,17 @@
         d.dropped.length ? 'dropped ' + d.dropped.map(someone).join(', ') : '', d.lineup ? 'changed my lineup' : '']
         .filter(Boolean).join('; ') + '. The recommendations above are from before that.');
     }
+    pruneSwaps(L);
+    if (swaps.size) {
+      const shown = shownStarters(L), me = myNumbers(L, shown), opp = oppNumbers(L), win = winOf(me, opp);
+      const tries = shown.map((e, i) => (e.tried ? `${nameOf(e.id)} (${plain(e.pts)}) instead of ${L.me.starters[i].id ? nameOf(L.me.starters[i].id) : 'an empty slot'} at ${e.slot}` : null)).filter(Boolean);
+      parts.push('', `I'M CONSIDERING: ${tries.join('; ')}. That makes my total ${pts(me.total)} (sd ${pts(me.sd)})`
+        + (win != null ? `, win chance ${pct(win)} vs ${pct(baseWin(L))} for the recommended lineup.` : '.'),
+        ...shown.filter((e) => e.tried).map((e) => playerText(index.get(e.id), true)));
+    }
     const { moves, changes } = todo(L);
     if (moves.length || changes.length) {
-      parts.push('', 'Changes from my current Sleeper lineup: '
+      parts.push('', `Changes from my current Sleeper lineup${swaps.size ? ' (for the lineup with my swaps)' : ''}: `
         + moves.map((m) => `move ${nameOf(m.id)} to ${m.to}`).concat(changes.map(changeText)).join('; ') + '.');
     }
     if ((L.close_calls || []).length) {
@@ -1408,6 +1717,21 @@
       copyText(text).then((ok) => toast(ok ? 'Copied. Paste it into the Claude app.' : "Couldn't copy on this device."));
       return;
     }
+    if (t.dataset.swap != null) {
+      const i = Number(t.dataset.swap);
+      swapOpen = swapOpen === i ? null : i;
+      renderView();
+      return;
+    }
+    if (t.dataset.pick != null) {
+      // Picking the recommended starter again undoes that swap
+      const i = Number(t.dataset.pick), e = data.lineup.me.starters[i];
+      if (e && e.id === t.dataset.id) swaps.delete(i); else swaps.set(i, t.dataset.id);
+      swapOpen = null;
+      renderView();
+      return;
+    }
+    if (t.dataset.unswap) { swaps.clear(); swapOpen = null; renderView(); return; }
     if (t.classList.contains('row')) {
       const id = t.closest('.player').dataset.id;
       if (open.has(id)) open.delete(id); else open.add(id);
@@ -1438,7 +1762,7 @@
       const changed = !data || fresh.generated !== data.generated;
       data = fresh;
       write(DATA_KEY, fresh);
-      if (changed) { live = null; sleeperNow = null; render(); }
+      if (changed) { live = null; sleeperNow = null; swaps.clear(); swapOpen = null; render(); }
       checkSleeper();
       if (gamesOn()) {
         const ok = await refreshLive(manual);
@@ -1490,7 +1814,34 @@
   render();
   refresh(false);
 
+  // A new app version: the service worker answers from the phone's copy
+  // first, so the first open after a deploy runs the old app. When the new
+  // worker takes over, reload once: right away if the app was just opened
+  // (or brought back), else the next time it comes back to the screen.
+  // (sw.js only changes when the app's own files do, not with each data run.)
   if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(() => {}); });
+    const sw = navigator.serviceWorker;
+    // index.html starts watching before the stylesheets load (a takeover
+    // can happen before this file runs)
+    const early = window.flupSw || { had: !!sw.controller, changed: false };
+    let hadWorker = early.had, shownAt = Date.now(), reloadLater = false;
+    const checkApp = () => sw.getRegistration().then((r) => r && r.update()).catch(() => {});
+    const onChange = () => {
+      // No worker before: this page just installed one, nothing old to replace.
+      // Every takeover after that is a new version.
+      if (!hadWorker) { hadWorker = true; return; }
+      if (Date.now() - shownAt < 60000) location.reload();
+      else reloadLater = true;
+    };
+    sw.addEventListener('controllerchange', onChange);
+    if (early.changed) onChange();
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState !== 'visible') return;
+      if (reloadLater) { location.reload(); return; }
+      shownAt = Date.now();
+      checkApp();
+    });
+    $('#refresh-btn').addEventListener('click', () => { shownAt = Date.now(); checkApp(); });
+    window.addEventListener('load', () => { sw.register('sw.js').catch(() => {}); });
   }
 })();

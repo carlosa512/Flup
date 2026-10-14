@@ -121,32 +121,34 @@ def test_low_int_pocket_passer_gets_nothing():
 
 # ---------- returns ----------
 
-def test_kick_return_yards_added_when_not_projected():
+def test_recent_returner_without_projected_returns_gets_nothing():
+    # He has often lost the job (2025 backtest)
     games = [game(kr=3, kr_yd=70, pr=0)] * 3
-    a = model.returns(games, {"rec": 3}, SCORING, ADJ["returns"])
-    assert a["pts"] == pytest.approx(70 * 0.05 + ADJ["returns"]["bonus"])
-    assert "70 kick return yds" in a["why"]
+    assert model.returns(games, {"rec": 3}, SCORING, ADJ["returns"]) is None
 
 
-def test_projected_kick_returns_only_get_the_bump():
+def test_projected_kick_returns_count_again():
     games = [game(kr=3, kr_yd=70, pr=0)] * 3
-    a = model.returns(games, {"kr_yd": 60}, SCORING, ADJ["returns"])
-    assert a["pts"] == ADJ["returns"]["bonus"] and a["why"].startswith("Returns kicks")
+    a = model.returns(games, {"kr_yd": 12}, SCORING, ADJ["returns"])
+    assert a["pts"] == pytest.approx(12 * 0.05 * ADJ["returns"]["extra"])
+    assert "12 kick return yds (0.6 pts)" in a["why"]
 
 
-def test_projected_punt_returns_not_added_twice():
+def test_projected_punt_returns_count_again():
     games = [game(kr=0, pr=3, pr_yd=30)] * 3
-    a = model.returns(games, {"pr_yd": 25}, SCORING, ADJ["returns"])
-    assert a["pts"] == ADJ["returns"]["bonus"]
+    a = model.returns(games, {"pr_yd": 10}, SCORING, ADJ["returns"])
+    assert a["pts"] == pytest.approx(10 * 0.05 * ADJ["returns"]["extra"])
 
 
 def test_not_a_returner():
-    assert model.returns([game()] * 3, {}, SCORING, ADJ["returns"]) is None
+    # Projected return yards alone don't count: he must have returned lately
+    assert model.returns([game()] * 3, {"kr_yd": 40}, SCORING, ADJ["returns"]) is None
 
 
 def test_returns_capped():
-    a = model.returns([game(kr=6, kr_yd=200)] * 3, {}, SCORING, ADJ["returns"])
-    assert a["pts"] == ADJ["returns"]["cap"]
+    # Heavy returners: doubling over-predicted their totals, so it's capped
+    a = model.returns([game(kr=6, kr_yd=200)] * 3, {"kr_yd": 60}, SCORING, ADJ["returns"])
+    assert a["pts"] == ADJ["returns"]["cap"] and "up to" in a["why"]
 
 
 # ---------- injury ----------
@@ -174,9 +176,10 @@ def test_range_scales_to_score_and_leans_on_position_with_few_games():
     pos_ratio = (0.6, 1.6, 0.4)
     few = [game(pts=10), game(pts=10)]  # no spread of his own
     r = model.outcome_range(20.0, few, pos_ratio, fc)
-    n, k = 2, fc["shrink_games"]
-    assert r["floor"] == pytest.approx(20 * (n * 1.0 + k * 0.6) / (n + k), abs=0.1)
-    assert r["ceiling"] == pytest.approx(20 * (n * 1.0 + k * 1.6) / (n + k), abs=0.1)
+    n, k, s = 2, fc["shrink_games"], fc["stretch"]
+    f, c = (n * 1.0 + k * 0.6) / (n + k), (n * 1.0 + k * 1.6) / (n + k)
+    assert r["floor"] == pytest.approx(20 * (1 - s * (1 - f)), abs=0.1)
+    assert r["ceiling"] == pytest.approx(20 * (1 + s * (c - 1)), abs=0.1)
 
 
 def test_range_ignores_backup_role_games():
@@ -188,14 +191,27 @@ def test_range_ignores_backup_role_games():
 
 
 def test_range_not_trusted_from_low_scoring_history():
-    r = model.outcome_range(10.0, [game(pts=0), game(pts=3)] * 4, (0.5, 1.8, 0.45),
-                            SETTINGS["floor_ceiling"], min_mean=7)
+    fc = dict(SETTINGS["floor_ceiling"], stretch=1.0)
+    r = model.outcome_range(10.0, [game(pts=0), game(pts=3)] * 4, (0.5, 1.8, 0.45), fc, min_mean=7)
     assert (r["floor"], r["ceiling"], r["games"]) == (5.0, 18.0, 0)
 
 
 def test_range_without_history_uses_position():
-    r = model.outcome_range(10.0, [], (0.5, 1.8, 0.45), SETTINGS["floor_ceiling"])
+    fc = dict(SETTINGS["floor_ceiling"], stretch=1.0)
+    r = model.outcome_range(10.0, [], (0.5, 1.8, 0.45), fc)
     assert (r["floor"], r["ceiling"], r["games"]) == (5.0, 18.0, 0)
+
+
+def test_range_stretched_from_predicted():
+    # 1.2x as far from the score: floor 10 - 1.2 x 5, ceiling 10 + 1.2 x 8, sd x 1.2
+    fc = dict(SETTINGS["floor_ceiling"], stretch=1.2)
+    r = model.outcome_range(10.0, [], (0.5, 1.8, 0.45), fc)
+    assert (r["floor"], r["ceiling"], r["sd"]) == (4.0, 19.6, 5.4)
+
+
+def test_stretch_keeps_a_floor_at_zero_or_above():
+    assert model.stretch((0.1, 2.0, 0.6), 1.2)[0] == 0.0
+    assert model.stretch((-0.2, 2.0, 0.6), 1.2)[0] == pytest.approx(-0.44)
 
 
 # ---------- My Score ----------
@@ -376,3 +392,52 @@ def test_doubtful_is_flagged_not_discounted():
     out = model.my_score(player(injury="Doubtful", injury_detail="Knee"), {}, None, ctx())
     assert out["score"] == out["base"] == 10.0
     assert out["flag"] == "Doubtful" and all(a["key"] != "injury" for a in out["adj"])
+
+
+# ---------- which positions an adjustment is used for ----------
+
+def test_adjustment_positions_switch_them_off():
+    assert model._on({"positions": ["QB", "TE"]}, "TE")
+    assert not model._on({"positions": ["QB", "TE"]}, "WR")
+    assert not model._on({"positions": []}, "RB")
+    assert model._on({}, "RB")  # no list: every position
+
+
+def test_settings_turn_off_usage_and_rb_wr_matchup():
+    # The 2025 backtest (docs/BACKTEST.md): usage didn't help, nor matchup for RB/WR
+    assert ADJ["usage"]["positions"] == []
+    assert set(ADJ["matchup"]["positions"]) == {"QB", "TE", "K", "DEF"}
+
+
+# ---------- WOPR (Steady for tight ends) ----------
+
+def test_history_works_out_wopr_per_game():
+    from pipeline import history
+    row = lambda pid, tgt, air: {"player_id": pid, "team": "DET", "opponent": "GB",
+                                 "player": {"position": "TE"},
+                                 "stats": {"gp": 1, "rec_tgt": tgt, "rec_air_yd": air}}
+    h = history.build([("2026", 1, [row("te", 8, 60), row("wr", 12, 140)])], {}, "2026")
+    g = h["games"]["te"][0]
+    assert g["wopr"] == pytest.approx(1.5 * 8 / 20 + 0.7 * 60 / 200)
+
+
+def test_wopr_air_share_kept_to_0_100_and_tiny_team_totals_skipped():
+    from pipeline import history
+    row = lambda pid, tgt, air: {"player_id": pid, "team": "LV", "opponent": "KC",
+                                 "player": {"position": "TE"},
+                                 "stats": {"gp": 1, "rec_tgt": tgt, "rec_air_yd": air}}
+    # Screens make teammates' air yards negative: his share would be over 100%
+    h = history.build([("2026", 1, [row("te", 4, 90), row("rb", 4, -30)])], {}, "2026")
+    assert h["games"]["te"][0]["wopr"] == pytest.approx(1.5 * 4 / 8 + 0.7 * 1.0)
+    # A team total of 2 air yards: no WOPR for that game
+    h = history.build([("2026", 1, [row("te", 2, 5), row("rb", 3, -3)])], {}, "2026")
+    assert "wopr" not in h["games"]["te"][0]
+
+
+def test_wopr_needs_three_games_and_a_listed_position():
+    cfg = {"wopr_positions": ["TE"]}
+    two = [game(wopr=0.5), game(wopr=0.4)]
+    assert model.wopr("TE", two, cfg) is None
+    assert model.wopr("TE", two + [game(wopr=0.6), game()], cfg) == 0.5  # a game without it is skipped
+    assert model.wopr("TE", [game(wopr=0.4486)] * 3, cfg) == 0.449       # 3 decimals: under a 0.45 cutoff
+    assert model.wopr("WR", two + [game(wopr=0.6)], cfg) is None

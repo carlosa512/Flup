@@ -376,3 +376,72 @@ ul.adj small { display: block; color: var(--muted); font-size: .85rem; }
 }
 .face.logo { object-fit: contain; padding: 2px; background: #fff; }  /* see-through logos: no silhouette behind */
 .pts.nocount { color: var(--muted); text-decoration: line-through; }  /* on the Sleeper bench: doesn't count */
+
+/* Try a swap: a button beside each of my starters opens the players who
+   could take his slot, each with what he'd do to my total and win %.
+   A tried player gets an amber edge and chip; the bar above the lineup
+   keeps the new win % in view (amber dashes: only on this page). */
+.player.can-swap { display: grid; grid-template-columns: minmax(0, 1fr) 44px; }
+.player.can-swap > .detail, .player.can-swap > .swap-list { grid-column: 1 / -1; }
+.swap-btn {
+  align-self: center; justify-self: start; width: 38px; height: 44px; padding: 0; display: grid; place-items: center;
+  background: var(--pill); color: var(--pill-ink); border: 0; border-radius: 10px; cursor: pointer;
+}
+.swap-btn svg, h2.section .hint svg {
+  width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+}
+.swap-btn[aria-expanded="true"] { background: var(--ink); color: var(--paper); }
+.swap-btn.locked { background: none; color: var(--muted); cursor: default; }
+.swap-btn.locked .lock { width: 16px; height: 16px; margin: 0; }
+h2.section .hint {
+  float: right; display: inline-flex; align-items: center; gap: 3px;
+  text-transform: none; letter-spacing: 0; font-weight: 600; font-size: .8rem;
+}
+h2.section .hint svg { width: 14px; height: 14px; stroke-width: 2.4; }
+.swap-list { margin: 0 8px 8px; padding: 10px 10px 4px; border-radius: 10px; background: var(--well); }
+.swap-head { margin: 0 2px 8px; font-size: .9rem; color: var(--muted); }
+.swap-head b { color: var(--ink); }
+.swap-head span { white-space: nowrap; }
+.swap-opts { list-style: none; margin: 0 0 6px; padding: 0; display: grid; gap: 6px; }
+.swap-opt {
+  display: grid; grid-template-columns: 44px minmax(0, 1fr) auto; gap: 4px 10px; align-items: center;
+  width: 100%; min-height: 56px; padding: 10px; text-align: left; cursor: pointer;
+  background: var(--tile); border: 1px solid var(--tile-edge); border-radius: 10px;
+}
+.swap-opt .slot { background: none; color: var(--mine-chip); box-shadow: inset 0 0 0 1.5px var(--mine-chip); }
+.swap-opt.fa .slot { background: color-mix(in srgb, var(--fa-chip) 16%, transparent); color: var(--fa-chip); box-shadow: none; }
+.swap-opt .eff { grid-column: 2; font-size: .85rem; font-weight: 600; }
+.eff.up { color: var(--ok); }
+.eff.down { color: var(--out); }
+.eff.same { color: var(--muted); }
+.swap-group { font-size: .75rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 10px 2px 6px; }
+.swap-none { color: var(--muted); font-size: .9rem; margin: 0 2px 8px; }
+.swap-note { color: var(--muted); font-size: .85rem; margin: -2px 2px 6px; }
+.chip.try { background: var(--note-bg); color: var(--note); box-shadow: inset 0 0 0 1px currentColor; }
+.grp-me .player.tried {
+  border: 1.5px dashed color-mix(in srgb, var(--note) 70%, transparent);
+  box-shadow: inset 4px 0 0 var(--note), var(--raise);
+}
+.grp-me .player.tried .slot { background: var(--note-bg); color: var(--note); }
+.tryline {
+  position: sticky; top: 0; z-index: 4; margin: 12px 0 0;
+  padding: max(6px, env(safe-area-inset-top, 0px)) 0 4px; background: var(--paper);
+}
+.tryline:has(details[open]) { position: static; }  /* the math open: let it scroll away */
+.tryline-in {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 0 10px;
+  padding: 8px 8px 0 14px; border-radius: 12px;
+  background: var(--tile); border: 1.5px dashed color-mix(in srgb, var(--note) 70%, transparent); box-shadow: var(--raise);
+}
+.tryline-head { margin: 2px 0 0; }
+.tryline-head b { font: 700 1.4rem/1 "Barlow Condensed", "Arial Narrow", sans-serif; }
+.tryline-head b.up { color: var(--ok); }
+.tryline-head b.down { color: var(--out); }
+.tryline-head .muted, .tryline-sub { color: var(--muted); font-size: .88rem; }
+.tryline-sub { margin: 2px 0 0; }
+.tryline .every { grid-column: 1 / -1; margin: 0; }
+.tryline .every > summary { min-height: 36px; padding: 4px 0 6px; }
+.undo-btn {
+  min-height: 44px; padding: 0 16px; cursor: pointer;
+  border-radius: 10px; border: 1.5px solid var(--line); background: var(--card); font-weight: 700;
+}

@@ -3,6 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<script>
+  // A new app version can take over before app.js runs (it waits for the
+  // stylesheets below), so note it here for app.js to act on
+  try { var s = navigator.serviceWorker; if (s) { window.flupSw = { had: !!s.controller, changed: false };
+    s.addEventListener('controllerchange', function () { window.flupSw.changed = true; }); } } catch (e) {}
+</script>
 <title>Flup</title>
 <meta name="description" content="Weekly lineup help for The League on Sleeper">
 <meta name="theme-color" content="#121815">
