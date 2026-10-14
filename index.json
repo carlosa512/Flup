@@ -1,0 +1,652 @@
+{
+ "files": [
+  {
+   "file": "r000.gz",
+   "url": "https://api.sleeper.app/v1/state/nfl",
+   "status": 200,
+   "bytes": 211
+  },
+  {
+   "file": "r001.gz",
+   "url": "https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?seasontype=2&week=6&dates=2026",
+   "status": 200,
+   "bytes": 254187
+  },
+  {
+   "file": "r002.gz",
+   "url": "https://api.sleeper.app/v1/league/1374496898462785536",
+   "status": 200,
+   "bytes": 2813
+  },
+  {
+   "file": "r003.gz",
+   "url": "https://api.sleeper.app/v1/user/clos512",
+   "status": 200,
+   "bytes": 411
+  },
+  {
+   "file": "r004.gz",
+   "url": "https://api.sleeper.app/v1/league/1374496898462785536/users",
+   "status": 200,
+   "bytes": 7316
+  },
+  {
+   "file": "r005.gz",
+   "url": "https://api.sleeper.app/v1/league/1374496898462785536/rosters",
+   "status": 200,
+   "bytes": 8628
+  },
+  {
+   "file": "r006.gz",
+   "url": "https://api.sleeper.app/v1/league/1374496898462785536/matchups/6",
+   "status": 200,
+   "bytes": 6596
+  },
+  {
+   "file": "r007.gz",
+   "url": "https://api.sleeper.app/projections/nfl/2026/6?season_type=regular&position[]=QB",
+   "status": 200,
+   "bytes": 217700
+  },
+  {
+   "file": "r008.gz",
+   "url": "https://api.sleeper.app/projections/nfl/2026/6?season_type=regular&position[]=RB",
+   "status": 200,
+   "bytes": 471954
+  },
+  {
+   "file": "r009.gz",
+   "url": "https://api.sleeper.app/projections/nfl/2026/6?season_type=regular&position[]=WR",
+   "status": 200,
+   "bytes": 840871
+  },
+  {
+   "file": "r010.gz",
+   "url": "https://api.sleeper.app/projections/nfl/2026/6?season_type=regular&position[]=TE",
+   "status": 200,
+   "bytes": 404536
+  },
+  {
+   "file": "r011.gz",
+   "url": "https://api.sleeper.app/projections/nfl/2026/6?season_type=regular&position[]=K",
+   "status": 200,
+   "bytes": 98293
+  },
+  {
+   "file": "r012.gz",
+   "url": "https://api.sleeper.app/projections/nfl/2026/6?season_type=regular&position[]=DEF",
+   "status": 200,
+   "bytes": 26952
+  },
+  {
+   "file": "r013.gz",
+   "url": "https://api.sleeper.app/stats/nfl/2026/1?season_type=regular&position[]=QB&position[]=RB&position[]=WR&position[]=TE&position[]=K&position[]=DEF",
+   "status": 200,
+   "bytes": 754672
+  },
+  {
+   "file": "r014.gz",
+   "url": "https://api.sleeper.app/stats/nfl/2026/2?season_type=regular&position[]=QB&position[]=RB&position[]=WR&position[]=TE&position[]=K&position[]=DEF",
+   "status": 200,
+   "bytes": 767400
+  },
+  {
+   "file": "r015.gz",
+   "url": "https://api.sleeper.app/stats/nfl/2026/3?season_type=regular&position[]=QB&position[]=RB&position[]=WR&position[]=TE&position[]=K&position[]=DEF",
+   "status": 200,
+   "bytes": 767029
+  },
+  {
+   "file": "r016.gz",
+   "url": "https://api.sleeper.app/stats/nfl/2026/4?season_type=regular&position[]=QB&position[]=RB&position[]=WR&position[]=TE&position[]=K&position[]=DEF",
+   "status": 200,
+   "bytes": 776097
+  },
+  {
+   "file": "r017.gz",
+   "url": "https://api.sleeper.app/stats/nfl/2026/5?season_type=regular&position[]=QB&position[]=RB&position[]=WR&position[]=TE&position[]=K&position[]=DEF",
+   "status": 200,
+   "bytes": 736101
+  },
+  {
+   "file": "r018.gz",
+   "url": "https://api.sleeper.app/stats/nfl/2025/1?season_type=regular&position[]=QB&position[]=RB&position[]=WR&position[]=TE&position[]=K&position[]=DEF",
+   "status": 200,
+   "bytes": 747384
+  },
+  {
+   "file": "r019.gz",
+   "url": "https://api.sleeper.app/stats/nfl/2025/2?season_type=regular&position[]=QB&position[]=RB&position[]=WR&position[]=TE&position[]=K&position[]=DEF",
+   "status": 200,
+   "bytes": 750053
+  },
+  {
+   "file": "r020.gz",
+   "url": "https://api.sleeper.app/stats/nfl/2025/3?season_type=regular&position[]=QB&position[]=RB&position[]=WR&position[]=TE&position[]=K&position[]=DEF",
+   "status": 200,
+   "bytes": 749549
+  },
+  {
+   "file": "r021.gz",
+   "url": "https://api.sleeper.app/stats/nfl/2025/4?season_type=regular&position[]=QB&position[]=RB&position[]=WR&position[]=TE&position[]=K&position[]=DEF",
+   "status": 200,
+   "bytes": 758210
+  },
+  {
+   "file": "r022.gz",
+   "url": "https://api.sleeper.app/stats/nfl/2025/5?season_type=regular&position[]=QB&position[]=RB&position[]=WR&position[]=TE&position[]=K&position[]=DEF",
+   "status": 200,
+   "bytes": 669870
+  },
+  {
+   "file": "r023.gz",
+   "url": "https://api.sleeper.app/stats/nfl/2025/6?season_type=regular&position[]=QB&position[]=RB&position[]=WR&position[]=TE&position[]=K&position[]=DEF",
+   "status": 200,
+   "bytes": 707613
+  },
+  {
+   "file": "r024.gz",
+   "url": "https://api.sleeper.app/stats/nfl/2025/7?season_type=regular&position[]=QB&position[]=RB&position[]=WR&position[]=TE&position[]=K&position[]=DEF",
+   "status": 200,
+   "bytes": 717637
+  },
+  {
+   "file": "r025.gz",
+   "url": "https://api.sleeper.app/stats/nfl/2025/8?season_type=regular&position[]=QB&position[]=RB&position[]=WR&position[]=TE&position[]=K&position[]=DEF",
+   "status": 200,
+   "bytes": 623662
+  },
+  {
+   "file": "r026.gz",
+   "url": "https://api.sleeper.app/stats/nfl/2025/9?season_type=regular&position[]=QB&position[]=RB&position[]=WR&position[]=TE&position[]=K&position[]=DEF",
+   "status": 200,
+   "bytes": 671446
+  },
+  {
+   "file": "r027.gz",
+   "url": "https://api.sleeper.app/stats/nfl/2025/10?season_type=regular&position[]=QB&position[]=RB&position[]=WR&position[]=TE&position[]=K&position[]=DEF",
+   "status": 200,
+   "bytes": 671784
+  },
+  {
+   "file": "r028.gz",
+   "url": "https://api.sleeper.app/stats/nfl/2025/11?season_type=regular&position[]=QB&position[]=RB&position[]=WR&position[]=TE&position[]=K&position[]=DEF",
+   "status": 200,
+   "bytes": 721430
+  },
+  {
+   "file": "r029.gz",
+   "url": "https://api.sleeper.app/stats/nfl/2025/12?season_type=regular&position[]=QB&position[]=RB&position[]=WR&position[]=TE&position[]=K&position[]=DEF",
+   "status": 200,
+   "bytes": 672479
+  },
+  {
+   "file": "r030.gz",
+   "url": "https://api.sleeper.app/stats/nfl/2025/13?season_type=regular&position[]=QB&position[]=RB&position[]=WR&position[]=TE&position[]=K&position[]=DEF",
+   "status": 200,
+   "bytes": 770936
+  },
+  {
+   "file": "r031.gz",
+   "url": "https://api.sleeper.app/stats/nfl/2025/14?season_type=regular&position[]=QB&position[]=RB&position[]=WR&position[]=TE&position[]=K&position[]=DEF",
+   "status": 200,
+   "bytes": 681099
+  },
+  {
+   "file": "r032.gz",
+   "url": "https://api.sleeper.app/stats/nfl/2025/15?season_type=regular&position[]=QB&position[]=RB&position[]=WR&position[]=TE&position[]=K&position[]=DEF",
+   "status": 200,
+   "bytes": 772201
+  },
+  {
+   "file": "r033.gz",
+   "url": "https://api.sleeper.app/stats/nfl/2025/16?season_type=regular&position[]=QB&position[]=RB&position[]=WR&position[]=TE&position[]=K&position[]=DEF",
+   "status": 200,
+   "bytes": 780075
+  },
+  {
+   "file": "r034.gz",
+   "url": "https://api.sleeper.app/stats/nfl/2025/17?season_type=regular&position[]=QB&position[]=RB&position[]=WR&position[]=TE&position[]=K&position[]=DEF",
+   "status": 200,
+   "bytes": 774082
+  },
+  {
+   "file": "r035.gz",
+   "url": "https://api.sleeper.app/stats/nfl/2025/18?season_type=regular&position[]=QB&position[]=RB&position[]=WR&position[]=TE&position[]=K&position[]=DEF",
+   "status": 200,
+   "bytes": 750216
+  },
+  {
+   "file": "r036.gz",
+   "url": "https://raw.githubusercontent.com/dynastyprocess/data/master/files/db_playerids.csv",
+   "status": 200,
+   "bytes": 2639486
+  },
+  {
+   "file": "r037.gz",
+   "url": "https://raw.githubusercontent.com/dynastyprocess/data/master/files/fp_latest_weekly.csv",
+   "status": 200,
+   "bytes": 178356
+  },
+  {
+   "file": "r038.gz",
+   "url": "https://api.sleeper.app/stats/nfl/2026/6?season_type=regular&position[]=QB&position[]=RB&position[]=WR&position[]=TE&position[]=K&position[]=DEF",
+   "status": 200,
+   "bytes": 2
+  },
+  {
+   "file": "r039.gz",
+   "url": "https://api.sleeper.app/v1/players/nfl/trending/add?lookback_hours=48&limit=50",
+   "status": 200,
+   "bytes": 1813
+  },
+  {
+   "file": "r040.gz",
+   "url": "https://api.sleeper.app/v1/league/1374496898462785536/transactions/5",
+   "status": 200,
+   "bytes": 19667
+  },
+  {
+   "file": "r041.gz",
+   "url": "https://api.sleeper.app/v1/league/1374496898462785536/transactions/6",
+   "status": 200,
+   "bytes": 1889
+  },
+  {
+   "file": "r042.gz",
+   "url": "https://site.api.espn.com/apis/fantasy/v2/games/ffl/news/players?limit=10&playerId=4360310",
+   "status": 200,
+   "bytes": 156024
+  },
+  {
+   "file": "r043.gz",
+   "url": "https://site.api.espn.com/apis/fantasy/v2/games/ffl/news/players?limit=10&playerId=4882093",
+   "status": 200,
+   "bytes": 88002
+  },
+  {
+   "file": "r044.gz",
+   "url": "https://site.api.espn.com/apis/fantasy/v2/games/ffl/news/players?limit=10&playerId=4429023",
+   "status": 200,
+   "bytes": 142417
+  },
+  {
+   "file": "r045.gz",
+   "url": "https://site.api.espn.com/apis/fantasy/v2/games/ffl/news/players?limit=10&playerId=4685702",
+   "status": 200,
+   "bytes": 100246
+  },
+  {
+   "file": "r046.gz",
+   "url": "https://site.api.espn.com/apis/fantasy/v2/games/ffl/news/players?limit=10&playerId=4575131",
+   "status": 200,
+   "bytes": 38501
+  },
+  {
+   "file": "r047.gz",
+   "url": "https://site.api.espn.com/apis/fantasy/v2/games/ffl/news/players?limit=10&playerId=4871023",
+   "status": 200,
+   "bytes": 69254
+  },
+  {
+   "file": "r048.gz",
+   "url": "https://site.api.espn.com/apis/fantasy/v2/games/ffl/news/players?limit=10&playerId=4586312",
+   "status": 200,
+   "bytes": 12678
+  },
+  {
+   "file": "r049.gz",
+   "url": "https://site.api.espn.com/apis/fantasy/v2/games/ffl/news/players?limit=10&playerId=3045523",
+   "status": 200,
+   "bytes": 50091
+  },
+  {
+   "file": "r050.gz",
+   "url": "https://site.api.espn.com/apis/fantasy/v2/games/ffl/news/players?limit=10&playerId=4428850",
+   "status": 200,
+   "bytes": 119259
+  },
+  {
+   "file": "r051.gz",
+   "url": "https://site.api.espn.com/apis/fantasy/v2/games/ffl/news/players?limit=10&playerId=4710714",
+   "status": 200,
+   "bytes": 45483
+  },
+  {
+   "file": "r052.gz",
+   "url": "https://site.api.espn.com/apis/fantasy/v2/games/ffl/news/players?limit=10&playerId=4426388",
+   "status": 200,
+   "bytes": 34572
+  },
+  {
+   "file": "r053.gz",
+   "url": "https://site.api.espn.com/apis/fantasy/v2/games/ffl/news/players?limit=10&playerId=4239993",
+   "status": 200,
+   "bytes": 12279
+  },
+  {
+   "file": "r054.gz",
+   "url": "https://site.api.espn.com/apis/fantasy/v2/games/ffl/news/players?limit=10&playerId=4432665",
+   "status": 200,
+   "bytes": 154092
+  },
+  {
+   "file": "r055.gz",
+   "url": "https://site.api.espn.com/apis/fantasy/v2/games/ffl/news/players?limit=10&playerId=5083076",
+   "status": 200,
+   "bytes": 125290
+  },
+  {
+   "file": "r056.gz",
+   "url": "https://site.api.espn.com/apis/fantasy/v2/games/ffl/news/players?limit=10&playerId=4034949",
+   "status": 200,
+   "bytes": 11188
+  },
+  {
+   "file": "r057.gz",
+   "url": "https://site.api.espn.com/apis/fantasy/v2/games/ffl/news/players?limit=10&playerId=3918298",
+   "status": 200,
+   "bytes": 42374
+  },
+  {
+   "file": "r058.gz",
+   "url": "https://site.api.espn.com/apis/fantasy/v2/games/ffl/news/players?limit=10&playerId=4242335",
+   "status": 200,
+   "bytes": 127347
+  },
+  {
+   "file": "r059.gz",
+   "url": "https://site.api.espn.com/apis/fantasy/v2/games/ffl/news/players?limit=10&playerId=3916148",
+   "status": 200,
+   "bytes": 38395
+  },
+  {
+   "file": "r060.gz",
+   "url": "https://site.api.espn.com/apis/fantasy/v2/games/ffl/news/players?limit=10&playerId=4595348",
+   "status": 200,
+   "bytes": 97662
+  },
+  {
+   "file": "r061.gz",
+   "url": "https://site.api.espn.com/apis/fantasy/v2/games/ffl/news/players?limit=10&playerId=4567750",
+   "status": 200,
+   "bytes": 70955
+  },
+  {
+   "file": "r062.gz",
+   "url": "https://site.api.espn.com/apis/fantasy/v2/games/ffl/news/players?limit=10&playerId=4431459",
+   "status": 200,
+   "bytes": 37832
+  },
+  {
+   "file": "r063.gz",
+   "url": "https://site.api.espn.com/apis/fantasy/v2/games/ffl/news/players?limit=10&playerId=4701936",
+   "status": 200,
+   "bytes": 138506
+  },
+  {
+   "file": "r064.gz",
+   "url": "https://site.api.espn.com/apis/fantasy/v2/games/ffl/news/players?limit=10&playerId=4596334",
+   "status": 200,
+   "bytes": 130954
+  },
+  {
+   "file": "r065.gz",
+   "url": "https://site.api.espn.com/apis/fantasy/v2/games/ffl/news/players?limit=10&playerId=2973405",
+   "status": 200,
+   "bytes": 69748
+  },
+  {
+   "file": "r066.gz",
+   "url": "https://site.api.espn.com/apis/fantasy/v2/games/ffl/news/players?limit=10&playerId=4032473",
+   "status": 200,
+   "bytes": 99009
+  },
+  {
+   "file": "r067.gz",
+   "url": "https://site.api.espn.com/apis/fantasy/v2/games/ffl/news/players?limit=10&playerId=4429086",
+   "status": 200,
+   "bytes": 70621
+  },
+  {
+   "file": "r068.gz",
+   "url": "https://site.api.espn.com/apis/fantasy/v2/games/ffl/news/players?limit=10&playerId=4576297",
+   "status": 200,
+   "bytes": 35216
+  },
+  {
+   "file": "r069.gz",
+   "url": "https://profootballtalk.nbcsports.com/feed/",
+   "status": 200,
+   "bytes": 187291
+  },
+  {
+   "file": "r070.gz",
+   "url": "https://www.rotoballer.com/category/nfl/feed",
+   "status": 200,
+   "bytes": 30247
+  },
+  {
+   "file": "r071.gz",
+   "url": "https://public.api.bsky.app/xrpc/app.bsky.feed.getAuthorFeed?actor=darrenurban.bsky.social&filter=posts_no_replies&limit=30",
+   "status": 200,
+   "bytes": 42366
+  },
+  {
+   "file": "r072.gz",
+   "url": "https://public.api.bsky.app/xrpc/app.bsky.feed.getAuthorFeed?actor=joebuscaglia.bsky.social&filter=posts_no_replies&limit=30",
+   "status": 200,
+   "bytes": 96128
+  },
+  {
+   "file": "r073.gz",
+   "url": "https://public.api.bsky.app/xrpc/app.bsky.feed.getAuthorFeed?actor=seanhammond.bsky.social&filter=posts_no_replies&limit=30",
+   "status": 200,
+   "bytes": 37527
+  },
+  {
+   "file": "r074.gz",
+   "url": "https://public.api.bsky.app/xrpc/app.bsky.feed.getAuthorFeed?actor=kfishbain.bsky.social&filter=posts_no_replies&limit=30",
+   "status": 200,
+   "bytes": 46508
+  },
+  {
+   "file": "r075.gz",
+   "url": "https://public.api.bsky.app/xrpc/app.bsky.feed.getAuthorFeed?actor=bbaby41.bsky.social&filter=posts_no_replies&limit=30",
+   "status": 200,
+   "bytes": 51381
+  },
+  {
+   "file": "r076.gz",
+   "url": "https://public.api.bsky.app/xrpc/app.bsky.feed.getAuthorFeed?actor=laurelpfahler.bsky.social&filter=posts_no_replies&limit=30",
+   "status": 200,
+   "bytes": 81230
+  },
+  {
+   "file": "r077.gz",
+   "url": "https://public.api.bsky.app/xrpc/app.bsky.feed.getAuthorFeed?actor=ashleybastock42.bsky.social&filter=posts_no_replies&limit=30",
+   "status": 200,
+   "bytes": 73747
+  },
+  {
+   "file": "r078.gz",
+   "url": "https://public.api.bsky.app/xrpc/app.bsky.feed.getAuthorFeed?actor=davebirkett.bsky.social&filter=posts_no_replies&limit=30",
+   "status": 200,
+   "bytes": 37682
+  },
+  {
+   "file": "r079.gz",
+   "url": "https://public.api.bsky.app/xrpc/app.bsky.feed.getAuthorFeed?actor=tspoon62.bsky.social&filter=posts_no_replies&limit=30",
+   "status": 200,
+   "bytes": 60448
+  },
+  {
+   "file": "r080.gz",
+   "url": "https://public.api.bsky.app/xrpc/app.bsky.feed.getAuthorFeed?actor=aaronwilsonnfl.bsky.social&filter=posts_no_replies&limit=30",
+   "status": 200,
+   "bytes": 65654
+  },
+  {
+   "file": "r081.gz",
+   "url": "https://public.api.bsky.app/xrpc/app.bsky.feed.getAuthorFeed?actor=joelaerickson.bsky.social&filter=posts_no_replies&limit=30",
+   "status": 200,
+   "bytes": 67580
+  },
+  {
+   "file": "r082.gz",
+   "url": "https://public.api.bsky.app/xrpc/app.bsky.feed.getAuthorFeed?actor=jakearthurnfl.bsky.social&filter=posts_no_replies&limit=30",
+   "status": 200,
+   "bytes": 55028
+  },
+  {
+   "file": "r083.gz",
+   "url": "https://public.api.bsky.app/xrpc/app.bsky.feed.getAuthorFeed?actor=demetrius.bsky.social&filter=posts_no_replies&limit=30",
+   "status": 200,
+   "bytes": 40165
+  },
+  {
+   "file": "r084.gz",
+   "url": "https://public.api.bsky.app/xrpc/app.bsky.feed.getAuthorFeed?actor=paulhgutierrez.bsky.social&filter=posts_no_replies&limit=30",
+   "status": 200,
+   "bytes": 72361
+  },
+  {
+   "file": "r085.gz",
+   "url": "https://public.api.bsky.app/xrpc/app.bsky.feed.getAuthorFeed?actor=evanbarnes.bsky.social&filter=posts_no_replies&limit=30",
+   "status": 200,
+   "bytes": 73235
+  },
+  {
+   "file": "r086.gz",
+   "url": "https://public.api.bsky.app/xrpc/app.bsky.feed.getAuthorFeed?actor=jeff-neiburg.bsky.social&filter=posts_no_replies&limit=30",
+   "status": 200,
+   "bytes": 40187
+  },
+  {
+   "file": "r087.gz",
+   "url": "https://public.api.bsky.app/xrpc/app.bsky.feed.getAuthorFeed?actor=timmcmanus42.bsky.social&filter=posts_no_replies&limit=30",
+   "status": 200,
+   "bytes": 55229
+  },
+  {
+   "file": "r088.gz",
+   "url": "https://public.api.bsky.app/xrpc/app.bsky.feed.getAuthorFeed?actor=johnpboyle.bsky.social&filter=posts_no_replies&limit=30",
+   "status": 200,
+   "bytes": 33326
+  },
+  {
+   "file": "r089.gz",
+   "url": "https://public.api.bsky.app/xrpc/app.bsky.feed.getAuthorFeed?actor=mattbarrows.bsky.social&filter=posts_no_replies&limit=30",
+   "status": 200,
+   "bytes": 70361
+  },
+  {
+   "file": "r090.gz",
+   "url": "https://public.api.bsky.app/xrpc/app.bsky.feed.getAuthorFeed?actor=mattmaiocco.bsky.social&filter=posts_no_replies&limit=30",
+   "status": 200,
+   "bytes": 44684
+  },
+  {
+   "file": "r091.gz",
+   "url": "https://public.api.bsky.app/xrpc/app.bsky.feed.getAuthorFeed?actor=jennalaine.bsky.social&filter=posts_no_replies&limit=30",
+   "status": 200,
+   "bytes": 59731
+  },
+  {
+   "file": "r092.gz",
+   "url": "https://public.api.bsky.app/xrpc/app.bsky.feed.getAuthorFeed?actor=jwyattsports.bsky.social&filter=posts_no_replies&limit=30",
+   "status": 200,
+   "bytes": 52576
+  },
+  {
+   "file": "r093.gz",
+   "url": "https://public.api.bsky.app/xrpc/app.bsky.feed.getAuthorFeed?actor=paulkuharsky.bsky.social&filter=posts_no_replies&limit=30",
+   "status": 200,
+   "bytes": 67940
+  },
+  {
+   "file": "r094.gz",
+   "url": "https://public.api.bsky.app/xrpc/app.bsky.feed.getAuthorFeed?actor=tashanreed.bsky.social&filter=posts_no_replies&limit=30",
+   "status": 200,
+   "bytes": 56484
+  },
+  {
+   "file": "r095.gz",
+   "url": "https://public.api.bsky.app/xrpc/app.bsky.feed.getAuthorFeed?actor=rotowirenfl.bsky.social&filter=posts_no_replies&limit=100",
+   "status": 200,
+   "bytes": 107163
+  },
+  {
+   "file": "r096.gz",
+   "url": "https://public.api.bsky.app/xrpc/app.bsky.feed.getAuthorFeed?actor=rotowirenfl.bsky.social&filter=posts_no_replies&limit=100&cursor=2026-10-11T23:47:30Z",
+   "status": 200,
+   "bytes": 106972
+  },
+  {
+   "file": "r097.gz",
+   "url": "https://public.api.bsky.app/xrpc/app.bsky.feed.getAuthorFeed?actor=rotowirenfl.bsky.social&filter=posts_no_replies&limit=100&cursor=2026-10-10T19:05:15Z",
+   "status": 200,
+   "bytes": 106637
+  },
+  {
+   "file": "r098.gz",
+   "url": "https://public.api.bsky.app/xrpc/app.bsky.feed.getAuthorFeed?actor=rotowirenfl.bsky.social&filter=posts_no_replies&limit=100&cursor=2026-10-08T20:20:28Z",
+   "status": 200,
+   "bytes": 106934
+  },
+  {
+   "file": "r099.gz",
+   "url": "https://public.api.bsky.app/xrpc/app.bsky.feed.getAuthorFeed?actor=rotoworld-fb.bsky.social&filter=posts_no_replies&limit=100",
+   "status": 200,
+   "bytes": 197455
+  },
+  {
+   "file": "r100.gz",
+   "url": "https://public.api.bsky.app/xrpc/app.bsky.feed.getAuthorFeed?actor=rotoworld-fb.bsky.social&filter=posts_no_replies&limit=100&cursor=2026-10-11T21:02:46Z",
+   "status": 200,
+   "bytes": 196751
+  },
+  {
+   "file": "r101.gz",
+   "url": "https://public.api.bsky.app/xrpc/app.bsky.feed.getAuthorFeed?actor=rotoworld-fb.bsky.social&filter=posts_no_replies&limit=100&cursor=2026-10-09T18:55:34Z",
+   "status": 200,
+   "bytes": 191991
+  },
+  {
+   "file": "r102.gz",
+   "url": "https://public.api.bsky.app/xrpc/app.bsky.feed.getAuthorFeed?actor=rotoworld-fb.bsky.social&filter=posts_no_replies&limit=100&cursor=2026-10-07T19:06:49Z",
+   "status": 200,
+   "bytes": 195081
+  },
+  {
+   "file": "r103.gz",
+   "url": "https://api.sleeper.app/v1/league/1374496898462785536/matchups/1",
+   "status": 200,
+   "bytes": 6740
+  },
+  {
+   "file": "r104.gz",
+   "url": "https://api.sleeper.app/v1/league/1374496898462785536/matchups/2",
+   "status": 200,
+   "bytes": 6697
+  },
+  {
+   "file": "r105.gz",
+   "url": "https://api.sleeper.app/v1/league/1374496898462785536/matchups/3",
+   "status": 200,
+   "bytes": 6825
+  },
+  {
+   "file": "r106.gz",
+   "url": "https://api.sleeper.app/v1/league/1374496898462785536/matchups/4",
+   "status": 200,
+   "bytes": 6830
+  },
+  {
+   "file": "r107.gz",
+   "url": "https://api.sleeper.app/v1/league/1374496898462785536/matchups/5",
+   "status": 200,
+   "bytes": 6878
+  }
+ ]
+}
