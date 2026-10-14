@@ -167,9 +167,10 @@ iPhone 13, `timezoneId: 'America/Chicago'` (the owner's local time).
   Players' projected punt return yards are `pr_yd` (`def_pr_yd` is DEF only).
 - Model changes go through tools/backtest.py first (both halves of 2025
   must improve; 2026 weeks are a last check). Found 2026-10-13: nflverse
-  EPA/CPOE add nothing over Sleeper's projection; usage trend and RB/WR
-  matchup are off; return men get their projected return points again, up
-  to +1.0; ranges are stretched 1.2x; WOPR-based TE Steady is built but off.
+  EPA/CPOE add nothing over Sleeper's projection; usage trend is off and
+  matchup is TE-only (QB/K/DEF off 2026-10-14); return men get their
+  projected return points again, up to +1.0; ranges are stretched 1.2x;
+  WOPR-based TE Steady is built but off.
 - Sleeper's `rec_air_yd` is air yards on catches only (it goes negative on
   screens), not all targets like nflverse's; history.py keeps a game's air
   share to 0-100% and skips team totals under 50.
